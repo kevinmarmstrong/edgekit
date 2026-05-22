@@ -1,17 +1,20 @@
 import type {
   Message,
   GenerateOptions,
+  GenerateChunk,
   ModelCapabilities,
   Chunk,
   ContentIndex,
   Tool,
   ConversationState,
+  RuntimeEvent,
+  DownloadPolicy,
 } from './types.js'
 
 export interface ModelProvider {
   readonly id: string
   init(): Promise<void>
-  generate(messages: readonly Message[], options?: GenerateOptions): AsyncIterable<string>
+  generate(messages: readonly Message[], options?: GenerateOptions): AsyncIterable<GenerateChunk>
   generateStructured<T>(
     messages: readonly Message[],
     schema: Record<string, unknown>,
@@ -22,7 +25,7 @@ export interface ModelProvider {
 
 export interface RAGProvider {
   readonly id: string
-  init(index: ContentIndex): Promise<void>
+  init(index?: ContentIndex): Promise<void>
   retrieve(query: string, topK?: number): Promise<readonly Chunk[]>
   dispose(): Promise<void>
 }
@@ -62,6 +65,7 @@ export interface Runtime {
   query(input: string): AsyncIterable<string>
   getConversation(): ConversationState
   clearConversation(): void
+  initModel(): Promise<void>
   on(handler: (event: RuntimeEvent) => void): () => void
   dispose(): Promise<void>
 }
@@ -84,5 +88,3 @@ export interface GuardrailsConfig {
   readonly maxConversationTurns?: number
   readonly blockedPatterns?: readonly RegExp[]
 }
-
-import type { RuntimeEvent, DownloadPolicy } from './types.js'

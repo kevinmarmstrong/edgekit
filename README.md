@@ -210,7 +210,7 @@ After the first visit, the AI loads in ~5 seconds and generates at conversationa
 ```bash
 pnpm install       # Install dependencies
 pnpm build         # Build all 8 packages
-pnpm test          # 50 tests, runs in < 1s
+pnpm test          # 54 tests, runs in < 1s
 pnpm typecheck     # TypeScript strict mode
 pnpm lint          # ESLint
 

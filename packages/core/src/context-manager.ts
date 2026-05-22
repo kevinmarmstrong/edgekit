@@ -21,7 +21,8 @@ export function createContextManager(maxTurns?: number) {
     },
 
     clear(): void {
-      state = { messages: [], turn: 0 }
+      const systemMessages = state.messages.filter((m) => m.role === 'system')
+      state = { messages: systemMessages, turn: 0 }
     },
   } as const
 }

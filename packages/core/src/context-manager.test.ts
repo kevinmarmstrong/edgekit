@@ -58,4 +58,18 @@ describe('createContextManager', () => {
     expect(ctx.getState().messages).toEqual([])
     expect(ctx.getState().turn).toBe(0)
   })
+
+  it('preserves system messages on clear', () => {
+    const ctx = createContextManager()
+    ctx.addMessage({ role: 'system', content: 'You are a helpful assistant.' })
+    ctx.addMessage({ role: 'user', content: 'hello' })
+    ctx.addMessage({ role: 'assistant', content: 'hi there' })
+
+    ctx.clear()
+
+    const state = ctx.getState()
+    expect(state.messages).toHaveLength(1)
+    expect(state.messages[0]).toEqual({ role: 'system', content: 'You are a helpful assistant.' })
+    expect(state.turn).toBe(0)
+  })
 })

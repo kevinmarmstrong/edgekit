@@ -89,4 +89,13 @@ describe('localRAG', () => {
     const results = await rag.retrieve('anything')
     expect(results).toEqual([])
   })
+
+  it('matches short keywords like AI', async () => {
+    const rag = localRAG()
+    await rag.init(testIndex)
+
+    const results = await rag.retrieve('AI')
+    expect(results.length).toBeGreaterThan(0)
+    expect(results.some((r) => r.content.includes('AI'))).toBe(true)
+  })
 })

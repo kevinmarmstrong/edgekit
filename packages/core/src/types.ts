@@ -68,6 +68,10 @@ export interface IndexMetadata {
 
 export type DownloadPolicy = 'auto' | 'prompt' | 'never'
 
+export type GenerateChunk =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'tool_calls'; readonly toolCalls: readonly ToolCall[] }
+
 export type RuntimeEvent =
   | { readonly type: 'model:download:start'; readonly modelId: string }
   | { readonly type: 'model:download:progress'; readonly modelId: string; readonly progress: number }

@@ -14,5 +14,10 @@
   "dependencies": {
     "@edgekit/core": "workspace:*"
   },
-  "files": ["dist"]
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/node": "^25.9.1"
+  }
 }

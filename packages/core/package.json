@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "build": "tsc && vite build",
+    "build": "vite build && tsc -b",
     "clean": "rm -rf dist"
   },
   "files": ["dist"]

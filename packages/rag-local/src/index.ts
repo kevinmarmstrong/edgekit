@@ -21,8 +21,21 @@ export function localRAG(config: LocalRAGConfig = {}): RAGProvider {
   return {
     id: 'rag-local',
 
-    async init(index: ContentIndex) {
-      chunks = index.chunks
+    async init(index?: ContentIndex) {
+      if (index) {
+        chunks = index.chunks
+        return
+      }
+
+      if (config.indexUrl) {
+        const fetched = await fetchContentIndex(config.indexUrl)
+        const storedHash = await getStoredHash()
+        if (needsReload(storedHash, fetched.contentHash)) {
+          await storeIndex(fetched)
+        }
+        chunks = fetched.chunks
+        return
+      }
     },
 
     async retrieve(query: string, topK?: number): Promise<readonly Chunk[]> {
@@ -78,7 +91,7 @@ function keywordSearch(
   topK: number,
 ): readonly Chunk[] {
   const queryLower = query.toLowerCase()
-  const words = queryLower.split(/\s+/).filter((w) => w.length >= 3)
+  const words = queryLower.split(/\s+/).filter((w) => w.length >= 2)
 
   const scored = chunks.map((chunk) => {
     const contentLower = chunk.content.toLowerCase()

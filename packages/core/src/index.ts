@@ -15,6 +15,7 @@ export type {
   IndexedChunk,
   IndexMetadata,
   DownloadPolicy,
+  GenerateChunk,
   RuntimeEvent,
   ConversationState,
 } from './types.js'

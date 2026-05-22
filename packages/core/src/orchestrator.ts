@@ -13,8 +13,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
   const maxToolRounds = config.maxToolRounds ?? 3
   const downloadPolicy = config.downloadPolicy ?? 'prompt'
 
-  let modelReady = false
-  let modelInitializing = false
+  let initPromise: Promise<boolean> | null = null
 
   if (config.systemPrompt) {
     context.addMessage({ role: 'system', content: config.systemPrompt })
@@ -30,8 +29,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
   }
 
   async function ensureModel(): Promise<boolean> {
-    if (modelReady) return true
-    if (modelInitializing) return false
+    if (initPromise) return initPromise
 
     if (downloadPolicy === 'never') {
       return false
@@ -46,32 +44,29 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       return false
     }
 
-    modelInitializing = true
-    try {
-      await config.model.init()
-      modelReady = true
-      modelInitializing = false
-      return true
-    } catch (e) {
-      modelInitializing = false
-      bus.emit({
-        type: 'error',
-        error: e instanceof Error ? e : new Error(String(e)),
-        recoverable: false,
-      })
-      return false
-    }
+    initPromise = config.model.init().then(
+      () => true,
+      (e) => {
+        initPromise = null
+        bus.emit({
+          type: 'error',
+          error: e instanceof Error ? e : new Error(String(e)),
+          recoverable: false,
+        })
+        return false
+      },
+    )
+
+    return initPromise
   }
 
   async function initModel(): Promise<void> {
-    if (modelReady || modelInitializing) return
-    modelInitializing = true
-    try {
-      await config.model.init()
-      modelReady = true
-    } finally {
-      modelInitializing = false
+    if (initPromise) {
+      await initPromise
+      return
     }
+    initPromise = config.model.init().then(() => true)
+    await initPromise
   }
 
   async function* query(input: string): AsyncIterable<string> {
@@ -113,13 +108,18 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       })
 
       let roundText = ''
-      for await (const token of stream) {
-        roundText += token
-        bus.emit({ type: 'generation:token', token })
-        yield token
+      let toolCalls: readonly ToolCall[] = []
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'text') {
+          roundText += chunk.text
+          bus.emit({ type: 'generation:token', token: chunk.text })
+          yield chunk.text
+        } else if (chunk.type === 'tool_calls') {
+          toolCalls = chunk.toolCalls
+        }
       }
 
-      const toolCalls = extractToolCalls(roundText)
       if (toolCalls.length === 0) {
         context.addMessage({ role: 'assistant', content: roundText })
         bus.emit({ type: 'generation:complete', text: roundText })
@@ -134,10 +134,18 @@ export function createRuntime(config: RuntimeConfig): Runtime {
           (s) => s.handleToolCall && s.tools.some((t) => t.name === tc.name),
         )
         if (handler?.handleToolCall) {
-          const result = await handler.handleToolCall(
-            tc.name,
-            JSON.parse(tc.arguments) as Record<string, unknown>,
-          )
+          let args: Record<string, unknown>
+          try {
+            args = JSON.parse(tc.arguments) as Record<string, unknown>
+          } catch {
+            bus.emit({
+              type: 'error',
+              error: new Error(`Malformed tool call arguments for ${tc.name}`),
+              recoverable: true,
+            })
+            continue
+          }
+          const result = await handler.handleToolCall(tc.name, args)
           bus.emit({ type: 'tool:result', toolCallId: tc.id, result })
           messages.push({ role: 'tool', content: result, toolCallId: tc.id })
         }
@@ -150,8 +158,8 @@ export function createRuntime(config: RuntimeConfig): Runtime {
     query,
     getConversation: () => context.getState(),
     clearConversation: () => context.clear(),
-    on: (handler) => bus.on(handler),
     initModel,
+    on: (handler) => bus.on(handler),
     dispose: async () => {
       for (const skill of skills) skill.deactivate?.()
       bus.dispose()
@@ -159,7 +167,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       await config.rag?.dispose()
       await config.embeddings?.dispose()
     },
-  } as Runtime & { initModel: () => Promise<void> }
+  }
 }
 
 function buildMessages(
@@ -199,13 +207,4 @@ function formatRetrievalOnly(chunks: readonly Chunk[]): string {
     .map((c) => `**${c.metadata.title ?? c.metadata.source}**: ${c.content}`)
     .join('\n\n')
   return `Here's what I found (model not yet available):\n\n${sources}`
-}
-
-function extractToolCalls(_text: string): ToolCall[] {
-  // Tool calls come via the model provider's structured output.
-  // In WebLLM, they arrive as part of the chat completion response.
-  // This function is a placeholder — real tool call extraction happens
-  // in the model provider layer. The orchestrator receives them through
-  // the generate() stream's final message metadata.
-  return []
 }

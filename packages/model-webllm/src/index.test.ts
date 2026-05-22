@@ -17,6 +17,16 @@ describe('webllm', () => {
     expect(provider.id).toBe('webllm:custom-model-MLC')
   })
 
+  it('creates a provider from tier', () => {
+    const provider = webllm({ tier: 'tiny' })
+    expect(provider.id).toBe(`webllm:${MODEL_LADDER.tiny}`)
+  })
+
+  it('model overrides tier', () => {
+    const provider = webllm({ model: 'custom-MLC', tier: 'high' })
+    expect(provider.id).toBe('webllm:custom-MLC')
+  })
+
   it('reports correct capabilities', () => {
     const provider = webllm()
     const caps = provider.capabilities()

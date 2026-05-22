@@ -2,6 +2,7 @@ import type {
   ModelProvider,
   ModelCapabilities,
   GenerateOptions,
+  GenerateChunk,
   Message,
 } from '@edgekit/core'
 import type { LanguageModelSession } from './types.js'
@@ -37,7 +38,7 @@ export function chromeAI(config: ChromeAIConfig = {}): ModelProvider {
     async *generate(
       messages: readonly Message[],
       options?: GenerateOptions,
-    ): AsyncIterable<string> {
+    ): AsyncIterable<GenerateChunk> {
       if (!session) throw new Error('Model not initialized. Call init() first.')
 
       const prompt = messagesToPrompt(messages)
@@ -56,10 +57,9 @@ export function chromeAI(config: ChromeAIConfig = {}): ModelProvider {
           const { done, value } = await reader.read()
           if (done) break
           if (value) {
-            // Chrome API returns cumulative text, extract delta
             const delta = value.slice(previousText.length)
             previousText = value
-            if (delta) yield delta
+            if (delta) yield { type: 'text', text: delta }
           }
         }
       } finally {
