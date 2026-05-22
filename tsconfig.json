@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": false
+  },
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/model-webllm" },
+    { "path": "packages/model-chrome" },
+    { "path": "packages/rag-local" },
+    { "path": "packages/embeddings" },
+    { "path": "packages/skills" },
+    { "path": "packages/ui-component" },
+    { "path": "packages/cli" }
+  ],
+  "files": []
+}

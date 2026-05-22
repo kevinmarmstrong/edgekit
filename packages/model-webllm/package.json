@@ -1,0 +1,21 @@
+{
+  "name": "@browser-chat-runtime/model-webllm",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "vite build",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@browser-chat-runtime/core": "workspace:*"
+  },
+  "files": ["dist"]
+}
