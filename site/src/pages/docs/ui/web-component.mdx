@@ -1,0 +1,290 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Web Component'
+description: 'The <edge-chat> web component for adding AI chat to any page'
+---
+
+edgekit ships a `<edge-chat>` custom element that provides a complete chat
+interface out of the box. It handles message display, streaming tokens, citation
+rendering, download prompts, and error states. Because it is a standard web
+component, it works in any framework -- React, Vue, Svelte, Angular, or plain
+HTML.
+
+## Quick start
+
+Install the UI component package:
+
+```bash
+npm install @edgekit/ui-component
+```
+
+Mount it using the `webComponent()` provider:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { webComponent } from '@edgekit/ui-component'
+
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  ui: webComponent({
+    theme: 'auto',
+    placeholder: 'Ask me anything...',
+  }),
+})
+
+// Mount into a container element
+const container = document.getElementById('chat')!
+runtime.config.ui!.mount(container, runtime)
+```
+
+Or use the element directly in HTML after importing the module:
+
+```html
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import '@edgekit/ui-component/edge-chat'
+
+  const runtime = createRuntime({
+    model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  })
+
+  const chat = document.querySelector('edge-chat')
+  chat.runtime = runtime
+</script>
+
+<edge-chat theme="dark" placeholder="Ask a question..."></edge-chat>
+```
+
+## Attributes
+
+The `<edge-chat>` element accepts these HTML attributes:
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color theme. `auto` follows `prefers-color-scheme`. |
+| `placeholder` | `string` | `'Ask a question...'` | Input field placeholder text |
+
+Set attributes declaratively in HTML or programmatically:
+
+```html
+<edge-chat theme="dark" placeholder="Search the docs..."></edge-chat>
+```
+
+```typescript
+const el = document.createElement('edge-chat')
+el.setAttribute('theme', 'light')
+el.setAttribute('placeholder', 'How can I help?')
+```
+
+## Properties
+
+The `runtime` property must be set programmatically. It connects the chat
+element to an edgekit `Runtime` instance:
+
+```typescript
+const chat = document.querySelector('edge-chat')!
+chat.runtime = runtime
+```
+
+When `runtime` is set, the component subscribes to runtime events and
+automatically updates the UI as tokens stream in, downloads progress, and
+errors occur.
+
+## CSS custom properties
+
+The component uses CSS custom properties for styling. Override them on the
+`:host` or the element selector to customize the appearance:
+
+```css
+edge-chat {
+  --ec-bg: #ffffff;
+  --ec-fg: #111111;
+  --ec-border: #e0e0e0;
+  --ec-accent: #0066cc;
+  --ec-user-bg: #f0f7ff;
+  --ec-cite-bg: #f8f9fa;
+  --ec-error-bg: #fff0f0;
+  --ec-error-fg: #cc0000;
+  --ec-radius: 8px;
+}
+```
+
+See the [Theming](/docs/ui/theming) page for a full reference of all custom
+properties and detailed styling examples.
+
+## Events
+
+The `<edge-chat>` element dispatches custom DOM events:
+
+| Event | Detail | When |
+|-------|--------|------|
+| `download-accept` | none | User clicks "Download Model" in the consent prompt |
+| `download-decline` | none | User clicks "No Thanks" in the consent prompt |
+
+Listen for these events to control model download behavior:
+
+```typescript
+const chat = document.querySelector('edge-chat')!
+
+chat.addEventListener('download-accept', () => {
+  runtime.initModel()
+})
+
+chat.addEventListener('download-decline', () => {
+  // Continue with keyword-only RAG
+})
+```
+
+## Component structure
+
+The rendered component has this structure:
+
+```
+<edge-chat>
+  #shadow-root
+    <div class="container">
+      <div class="error">...</div>           <!-- When error is present -->
+      <div class="download-bar">...</div>     <!-- During model download -->
+      <div class="download-prompt">...</div>  <!-- When asking for consent -->
+      <div class="messages">
+        <div class="message user">...</div>
+        <div class="message assistant">
+          <div class="label">Assistant</div>
+          <div>Response text...</div>
+          <div class="citations">...</div>
+        </div>
+      </div>
+      <div class="input-row">
+        <input type="text" />
+        <button>Send</button>
+      </div>
+    </div>
+```
+
+The component uses Shadow DOM, so its internal styles do not leak into your page
+and your page styles do not affect it (except through the CSS custom properties
+listed above).
+
+## Mounting and unmounting
+
+The `UIProvider` interface provides `mount()` and `unmount()` methods:
+
+```typescript
+import { webComponent } from '@edgekit/ui-component'
+
+const ui = webComponent({ theme: 'auto' })
+
+// Mount the chat UI
+ui.mount(document.getElementById('chat')!, runtime)
+
+// Later, remove it cleanly
+ui.unmount()
+```
+
+Calling `unmount()` removes the element from the DOM and cleans up event
+listeners. You can remount to a different container afterward.
+
+## Using with frameworks
+
+### Vanilla JavaScript
+
+```html
+<div id="chat-container"></div>
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({ theme: 'auto' })
+  const runtime = createRuntime({
+    model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+    ui,
+  })
+
+  ui.mount(document.getElementById('chat-container'), runtime)
+</script>
+```
+
+### Vue
+
+```vue
+<template>
+  <div ref="chatContainer" />
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { webComponent } from '@edgekit/ui-component'
+
+const chatContainer = ref<HTMLElement>()
+const ui = webComponent({ theme: 'auto' })
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  ui,
+})
+
+onMounted(() => {
+  if (chatContainer.value) {
+    ui.mount(chatContainer.value, runtime)
+  }
+})
+
+onUnmounted(() => {
+  ui.unmount()
+  runtime.dispose()
+})
+</script>
+```
+
+### Svelte
+
+```svelte
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte'
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { webComponent } from '@edgekit/ui-component'
+
+  let container: HTMLElement
+
+  const ui = webComponent({ theme: 'auto' })
+  const runtime = createRuntime({
+    model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+    ui,
+  })
+
+  onMount(() => ui.mount(container, runtime))
+  onDestroy(() => {
+    ui.unmount()
+    runtime.dispose()
+  })
+</script>
+
+<div bind:this={container} />
+```
+
+## Sizing and positioning
+
+The `<edge-chat>` element is a block-level element that fills its container. It
+has a default `max-height` of 600px with internal scrolling for the message area.
+Control its dimensions through the container:
+
+```css
+#chat-container {
+  width: 400px;
+  height: 500px;
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+}
+```
+
+## Next steps
+
+- [Theming](/docs/ui/theming) -- Customize colors, fonts, and layout
+- [Headless Mode](/docs/ui/headless) -- Build your own UI from scratch
+- [React Adapter](/docs/ui/react) -- Planned React integration

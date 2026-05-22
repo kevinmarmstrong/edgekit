@@ -1,0 +1,438 @@
+---
+import Base from '@/layouts/Base.astro'
+import FeatureCard from '@/components/FeatureCard.astro'
+const base = import.meta.env.BASE_URL
+
+const heroCode = `&lt;script type="module"&gt;
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({ theme: 'auto' })
+
+  const runtime = createRuntime({
+    model: webllm(),
+    rag: localRAG({ indexUrl: '/content-index.json' }),
+    ui,
+    downloadPolicy: 'prompt',
+    systemPrompt: 'Answer questions using the provided context.',
+  })
+
+  ui.mount(document.getElementById('chat'), runtime)
+&lt;/script&gt;`
+---
+<Base title="edgekit" description="Add AI to any website. Runs entirely in the visitor's browser via WebGPU. Zero cost, infinite scale, complete privacy.">
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Open Source &middot; MIT License</div>
+      <h1>AI for your website.<br/>Runs in the browser.</h1>
+      <p class="hero-sub">
+        Edgekit adds an AI assistant to any site. The model, retrieval engine, and vector search
+        all run on the visitor's GPU via WebGPU. No server, no API key, no per-token fees.
+        Your millionth user costs the same as your first: zero.
+      </p>
+      <div class="hero-actions">
+        <a href={`${base}docs/getting-started`} class="btn btn-primary btn-lg">Get Started</a>
+        <a href={`${base}demos`} class="btn btn-outline btn-lg">Live Demos</a>
+      </div>
+      <div class="hero-code">
+        <pre><code set:html={heroCode} /></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <div class="container">
+      <div class="metrics-grid">
+        <div class="metric">
+          <span class="metric-value">~15 KB</span>
+          <span class="metric-label">Runtime size (gzipped)</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">$0</span>
+          <span class="metric-label">Cost per query, forever</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">29-34</span>
+          <span class="metric-label">Tokens/sec on M-series</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">&lt; 1ms</span>
+          <span class="metric-label">Content retrieval</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="problem-section">
+    <div class="container">
+      <h2>The problem with cloud AI</h2>
+      <div class="problem-grid">
+        <div class="problem-card">
+          <h3>Unpredictable costs</h3>
+          <p>Cloud AI charges per token. A viral page could cost hundreds overnight. You can't predict usage, so you can't predict cost.</p>
+        </div>
+        <div class="problem-card">
+          <h3>Privacy liability</h3>
+          <p>Every question goes to someone else's server. For docs, support, and knowledge bases, that's a data problem you don't need.</p>
+        </div>
+        <div class="problem-card">
+          <h3>Vendor coupling</h3>
+          <p>API changes, rate limits, outages... you inherit all of it. Your uptime depends on theirs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="solution-section">
+    <div class="container">
+      <h2>How edgekit works</h2>
+      <p class="section-sub">Everything runs in the visitor's browser. Your server serves static files. That's it.</p>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-num">1</div>
+          <h3>Build your index</h3>
+          <p>Run the CLI at deploy time. It reads your markdown, chunks it, and writes a static JSON file. Ship it with your site.</p>
+          <code>npx @edgekit/cli build</code>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-step">
+          <div class="step-num">2</div>
+          <h3>Visitor asks a question</h3>
+          <p>The query hits your content index via cosine similarity in IndexedDB. Relevant chunks come back in under 1ms.</p>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-step">
+          <div class="step-num">3</div>
+          <h3>Browser generates the answer</h3>
+          <p>The matched content, system prompt, and conversation history go to a quantized model running on the visitor's GPU via WebGPU.</p>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-step">
+          <div class="step-num">4</div>
+          <h3>Streaming response</h3>
+          <p>Tokens appear in the chat UI as they're generated. Sources are cited. The visitor can follow up with more questions.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features-section">
+    <div class="container">
+      <h2>What's inside</h2>
+      <p class="section-sub">Modular runtime, not a monolith. Use what you need.</p>
+      <div class="features-grid">
+        <FeatureCard
+          title="WebGPU Inference"
+          description="Quantized models (Phi-4-Mini, Qwen, SmolLM) run on the visitor's GPU. Downloaded once, cached by the browser."
+          href={`${base}docs/providers/webllm`}
+        />
+        <FeatureCard
+          title="Chrome AI"
+          description="Chrome 148+ includes Gemini Nano. Zero download, instant start. Use window.ai with no setup."
+          href={`${base}docs/providers/chrome-ai`}
+        />
+        <FeatureCard
+          title="RAG Pipeline"
+          description="Vector search in IndexedDB with cosine similarity. Pre-built content index with hash-based versioning."
+          href={`${base}docs/rag/overview`}
+        />
+        <FeatureCard
+          title="Content CLI"
+          description="Build your content index from markdown at deploy time. One command: npx @edgekit/cli build."
+          href={`${base}docs/api/cli`}
+        />
+        <FeatureCard
+          title="Web Component"
+          description="Drop-in <edge-chat> element. Works in any framework. ~3KB, Lit-based, fully themeable."
+          href={`${base}docs/ui/web-component`}
+        />
+        <FeatureCard
+          title="Skills & Tool Calling"
+          description="Extend the model with custom tools. Skills register functions the model can call during generation."
+          href={`${base}docs/skills/overview`}
+        />
+        <FeatureCard
+          title="Progressive Enhancement"
+          description="No WebGPU? No model download? Visitors still get cited answers from your content. The experience never breaks."
+          href={`${base}docs/guides/progressive`}
+        />
+        <FeatureCard
+          title="Event System"
+          description="Every stage of the pipeline emits typed events. Build custom UI, analytics, or debugging on top."
+          href={`${base}docs/guides/events`}
+        />
+        <FeatureCard
+          title="Cloud Fallback"
+          description="Route to a cloud API when the browser can't run inference locally. Best of both worlds."
+          badge="coming"
+          href={`${base}docs/providers/cloud`}
+        />
+        <FeatureCard
+          title="React Adapter"
+          description="useEdgekit() hook and <EdgeChat /> component. First-class React support with full type safety."
+          badge="coming"
+          href={`${base}docs/ui/react`}
+        />
+        <FeatureCard
+          title="Multi-Model Routing"
+          description="Route queries to different models based on complexity, device capability, or user preference."
+          badge="planned"
+        />
+        <FeatureCard
+          title="Offline Mode"
+          description="Service Worker caches the model and content index. Full AI assistant with zero network after first visit."
+          badge="planned"
+          href={`${base}docs/guides/offline`}
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="browser-section">
+    <div class="container">
+      <h2>Browser support</h2>
+      <p class="section-sub">Edgekit never shows a blank screen. Browsers without WebGPU get retrieval-only mode automatically.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Browser</th>
+            <th>WebGPU</th>
+            <th>Chrome AI</th>
+            <th>What works</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Chrome 113+</td><td>Yes</td><td>Yes (148+)</td><td>Full: inference + retrieval</td></tr>
+          <tr><td>Edge 113+</td><td>Yes</td><td>No</td><td>Full: WebGPU inference + retrieval</td></tr>
+          <tr><td>Firefox 127+</td><td>Yes</td><td>No</td><td>Full: WebGPU inference + retrieval</td></tr>
+          <tr><td>Safari</td><td>No</td><td>No</td><td>Retrieval-only (cited answers, no generation)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="use-cases-section">
+    <div class="container">
+      <h2>Who is this for</h2>
+      <div class="use-cases-grid">
+        <a href={`${base}use-cases/documentation`} class="use-case-card">
+          <h3>Documentation sites</h3>
+          <p>"Ask AI" for your docs without paying per query</p>
+        </a>
+        <a href={`${base}use-cases/blogs`} class="use-case-card">
+          <h3>Blogs & content sites</h3>
+          <p>Let readers ask questions about your archive</p>
+        </a>
+        <a href={`${base}use-cases/ecommerce`} class="use-case-card">
+          <h3>E-commerce</h3>
+          <p>Product Q&A grounded in your actual catalog</p>
+        </a>
+        <a href={`${base}use-cases/education`} class="use-case-card">
+          <h3>Education</h3>
+          <p>Study assistants that run entirely on the student's device</p>
+        </a>
+        <a href={`${base}use-cases/internal-tools`} class="use-case-card">
+          <h3>Internal tools</h3>
+          <p>Company wikis where data can't leave the browser</p>
+        </a>
+        <a href={`${base}use-cases/privacy-first`} class="use-case-card">
+          <h3>Privacy-first apps</h3>
+          <p>AI features where user data never leaves the device</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="container">
+      <h2>Start building</h2>
+      <p>Two imports, one config object, one mount call. Your first AI-powered page in under 5 minutes.</p>
+      <div class="hero-actions">
+        <a href={`${base}docs/getting-started`} class="btn btn-primary btn-lg">Read the Quick Start</a>
+        <a href="https://github.com/kevinmarmstrong/edgekit" class="btn btn-outline btn-lg">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding: var(--size-3xl) 0 var(--size-2xl);
+    text-align: center;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: var(--size-lg);
+  }
+  .hero h1 {
+    font-size: 3.5rem;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .hero-sub {
+    max-width: 38rem;
+    margin: var(--size-lg) auto;
+    color: var(--color-text-muted);
+    font-size: 1.15rem;
+    line-height: 1.7;
+  }
+  .hero-actions {
+    display: flex;
+    gap: var(--size-md);
+    justify-content: center;
+    margin: var(--size-xl) 0;
+  }
+  .hero-code {
+    max-width: 40rem;
+    margin: var(--size-2xl) auto 0;
+    text-align: left;
+  }
+  .hero-code pre {
+    border: 1px solid var(--color-border);
+  }
+
+  .metrics {
+    padding: var(--size-2xl) 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-alt);
+  }
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--size-xl);
+    text-align: center;
+  }
+  .metric-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+  }
+  .metric-label {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  .problem-section, .solution-section, .features-section,
+  .browser-section, .use-cases-section, .cta-section {
+    padding: var(--size-3xl) 0;
+  }
+  .problem-section h2, .solution-section h2, .features-section h2,
+  .browser-section h2, .use-cases-section h2, .cta-section h2 {
+    text-align: center;
+    margin-top: 0;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--color-text-muted);
+    max-width: 36rem;
+    margin: var(--size-sm) auto var(--size-2xl);
+  }
+
+  .problem-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--size-lg);
+    margin-top: var(--size-xl);
+  }
+  .problem-card {
+    padding: var(--size-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+  .problem-card h3 { font-size: 1.05rem; margin: 0; }
+  .problem-card p { color: var(--color-text-muted); font-size: 0.9rem; }
+
+  .pipeline {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--size-md);
+    margin-top: var(--size-xl);
+  }
+  .pipeline-step {
+    flex: 1;
+    padding: var(--size-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+  .step-num {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: var(--size-sm);
+  }
+  .pipeline-step h3 { font-size: 1rem; margin: 0; }
+  .pipeline-step p { color: var(--color-text-muted); font-size: 0.85rem; }
+  .pipeline-step code { font-size: 0.8rem; }
+  .pipeline-arrow {
+    flex-shrink: 0;
+    width: 1.5rem;
+    margin-top: 2.5rem;
+    border-top: 2px solid var(--color-border);
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--size-md);
+  }
+
+  .use-cases-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--size-md);
+  }
+  .use-case-card {
+    padding: var(--size-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: inherit;
+    transition: all 0.15s;
+  }
+  .use-case-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+  }
+  .use-case-card h3 { font-size: 1rem; margin: 0; }
+  .use-case-card p { color: var(--color-text-muted); font-size: 0.875rem; }
+
+  .cta-section {
+    text-align: center;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-alt);
+  }
+  .cta-section h2 { margin: 0; }
+  .cta-section p {
+    color: var(--color-text-muted);
+    margin-bottom: var(--size-xl);
+  }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2.25rem; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .problem-grid, .features-grid, .use-cases-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipeline-arrow { width: auto; height: 1rem; border-top: none; border-left: 2px solid var(--color-border); margin: 0 auto; }
+  }
+</style>

@@ -1,0 +1,102 @@
+---
+import Base from '@/layouts/Base.astro'
+const base = import.meta.env.BASE_URL
+---
+<Base title="Comparison" description="How edgekit compares to cloud AI, chatbot platforms, and other browser AI solutions.">
+  <main class="comparison-page container">
+    <h1>How edgekit compares</h1>
+    <p class="page-sub">Edgekit is not a replacement for GPT-4 or Claude. It's a different architecture for a different problem: bounded-knowledge AI that runs for free.</p>
+
+    <section>
+      <h2>vs. Cloud AI APIs (OpenAI, Anthropic, Google)</h2>
+      <table>
+        <thead>
+          <tr><th></th><th>Cloud AI APIs</th><th>Edgekit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Cost model</strong></td><td>Per-token usage fees</td><td>$0, runs on visitor's device</td></tr>
+          <tr><td><strong>Privacy</strong></td><td>Data sent to third-party servers</td><td>Data never leaves the browser</td></tr>
+          <tr><td><strong>Latency</strong></td><td>Network round-trip (100-500ms TTFT)</td><td>Local inference (~460ms TTFT, no network)</td></tr>
+          <tr><td><strong>Model quality</strong></td><td>State-of-the-art (GPT-4, Claude, Gemini)</td><td>Small models (3-7B params, q4 quantized)</td></tr>
+          <tr><td><strong>Knowledge scope</strong></td><td>General knowledge</td><td>Your content only (via RAG)</td></tr>
+          <tr><td><strong>Scaling</strong></td><td>Cost scales with users</td><td>Cost is fixed at $0</td></tr>
+          <tr><td><strong>Uptime</strong></td><td>Depends on provider</td><td>Works offline after first load</td></tr>
+          <tr><td><strong>Best for</strong></td><td>Complex reasoning, creative tasks</td><td>Documentation, FAQ, content search</td></tr>
+        </tbody>
+      </table>
+      <p class="comparison-verdict"><strong>Use edgekit when</strong> your AI answers questions about content you control. Use cloud APIs when you need general knowledge, complex reasoning, or frontier model quality.</p>
+    </section>
+
+    <section>
+      <h2>vs. Chatbot Platforms (Intercom, Drift, Zendesk AI)</h2>
+      <table>
+        <thead>
+          <tr><th></th><th>Chatbot Platforms</th><th>Edgekit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Pricing</strong></td><td>$50-500+/month</td><td>Free, forever</td></tr>
+          <tr><td><strong>Setup</strong></td><td>SaaS dashboard, API keys</td><td>npm install, one config object</td></tr>
+          <tr><td><strong>Data ownership</strong></td><td>Conversations stored on vendor servers</td><td>Everything stays in the browser</td></tr>
+          <tr><td><strong>Customization</strong></td><td>Limited to platform features</td><td>Full source code, extend anything</td></tr>
+          <tr><td><strong>Vendor lock-in</strong></td><td>High (data, integrations, training)</td><td>None (MIT license, standard formats)</td></tr>
+          <tr><td><strong>Live agent handoff</strong></td><td>Built-in</td><td>Not included (you build it)</td></tr>
+          <tr><td><strong>Analytics</strong></td><td>Built-in dashboards</td><td>Event system, build your own</td></tr>
+        </tbody>
+      </table>
+      <p class="comparison-verdict"><strong>Use edgekit when</strong> you want AI-powered content search without SaaS fees or vendor lock-in. Use chatbot platforms when you need live agent handoff, CRM integration, or managed infrastructure.</p>
+    </section>
+
+    <section>
+      <h2>vs. Other Browser AI (WebLLM direct, Chrome Prompt API direct)</h2>
+      <table>
+        <thead>
+          <tr><th></th><th>Raw Browser AI</th><th>Edgekit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>RAG</strong></td><td>Build from scratch</td><td>Built-in (IndexedDB + cosine similarity)</td></tr>
+          <tr><td><strong>Content indexing</strong></td><td>Build from scratch</td><td>CLI: one command</td></tr>
+          <tr><td><strong>UI</strong></td><td>Build from scratch</td><td>Drop-in web component</td></tr>
+          <tr><td><strong>Progressive enhancement</strong></td><td>Manual fallback logic</td><td>Automatic (WebGPU → Chrome AI → retrieval-only)</td></tr>
+          <tr><td><strong>Tool calling</strong></td><td>Parse and dispatch yourself</td><td>Skills system with typed dispatch</td></tr>
+          <tr><td><strong>Download UX</strong></td><td>Handle model loading yourself</td><td>Configurable download policy with progress events</td></tr>
+          <tr><td><strong>Size</strong></td><td>Varies</td><td>~15KB gzipped runtime</td></tr>
+        </tbody>
+      </table>
+      <p class="comparison-verdict"><strong>Use edgekit when</strong> you want a complete solution instead of assembling browser AI from scratch. Use raw APIs when you need maximum control over every detail or are building something edgekit doesn't cover.</p>
+    </section>
+
+    <section class="comparison-cta">
+      <h2>Ready to try it?</h2>
+      <p>Set up your first AI-powered page in under 5 minutes.</p>
+      <a href={`${base}docs/getting-started`} class="btn btn-primary btn-lg">Get Started</a>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .comparison-page { padding: var(--size-2xl) var(--size-lg); max-width: 56rem; }
+  .comparison-page h1 { text-align: center; }
+  .page-sub {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    max-width: 40rem;
+    margin: var(--size-sm) auto var(--size-2xl);
+  }
+  section { margin-bottom: var(--size-3xl); }
+  .comparison-verdict {
+    background: var(--color-primary-light);
+    padding: var(--size-md) var(--size-lg);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+  }
+  .comparison-cta {
+    text-align: center;
+    padding: var(--size-2xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-alt);
+  }
+  .comparison-cta h2 { margin-top: 0; }
+  .comparison-cta p { color: var(--color-text-muted); margin-bottom: var(--size-lg); }
+</style>

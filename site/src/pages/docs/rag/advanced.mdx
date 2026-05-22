@@ -1,0 +1,382 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Advanced RAG'
+description: 'Custom retrieval strategies, hybrid search, and metadata filtering'
+---
+
+The default RAG pipeline covers most use cases, but edgekit gives you full control
+over retrieval. You can combine keyword and vector search, filter by metadata,
+adjust scoring, or replace the retrieval layer entirely with your own provider.
+
+## Adjusting topK
+
+The `topK` parameter controls how many chunks are injected into the prompt. More
+chunks provide broader context but consume more of the model's context window.
+
+```typescript
+import { localRAG } from '@edgekit/rag-local'
+
+// Fewer chunks -- more focused answers
+const focused = localRAG({ indexUrl: '/content-index.json', topK: 2 })
+
+// More chunks -- broader context
+const broad = localRAG({ indexUrl: '/content-index.json', topK: 10 })
+```
+
+You can also override `topK` per query by calling `retrieve()` directly:
+
+```typescript
+const provider = localRAG({
+  indexUrl: '/content-index.json',
+  topK: 5,
+  embeddings: transformersEmbedding(),
+})
+
+await provider.init()
+
+// Override topK for this specific query
+const results = await provider.retrieve('deployment options', 3)
+```
+
+Guidelines for choosing topK:
+
+| topK | Best for | Trade-off |
+|------|----------|-----------|
+| 1-2 | Precise factual questions | May miss relevant context |
+| 3-5 | General documentation queries | Good balance (default: 5) |
+| 7-10 | Broad research questions | Uses more context window |
+| 10+ | Exhaustive searches | Risk of diluting relevance |
+
+## Hybrid search (keyword + vector)
+
+Keyword search catches exact term matches that embedding models may miss. Vector
+search captures semantic similarity that keywords cannot. Combining both produces
+more robust retrieval.
+
+edgekit does not have a built-in hybrid mode, but you can implement one using a
+custom `RAGProvider`:
+
+```typescript
+import type { RAGProvider, Chunk, ContentIndex } from '@edgekit/core'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+function hybridRAG(indexUrl: string): RAGProvider {
+  const embeddings = transformersEmbedding()
+
+  const vectorProvider = localRAG({ indexUrl, topK: 10, embeddings })
+  const keywordProvider = localRAG({ indexUrl, topK: 10 })
+
+  return {
+    id: 'hybrid-rag',
+
+    async init(index?: ContentIndex) {
+      await Promise.all([
+        vectorProvider.init(index),
+        keywordProvider.init(index),
+      ])
+    },
+
+    async retrieve(query: string, topK = 5): Promise<readonly Chunk[]> {
+      const [vectorResults, keywordResults] = await Promise.all([
+        vectorProvider.retrieve(query, topK * 2),
+        keywordProvider.retrieve(query, topK * 2),
+      ])
+
+      return reciprocalRankFusion(vectorResults, keywordResults, topK)
+    },
+
+    async dispose() {
+      await Promise.all([
+        vectorProvider.dispose(),
+        keywordProvider.dispose(),
+      ])
+    },
+  }
+}
+
+function reciprocalRankFusion(
+  listA: readonly Chunk[],
+  listB: readonly Chunk[],
+  topK: number,
+  k = 60,
+): readonly Chunk[] {
+  const scores = new Map<string, { chunk: Chunk; score: number }>()
+
+  for (const [rank, chunk] of listA.entries()) {
+    const rrf = 1 / (k + rank + 1)
+    const existing = scores.get(chunk.id)
+    scores.set(chunk.id, {
+      chunk,
+      score: (existing?.score ?? 0) + rrf,
+    })
+  }
+
+  for (const [rank, chunk] of listB.entries()) {
+    const rrf = 1 / (k + rank + 1)
+    const existing = scores.get(chunk.id)
+    scores.set(chunk.id, {
+      chunk,
+      score: (existing?.score ?? 0) + rrf,
+    })
+  }
+
+  return [...scores.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map(({ chunk, score }) => ({ ...chunk, score }))
+}
+```
+
+Reciprocal rank fusion (RRF) combines ranked lists without requiring normalized
+scores. Each chunk's reciprocal rank from both lists is summed, and the
+highest-scoring chunks are returned.
+
+## Filtering by metadata
+
+Chunk metadata (source path, title, custom fields) can be used to filter results
+before or after retrieval. This is useful when your content spans multiple
+sections and you want to scope queries to a specific area.
+
+```typescript
+import type { RAGProvider, Chunk, ContentIndex } from '@edgekit/core'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+function filteredRAG(
+  indexUrl: string,
+  filter: (chunk: Chunk) => boolean,
+): RAGProvider {
+  const inner = localRAG({
+    indexUrl,
+    topK: 20, // Retrieve more, then filter
+    embeddings: transformersEmbedding(),
+  })
+
+  return {
+    id: 'filtered-rag',
+
+    async init(index?: ContentIndex) {
+      await inner.init(index)
+    },
+
+    async retrieve(query: string, topK = 5): Promise<readonly Chunk[]> {
+      const results = await inner.retrieve(query, topK * 4)
+      return results.filter(filter).slice(0, topK)
+    },
+
+    async dispose() {
+      await inner.dispose()
+    },
+  }
+}
+
+// Only retrieve from the "guides" section
+const guidesRAG = filteredRAG('/content-index.json', (chunk) =>
+  chunk.metadata.source.startsWith('guides/')
+)
+```
+
+You can also filter dynamically based on user context:
+
+```typescript
+function scopedRAG(indexUrl: string): RAGProvider {
+  const inner = localRAG({
+    indexUrl,
+    topK: 20,
+    embeddings: transformersEmbedding(),
+  })
+
+  let activeSection: string | null = null
+
+  return {
+    id: 'scoped-rag',
+
+    async init(index?: ContentIndex) {
+      await inner.init(index)
+    },
+
+    async retrieve(query: string, topK = 5): Promise<readonly Chunk[]> {
+      const results = await inner.retrieve(query, topK * 4)
+
+      if (activeSection) {
+        const filtered = results.filter((c) =>
+          c.metadata.source.startsWith(activeSection!)
+        )
+        if (filtered.length >= topK) return filtered.slice(0, topK)
+      }
+
+      return results.slice(0, topK)
+    },
+
+    async dispose() {
+      await inner.dispose()
+    },
+
+    setSection(section: string | null) {
+      activeSection = section
+    },
+  } as RAGProvider & { setSection(section: string | null): void }
+}
+```
+
+## Bringing your own RAGProvider
+
+The `RAGProvider` interface is intentionally simple. You can replace the built-in
+local provider with any retrieval backend:
+
+```typescript
+interface RAGProvider {
+  readonly id: string
+  init(index?: ContentIndex): Promise<void>
+  retrieve(query: string, topK?: number): Promise<readonly Chunk[]>
+  dispose(): Promise<void>
+}
+```
+
+### Example: IndexedDB-backed provider
+
+For large content indexes that should not be re-fetched on every page load, you
+can build a provider that caches chunks in IndexedDB:
+
+```typescript
+import type { RAGProvider, Chunk, ContentIndex } from '@edgekit/core'
+import { fetchContentIndex, getStoredHash, storeIndex, needsReload } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+function cachedRAG(indexUrl: string): RAGProvider {
+  const embeddings = transformersEmbedding()
+  let chunks: readonly Chunk[] = []
+
+  return {
+    id: 'cached-rag',
+
+    async init() {
+      await embeddings.init()
+
+      const remote = await fetchContentIndex(indexUrl)
+      const storedHash = await getStoredHash()
+
+      if (needsReload(storedHash, remote.contentHash)) {
+        await storeIndex(remote)
+      }
+
+      chunks = remote.chunks.map((c) => ({
+        id: c.id,
+        content: c.content,
+        metadata: c.metadata,
+      }))
+    },
+
+    async retrieve(query: string, topK = 5): Promise<readonly Chunk[]> {
+      const queryVector = await embeddings.encode(query)
+      // Use your preferred similarity search here
+      return chunks.slice(0, topK)
+    },
+
+    async dispose() {
+      chunks = []
+      await embeddings.dispose()
+    },
+  }
+}
+```
+
+### Example: external vector database
+
+If you have a vector database running elsewhere (for example, a Cloudflare
+Vectorize index), you can wrap it as a RAGProvider:
+
+```typescript
+import type { RAGProvider, Chunk } from '@edgekit/core'
+
+function remoteVectorRAG(endpoint: string): RAGProvider {
+  return {
+    id: 'remote-vector',
+
+    async init() {
+      // No local setup needed
+    },
+
+    async retrieve(query: string, topK = 5): Promise<readonly Chunk[]> {
+      const response = await fetch(`${endpoint}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, topK }),
+      })
+      return response.json() as Promise<Chunk[]>
+    },
+
+    async dispose() {
+      // Nothing to clean up
+    },
+  }
+}
+```
+
+This breaks the fully-in-browser model, but can be useful as a fallback for
+devices that cannot run embedding models locally.
+
+## Re-ranking results
+
+For higher quality retrieval, you can add a re-ranking step after initial
+retrieval. Re-ranking uses a cross-encoder model to score query-document pairs
+more accurately than bi-encoder similarity:
+
+```typescript
+import type { RAGProvider, Chunk, ContentIndex } from '@edgekit/core'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+function rerankedRAG(indexUrl: string): RAGProvider {
+  const inner = localRAG({
+    indexUrl,
+    topK: 20,
+    embeddings: transformersEmbedding(),
+  })
+
+  return {
+    id: 'reranked-rag',
+
+    async init(index?: ContentIndex) {
+      await inner.init(index)
+    },
+
+    async retrieve(query: string, topK = 5): Promise<readonly Chunk[]> {
+      // First pass: retrieve candidates with bi-encoder
+      const candidates = await inner.retrieve(query, topK * 4)
+
+      // Second pass: re-rank with a scoring function
+      const scored = candidates.map((chunk) => ({
+        ...chunk,
+        score: scoreRelevance(query, chunk.content),
+      }))
+
+      return scored
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, topK)
+    },
+
+    async dispose() {
+      await inner.dispose()
+    },
+  }
+}
+
+function scoreRelevance(query: string, content: string): number {
+  // Simple heuristic -- replace with a cross-encoder for better quality
+  const queryTerms = query.toLowerCase().split(/\s+/)
+  const contentLower = content.toLowerCase()
+  let matches = 0
+  for (const term of queryTerms) {
+    if (contentLower.includes(term)) matches++
+  }
+  return matches / queryTerms.length
+}
+```
+
+## Next steps
+
+- [RAG Overview](/docs/rag/overview) -- How the retrieval pipeline works
+- [Embeddings](/docs/rag/embeddings) -- Embedding model configuration and performance
+- [Events](/docs/guides/events) -- Monitor retrieval events in real time

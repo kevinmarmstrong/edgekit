@@ -1,0 +1,125 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Getting Started'
+description: 'Add an AI chat widget to your website in under 5 minutes. No server, no API key.'
+---
+
+## What you will build
+
+By the end of this guide you will have a working AI chat widget embedded in an HTML page. The model runs entirely in the visitor's browser via WebGPU -- no server, no API key, no per-token cost. Visitors ask questions, the runtime retrieves relevant content from a static JSON index, and a quantized language model generates a grounded answer with source citations.
+
+## Prerequisites
+
+- A modern browser with WebGPU support (Chrome 113+, Edge 113+, or Firefox 127+)
+- Node.js 22 or later (for the CLI build step)
+- A folder of markdown files you want the AI to answer questions about
+
+## Step 1 -- Install the packages
+
+```bash
+pnpm add @edgekit/core @edgekit/model-webllm @edgekit/rag-local @edgekit/ui-component
+pnpm add -D @edgekit/cli
+```
+
+`@edgekit/core` is the runtime orchestrator. `@edgekit/model-webllm` runs inference on the GPU. `@edgekit/rag-local` handles vector search against your content. `@edgekit/ui-component` provides the drop-in `<edge-chat>` web component.
+
+## Step 2 -- Create your content
+
+Create a `content/` directory with some markdown files. Each file becomes searchable context for the AI.
+
+```
+content/
+  getting-started.md
+  faq.md
+  pricing.md
+```
+
+Each file can include YAML frontmatter with a `title` field. The CLI uses this as the chunk title for citation display.
+
+```markdown
+---
+title: 'Pricing'
+---
+
+Our starter plan is free for up to 1,000 monthly active users.
+The pro plan costs $49/month and includes...
+```
+
+## Step 3 -- Build the content index
+
+Initialize the project configuration, then build your index:
+
+```bash
+npx @edgekit/cli init
+npx @edgekit/cli build
+```
+
+The `init` command creates an `edgekit.config.json` file and a `content/` directory. The `build` command reads every markdown file, splits the text into chunks (default 500 characters with 50-character overlap), and writes a `content-index.json` file to your `public/` directory.
+
+The generated config looks like this:
+
+```json
+{
+  "contentDir": "./content",
+  "outputDir": "./public",
+  "chunkSize": 500,
+  "chunkOverlap": 50
+}
+```
+
+Run `build` again whenever your content changes. The output includes a content hash so the browser can detect when it needs to refresh its local cache.
+
+## Step 4 -- Embed the chat widget
+
+Add this script to any HTML page. It wires together the model, retrieval engine, and UI in a single `createRuntime` call.
+
+```html
+<div id="chat"></div>
+
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({
+    theme: 'auto',
+    placeholder: 'Ask a question about our docs...',
+  })
+
+  const runtime = createRuntime({
+    model: webllm({ tier: 'standard' }),
+    rag: localRAG({ indexUrl: '/content-index.json' }),
+    ui,
+    downloadPolicy: 'prompt',
+    systemPrompt: 'You are a helpful assistant. Answer questions using the provided context. Cite your sources.',
+  })
+
+  ui.mount(document.getElementById('chat'), runtime)
+</script>
+```
+
+## What happens when a visitor loads the page
+
+1. **Content index loads.** The runtime fetches `/content-index.json` (your pre-built chunk index) and holds it in memory for retrieval.
+
+2. **The chat widget renders.** The `<edge-chat>` web component mounts inside `#chat`. It shows an input field and a send button, ready for interaction.
+
+3. **Visitor types a question.** When they hit Send, the runtime calls `localRAG.retrieve()` to find the most relevant chunks via cosine similarity. This takes under 1ms even with thousands of chunks.
+
+4. **Model download prompt.** Because `downloadPolicy` is set to `'prompt'`, the widget asks the visitor to approve a one-time model download (~250 MB for the standard tier). The model is cached by the browser after the first download.
+
+5. **Streaming generation.** The retrieved context, system prompt, and conversation history are sent to the quantized model running on the visitor's GPU. Tokens stream into the chat UI as they are generated (29-34 tokens/sec on Apple M-series chips).
+
+6. **Citations appear.** The UI displays source references below each answer so the visitor can verify where information came from.
+
+## Progressive enhancement
+
+If the visitor's browser does not support WebGPU, or if they decline the model download, edgekit still works. The runtime falls back to retrieval-only mode: it returns the most relevant content chunks with source citations, without AI-generated prose. The experience degrades gracefully -- visitors always get an answer.
+
+## Next steps
+
+- [Installation](/docs/installation) -- detailed package breakdown and browser requirements
+- [Configuration](/docs/configuration) -- every `RuntimeConfig` option explained
+- [WebLLM Provider](/docs/providers/webllm) -- model tiers, performance tuning, WebGPU details
+- [RAG Pipeline](/docs/rag/overview) -- how content retrieval works under the hood

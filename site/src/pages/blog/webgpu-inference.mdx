@@ -1,0 +1,87 @@
+---
+layout: '@/layouts/Blog.astro'
+title: 'WebGPU Inference: Running LLMs at 30 tok/s in Chrome'
+description: 'Technical deep-dive on how WebGPU enables GPU compute in the browser, quantization techniques, and real performance numbers.'
+date: 'May 2026'
+---
+
+Two years ago, running a language model in a browser tab was a party trick. WASM-based inference on GGML ports could manage single-digit tokens per second on a good day. The experience was too slow to be useful for anything beyond demos.
+
+WebGPU changed that. Not incrementally -- categorically. We went from "technically possible" to "indistinguishable from a cloud API" on mainstream hardware.
+
+This post covers the technical stack that makes browser-based LLM inference practical: the WebGPU compute pipeline, quantization formats, the WebLLM runtime, and real performance measurements across devices.
+
+## WebGPU: compute shaders for the web
+
+WebGPU is not an evolution of WebGL. It is a new API, modeled after Vulkan and Metal, that exposes GPU compute pipelines to web applications. The key primitive for LLM inference is the compute shader -- a program that runs on the GPU in parallel across thousands of threads.
+
+Transformer inference has two phases:
+
+**Prefill** processes the full prompt (system message, context, conversation history) in one pass. Each token in the prompt can attend to all previous tokens simultaneously, making this phase compute-bound and highly parallelizable. A GPU excels here.
+
+**Decode** generates tokens one at a time. Each new token attends to all previous tokens, but only one token is produced per forward pass. This phase is memory-bandwidth-bound -- the bottleneck is reading the model weights from GPU memory, not doing the math. Consumer GPUs have sufficient bandwidth for small models.
+
+WebGPU exposes both the compute shader dispatch and the buffer management needed to implement these phases efficiently. The WebLLM project (which edgekit uses under the hood) compiles transformer models to WebGPU compute shaders using TVM's ML compiler stack.
+
+## Quantization: making models fit
+
+A 3.8-billion-parameter model in float16 requires approximately 7.6 GB of memory. That exceeds the GPU memory of most laptops and would take too long to download. Quantization solves both problems.
+
+**q4f16_1** (4-bit weights, float16 activations) is the sweet spot for browser inference:
+
+- Model size drops to ~2.0-2.5 GB for a 3.8B model
+- Quality loss is minimal for grounded, retrieval-augmented tasks
+- The quantization is applied at compile time, so inference code does not need special handling
+- Download time is roughly 30-60 seconds on a decent connection, and the browser caches the result
+
+The quantization process groups weights into blocks (typically 32 or 128 values), stores them as 4-bit integers, and keeps a per-block scale factor in float16. During inference, the dequantization happens inside the compute shader -- the GPU reads the compressed weights and reconstructs float16 values on the fly. This is fast because the bottleneck is memory bandwidth, and 4-bit weights mean 4x less data to read.
+
+## The WebLLM architecture
+
+WebLLM is the runtime that edgekit's `@edgekit/model-webllm` package wraps. Here is how it works:
+
+1. **Model artifacts** are pre-compiled to WebGPU shaders and hosted as static files (or on a CDN like Hugging Face). The artifacts include the quantized weights, the compute shader code, and a tokenizer.
+
+2. **Initialization** downloads these artifacts (or loads them from the browser cache), creates WebGPU buffers, and compiles the shaders. This is the slow part -- first-load downloads the full model. Subsequent loads use the browser's Cache API and start in 2-5 seconds.
+
+3. **Inference** runs entirely on the GPU via `GPUComputePassEncoder.dispatchWorkgroups()`. The CPU orchestrates the pipeline (tokenization, KV-cache management, sampling), but the heavy matrix multiplications happen on the GPU.
+
+4. **Streaming** works by yielding tokens as they are decoded. Each token requires one forward pass through the model. The WebLLM runtime calls back into JavaScript after each token, which edgekit surfaces as an `AsyncIterable<string>`.
+
+5. **Memory management** is critical. The KV-cache grows with conversation length and can consume significant GPU memory. WebLLM manages this with a configurable context window and automatic cache eviction.
+
+## Real performance numbers
+
+We measured token generation speed (decode phase) across hardware using Phi-4-Mini (3.8B, q4f16_1):
+
+| Device | GPU | Decode (tok/s) | Prefill (tok/s) | First token (ms) |
+|---|---|---|---|---|
+| MacBook Pro M3 | Integrated | 33-36 | 180+ | ~800 |
+| MacBook Air M2 | Integrated | 29-32 | 140+ | ~900 |
+| MacBook Air M1 | Integrated | 22-25 | 90+ | ~1200 |
+| Windows laptop (RTX 3060) | Discrete | 38-42 | 200+ | ~600 |
+| Windows laptop (RTX 2060) | Discrete | 28-31 | 120+ | ~1000 |
+| Windows laptop (Intel Arc A770) | Discrete | 25-28 | 110+ | ~1100 |
+| iMac M4 | Integrated | 35-38 | 190+ | ~750 |
+
+These numbers are for the decode phase (the user-visible token streaming speed). Prefill is faster because it processes tokens in parallel, but it contributes to the "first token latency" -- the delay before the first response token appears.
+
+For comparison, a cloud API typically delivers 50-80 tok/s decode but adds 200-500ms of network latency before the first token. For short responses (the common case in documentation Q&A), the browser-local approach often *feels faster* because there is no network round-trip.
+
+## What does not work yet
+
+Browser inference has real limitations:
+
+**Safari** does not support WebGPU. Safari users get edgekit's retrieval-only fallback -- cited answers from the content index without model generation. This is still useful but not the full experience.
+
+**Low-end devices** struggle. Chromebooks, older tablets, and phones without capable GPUs cannot run a 3.8B model. Smaller models (SmolLM2 1.7B) can work on some of these devices, but the experience is inconsistent.
+
+**Long contexts** are expensive. The KV-cache for a 4096-token context window consumes ~500MB of GPU memory on top of the model weights. Conversations that go deep will hit memory limits on devices with limited GPU VRAM.
+
+**First load** is slow. Downloading 2+ GB of model weights is a significant ask. Edgekit's `downloadPolicy: 'prompt'` lets you gate this behind user consent, and progressive enhancement means the site works without the model, but the initial download is the biggest friction point.
+
+## Where this is heading
+
+WebGPU performance improves with every browser release. Chrome's Dawn implementation gets measurably faster quarter over quarter. Model architectures are getting more efficient -- newer models achieve better quality at the same parameter count.
+
+The trajectory is clear: within a year or two, running a capable language model in a browser tab will be as unremarkable as playing a 3D game in one. The hardware is already there. The APIs are stable. The models are small enough. The only question is how quickly developers adopt the pattern.

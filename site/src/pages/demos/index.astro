@@ -1,0 +1,176 @@
+---
+import Base from '@/layouts/Base.astro'
+import FeatureCard from '@/components/FeatureCard.astro'
+const base = import.meta.env.BASE_URL
+---
+<Base title="Live Demos" description="See edgekit in action. Every demo runs entirely in your browser.">
+  <main class="demos-page container">
+    <h1>Live Demos</h1>
+    <p class="page-sub">Every demo runs entirely in your browser. No server, no API key. Open DevTools and watch... there are no network requests after page load.</p>
+
+    <section class="demo-section">
+      <h2>Available Now</h2>
+      <div class="demo-grid">
+        <div class="demo-card">
+          <div class="demo-preview">
+            <div class="demo-placeholder">
+              <span>Ask questions about edgekit</span>
+            </div>
+          </div>
+          <h3>Documentation Q&A</h3>
+          <p>This site's own chat widget is powered by edgekit. The content index is built from these docs at deploy time. Ask anything about edgekit and get cited answers.</p>
+          <div class="demo-meta">
+            <span class="badge badge-available">Live</span>
+            <span class="demo-detail">Phi-4-Mini 3.8B &middot; 30+ content pages</span>
+          </div>
+        </div>
+
+        <div class="demo-card">
+          <div class="demo-preview">
+            <div class="demo-placeholder">
+              <span>Blog content assistant</span>
+            </div>
+          </div>
+          <h3>Blog Assistant</h3>
+          <p>A chat widget trained on blog content. Visitors ask questions about posts, get answers grounded in actual articles with source citations.</p>
+          <div class="demo-meta">
+            <span class="badge badge-available">Live</span>
+            <a href="https://github.com/kevinmarmstrong/edgekit/tree/main/examples/blog-chat" class="demo-detail">View source</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <h2>Coming Soon</h2>
+      <div class="demo-grid">
+        <div class="demo-card muted">
+          <h3>Model Comparison <span class="badge badge-coming">Soon</span></h3>
+          <p>Run the same query against WebLLM, Chrome AI, and a cloud model side-by-side. Compare latency, quality, and token throughput in real time.</p>
+        </div>
+
+        <div class="demo-card muted">
+          <h3>Theme Playground <span class="badge badge-coming">Soon</span></h3>
+          <p>Customize the chat widget visually. Adjust colors, fonts, sizing, position, and dark mode. Copy the CSS custom properties when done.</p>
+        </div>
+
+        <div class="demo-card muted">
+          <h3>Content Index Inspector <span class="badge badge-coming">Soon</span></h3>
+          <p>Upload a content-index.json and explore the chunks, metadata, and embedding dimensions. Search visually and see how retrieval scoring works.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <h2>Planned</h2>
+      <div class="demo-grid">
+        <div class="demo-card muted">
+          <h3>Performance Benchmark <span class="badge badge-planned">Planned</span></h3>
+          <p>Run standardized latency and throughput tests in your browser. Measure cold start, warm cache, TTFT, and tokens/sec on your actual hardware.</p>
+        </div>
+
+        <div class="demo-card muted">
+          <h3>Skill Builder <span class="badge badge-planned">Planned</span></h3>
+          <p>Define custom tools visually, test them against the model, and export a ready-to-use skill module. No code required for simple tools.</p>
+        </div>
+
+        <div class="demo-card muted">
+          <h3>Offline Mode <span class="badge badge-planned">Planned</span></h3>
+          <p>Toggle airplane mode and keep chatting. Service Worker caches the model and content index. Full AI with zero network after first visit.</p>
+        </div>
+
+        <div class="demo-card muted">
+          <h3>Multi-Language <span class="badge badge-planned">Planned</span></h3>
+          <p>Ask questions in one language about content in another. Demonstrates cross-lingual retrieval and generation with multilingual models.</p>
+        </div>
+
+        <div class="demo-card muted">
+          <h3>E-commerce Product Search <span class="badge badge-planned">Planned</span></h3>
+          <p>A product catalog indexed for AI search. Ask natural language questions like "waterproof hiking boots under $100" and get grounded product recommendations.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-cta">
+      <h2>Build your own demo</h2>
+      <p>Every demo on this page is built with edgekit. Set up your own in under 5 minutes.</p>
+      <a href={`${base}docs/getting-started`} class="btn btn-primary">Get Started</a>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .demos-page {
+    padding: var(--size-2xl) var(--size-lg);
+  }
+  .demos-page h1 { margin-bottom: var(--size-sm); }
+  .page-sub {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    max-width: 40rem;
+    margin-bottom: var(--size-2xl);
+  }
+  .demo-section {
+    margin-bottom: var(--size-3xl);
+  }
+  .demo-section h2 {
+    margin-top: 0;
+    margin-bottom: var(--size-lg);
+  }
+  .demo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    gap: var(--size-lg);
+  }
+  .demo-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--size-lg);
+    background: var(--color-surface);
+  }
+  .demo-card.muted {
+    opacity: 0.75;
+  }
+  .demo-card h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--size-sm);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  .demo-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+  .demo-preview {
+    margin-bottom: var(--size-md);
+  }
+  .demo-placeholder {
+    background: var(--color-bg-alt);
+    border-radius: var(--radius-md);
+    padding: var(--size-2xl) var(--size-lg);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    border: 1px dashed var(--color-border);
+  }
+  .demo-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--size-md);
+    margin-top: var(--size-md);
+  }
+  .demo-detail {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+  }
+  .demo-cta {
+    text-align: center;
+    padding: var(--size-2xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-alt);
+  }
+  .demo-cta h2 { margin-top: 0; }
+  .demo-cta p { color: var(--color-text-muted); margin-bottom: var(--size-lg); }
+</style>

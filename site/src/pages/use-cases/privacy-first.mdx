@@ -1,0 +1,128 @@
+---
+layout: '@/layouts/Base.astro'
+title: 'Privacy-First Applications'
+description: 'AI features where user data never leaves the device. Privacy by architecture, not by policy.'
+---
+
+Privacy policies are promises. Architecture is a guarantee. When an AI feature runs in the cloud, the user's data traverses networks, sits on vendor servers, and is governed by policies that can change. When the same feature runs in the browser, the data never leaves the device. There is no server to breach, no logs to subpoena, and no privacy policy to update because there is no data collection to describe.
+
+Edgekit enables AI features with the strongest possible privacy guarantee: the data never leaves the user's device in the first place.
+
+## The privacy spectrum
+
+Not all AI privacy is equal. Understanding the levels clarifies where edgekit fits:
+
+**Level 1: Privacy policy.** The vendor promises not to misuse your data. Enforceable only after a breach. Most cloud AI services operate here.
+
+**Level 2: Data isolation.** The vendor processes your data in isolated environments and does not use it for training. Better, but the data still transits through and resides on external servers.
+
+**Level 3: Encryption in transit and at rest.** The vendor cannot read your data without your keys. Strong protection, but complex key management and still requires trust in the vendor's implementation.
+
+**Level 4: Local processing.** The data never leaves the device. There is no vendor in the loop. The privacy guarantee is structural -- there is no mechanism by which the data can be exposed to a third party. Edgekit operates here.
+
+## Use cases that demand Level 4 privacy
+
+### Health and wellness
+
+Apps that process health data -- symptom checkers, mental health journaling, medication interaction lookups -- handle some of the most sensitive personal information. Users need to trust that their health queries are genuinely private.
+
+```typescript
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/health-content-index.json' }),
+  downloadPolicy: 'prompt',
+  systemPrompt: `You are a health information assistant. Answer
+    questions using only the provided health content. Always include
+    a disclaimer that this is informational, not medical advice.
+    Never store or transmit user queries.`,
+  guardrails: {
+    maxInputTokens: 200,
+    maxOutputTokens: 400,
+    maxConversationTurns: 10,
+  },
+})
+```
+
+With edgekit, health queries are processed entirely on the user's device. There is no server-side log of what the user asked.
+
+### Financial planning
+
+Personal finance tools that help users understand investment options, tax implications, or budgeting strategies handle sensitive financial data. Users are understandably reluctant to share financial details with cloud AI services.
+
+### Legal research
+
+Individuals researching legal questions -- tenant rights, employment law, immigration procedures -- may not want a record of their queries. Local processing means no query history exists on any server.
+
+### Journaling and personal writing
+
+AI writing assistants that help with personal journals, therapy exercises, or private correspondence should not send that content to external servers. The content is inherently private.
+
+### Children's applications
+
+Apps designed for children face strict regulatory requirements (COPPA in the US, GDPR Article 8 in the EU). Local processing eliminates the data collection that triggers these regulations.
+
+## Implementation pattern
+
+The implementation for privacy-first apps follows the same edgekit pattern as any other use case. The privacy guarantee comes from the architecture, not from special configuration:
+
+```html
+<div id="assistant"></div>
+
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({
+    theme: 'auto',
+    placeholder: 'Ask a question (everything stays on your device)...',
+  })
+
+  const runtime = createRuntime({
+    model: webllm(),
+    rag: localRAG({ indexUrl: '/content-index.json' }),
+    ui,
+    downloadPolicy: 'prompt',
+    systemPrompt: `Answer questions using the provided context.
+      All processing happens locally on your device.`,
+  })
+
+  ui.mount(document.getElementById('assistant'), runtime)
+</script>
+```
+
+There is no telemetry endpoint to configure, no analytics SDK to integrate, no data processing agreement to sign. The absence of server-side infrastructure is the privacy feature.
+
+## Verifiability
+
+A key advantage of browser-based AI is that the privacy claim is verifiable. Users or auditors can:
+
+1. **Open DevTools.** The Network tab shows no outgoing requests after the initial page load and model download. Every AI interaction happens locally.
+2. **Inspect the source.** The JavaScript is client-side and inspectable. There is no hidden data exfiltration.
+3. **Test offline.** Disconnect from the internet and continue using the assistant. If it works offline, the data cannot be leaving the device.
+4. **Review the packages.** Edgekit is open source. The code is auditable.
+
+This level of verifiability is impossible with cloud AI services. The user must trust the vendor's claims. With edgekit, the user can verify them.
+
+## Regulatory compliance
+
+Local processing simplifies compliance across multiple frameworks:
+
+| Regulation | Cloud AI burden | Edgekit approach |
+|---|---|---|
+| GDPR | Data processing agreements, right to deletion, data portability | No personal data is processed externally |
+| CCPA | Disclosure of data collection, opt-out mechanisms | No data collection to disclose |
+| HIPAA | Business associate agreements, encryption, access controls | No PHI transmitted to third parties |
+| COPPA | Parental consent for data collection from children | No data collection from any user |
+| FERPA | Restrictions on student education record disclosure | No student data leaves the device |
+
+The pattern is consistent: regulations govern the collection, processing, and storage of personal data. When no personal data is collected, processed, or stored externally, the regulatory burden drops to near zero.
+
+## Building trust with users
+
+For applications where trust is the product -- health apps, financial tools, children's apps -- the ability to say "your data never leaves your device" is a genuine differentiator. But the claim must be backed by architecture, not just marketing copy.
+
+Edgekit gives you the architecture. The AI model runs on the user's GPU. The content index is a static file. The retrieval happens in IndexedDB. The generation happens in a WebGPU shader. At no point does user input traverse a network.
+
+This is not a privacy feature bolted onto a cloud service. It is the natural result of running inference where the data already lives.

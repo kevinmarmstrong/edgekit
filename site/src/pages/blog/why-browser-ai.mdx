@@ -1,0 +1,57 @@
+---
+layout: '@/layouts/Blog.astro'
+title: 'Why Browser AI Changes Everything'
+description: 'The shift from cloud to edge. WebGPU making real inference possible. Why small models are good enough for bounded domains.'
+date: 'May 2026'
+---
+
+For the past three years, AI on the web has meant one thing: send the user's input to a server, run inference on expensive GPUs, stream the result back. Every query has a cost. Every query has latency. Every query sends user data to someone else's infrastructure.
+
+That model made sense when running a neural network required a rack of A100s. It does not make sense when the device in front of the user has a GPU capable of running a 3.8-billion-parameter model at 30 tokens per second.
+
+## The browser is the new inference target
+
+WebGPU shipped in Chrome 113 (May 2023), Edge followed immediately, and Firefox joined with version 127. For the first time, web applications have direct access to GPU compute -- not through WebGL hacks or WASM workarounds, but through a modern, shader-based compute API designed for general-purpose parallel workloads.
+
+This matters because transformer inference is embarrassingly parallel during the prefill phase and memory-bandwidth-bound during decode. Both profiles map well to consumer GPUs. A MacBook Air's integrated GPU, a mid-range Windows laptop with an RTX 3060, even recent iGPUs from Intel and AMD -- all of these can run quantized language models at interactive speeds.
+
+The gap between "can technically run" and "good user experience" closed faster than most people expected. Quantization to 4-bit (q4f16) reduces a 3.8B model from ~7.6 GB in float16 to under 2.5 GB, with minimal quality loss on grounded tasks. The model downloads once and caches in the browser. Subsequent visits start in seconds.
+
+## Small models are good enough
+
+The instinct is to compare a 3.8B model to GPT-4 or Claude and conclude it can't be useful. That comparison misses the point. The question is not "can this model answer any question about anything?" The question is "can this model answer questions about *this specific content* when given the relevant context?"
+
+For bounded domains -- a documentation site, a product catalog, a course syllabus -- the answer is yes. RAG (retrieval-augmented generation) is the key insight. You don't need the model to know everything. You need the model to read a few paragraphs of context and synthesize a coherent answer. That is well within the capability of modern small models.
+
+Phi-4-Mini (3.8B), Qwen 2.5 (3B), and SmolLM2 (1.7B) all handle this task reliably when:
+
+- The context is retrieved with high precision (good chunking, good embeddings)
+- The system prompt constrains the model to answer from context
+- The domain is bounded (not open-ended general knowledge)
+
+This is not a theoretical argument. Edgekit's RAG pipeline retrieves relevant chunks from an IndexedDB vector store in under 1ms, injects them into the prompt, and generates grounded answers with source citations. The quality is good enough that users prefer the instant, private experience over waiting for a cloud round-trip.
+
+## The economics argument
+
+Cloud AI pricing is per-token. That means your cost scales linearly with usage. A documentation site that gets 10,000 AI queries per month at an average of 500 output tokens is looking at $15-50/month on most providers. Sounds manageable. Now multiply by 10x because your docs went viral on Hacker News. Or 100x because you shipped to enterprise and every employee uses it daily.
+
+Per-token pricing creates anxiety. Teams add rate limits, session caps, and usage warnings. They degrade the experience to control costs. Some remove the AI feature entirely after a surprise bill.
+
+Browser AI eliminates this cost structure. The compute runs on hardware the user already owns. Your server serves static files -- the content index, the model weights (cached by the CDN), and your HTML. The marginal cost of the millionth user is the same as the first: effectively zero.
+
+This is not "cheaper AI." It is a fundamentally different cost model. The same shift happened with static sites -- once you stop running application servers, the economics change completely. Edge AI applies the same logic to inference.
+
+## What this means for builders
+
+If you are building a product where AI answers questions about a known corpus of content, you no longer need a backend AI service. You need:
+
+1. A content index (built at deploy time from your markdown/HTML)
+2. A small quantized model (downloaded once, cached by the browser)
+3. A retrieval pipeline (vector search in IndexedDB)
+4. A thin orchestration layer (the runtime)
+
+That is edgekit. Four packages, two imports, one config object. The AI runs where the user is, on hardware they already have, with data that never leaves their device.
+
+The shift from cloud to edge is not about replacing cloud AI entirely. It is about recognizing that a large class of use cases -- documentation search, product Q&A, content discovery, study assistants -- never needed a data center in the first place. The browser was always the right deployment target. We just needed the hardware and tooling to catch up.
+
+They have.

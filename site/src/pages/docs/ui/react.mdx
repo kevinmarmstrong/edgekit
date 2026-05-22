@@ -1,0 +1,239 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'React Adapter'
+description: 'Planned React integration for edgekit (coming soon)'
+---
+
+> **Coming Soon** -- The React adapter is under active development. This page
+> describes the planned API. The interface may change before release.
+
+The `@edgekit/react` package will provide idiomatic React bindings for edgekit,
+including a context provider, hooks, and a pre-built chat component. Until it
+ships, you can use the [web component](/docs/ui/web-component) in React or build
+a [headless](/docs/ui/headless) integration.
+
+## Planned installation
+
+```bash
+npm install @edgekit/react @edgekit/core
+```
+
+## EdgekitProvider
+
+The provider wraps your app and initializes the edgekit runtime. All hooks
+read from this context.
+
+```tsx
+import { EdgekitProvider } from '@edgekit/react'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+function App() {
+  return (
+    <EdgekitProvider
+      model={webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' })}
+      rag={localRAG({
+        indexUrl: '/content-index.json',
+        embeddings: transformersEmbedding(),
+      })}
+      systemPrompt="You are a helpful documentation assistant."
+    >
+      <YourApp />
+    </EdgekitProvider>
+  )
+}
+```
+
+### Provider props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `model` | `ModelProvider` | Yes | The model provider instance |
+| `rag` | `RAGProvider` | No | RAG provider for retrieval |
+| `embeddings` | `EmbeddingProvider` | No | Embedding provider |
+| `skills` | `Skill[]` | No | Array of skills |
+| `systemPrompt` | `string` | No | System prompt for the model |
+| `downloadPolicy` | `DownloadPolicy` | No | Model download behavior |
+
+## useEdgekit() hook
+
+The primary hook for interacting with the runtime. Returns the conversation
+state, a query function, and status indicators.
+
+```tsx
+import { useEdgekit } from '@edgekit/react'
+
+function ChatPanel() {
+  const {
+    messages,
+    query,
+    isGenerating,
+    isDownloading,
+    downloadProgress,
+    error,
+    clearConversation,
+  } = useEdgekit()
+
+  const [input, setInput] = useState('')
+
+  const handleSubmit = async () => {
+    if (!input.trim() || isGenerating) return
+    setInput('')
+
+    for await (const token of query(input)) {
+      // Tokens stream automatically into messages
+    }
+  }
+
+  return (
+    <div>
+      {messages.map((msg, i) => (
+        <div key={i} className={`message ${msg.role}`}>
+          {msg.content}
+        </div>
+      ))}
+
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+        disabled={isGenerating}
+      />
+    </div>
+  )
+}
+```
+
+### Return values
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `messages` | `Message[]` | Full conversation history |
+| `query` | `(input: string) => AsyncIterable<string>` | Send a query and stream tokens |
+| `isGenerating` | `boolean` | Whether the model is currently generating |
+| `isDownloading` | `boolean` | Whether the model is being downloaded |
+| `downloadProgress` | `number` | Download progress from 0 to 1 |
+| `error` | `string \| null` | Current error message, if any |
+| `clearConversation` | `() => void` | Reset conversation history |
+
+## useEdgekitEvent() hook
+
+Subscribe to specific runtime events with a React-friendly API:
+
+```tsx
+import { useEdgekitEvent } from '@edgekit/react'
+
+function RetrievalDebugger() {
+  const [chunks, setChunks] = useState<Chunk[]>([])
+
+  useEdgekitEvent('retrieval:complete', (event) => {
+    setChunks([...event.chunks])
+  })
+
+  return (
+    <details>
+      <summary>Retrieved {chunks.length} chunks</summary>
+      <ul>
+        {chunks.map((chunk) => (
+          <li key={chunk.id}>
+            [{chunk.score?.toFixed(3)}] {chunk.metadata.title}
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+```
+
+## EdgeChat component
+
+A pre-built chat component with the same functionality as the `<edge-chat>` web
+component, but rendered as native React elements for better integration with
+your component tree.
+
+```tsx
+import { EdgeChat } from '@edgekit/react'
+
+function App() {
+  return (
+    <EdgekitProvider model={webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' })}>
+      <EdgeChat
+        placeholder="Ask me anything..."
+        theme="auto"
+        className="my-chat"
+        onDownloadAccept={() => console.log('User accepted download')}
+        onDownloadDecline={() => console.log('User declined download')}
+      />
+    </EdgekitProvider>
+  )
+}
+```
+
+### Component props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `placeholder` | `string` | `'Ask a question...'` | Input placeholder |
+| `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color theme |
+| `className` | `string` | -- | CSS class for the container |
+| `style` | `CSSProperties` | -- | Inline styles |
+| `onDownloadAccept` | `() => void` | -- | Called when user accepts model download |
+| `onDownloadDecline` | `() => void` | -- | Called when user declines model download |
+
+## Using the web component in React today
+
+Until `@edgekit/react` ships, you can use the web component directly. React
+handles custom elements well, but there are a few things to keep in mind:
+
+```tsx
+import { useEffect, useRef } from 'react'
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { webComponent } from '@edgekit/ui-component'
+
+function Chat() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const uiRef = useRef(webComponent({ theme: 'auto' }))
+
+  useEffect(() => {
+    const runtime = createRuntime({
+      model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+      ui: uiRef.current,
+    })
+
+    if (containerRef.current) {
+      uiRef.current.mount(containerRef.current, runtime)
+    }
+
+    return () => {
+      uiRef.current.unmount()
+      runtime.dispose()
+    }
+  }, [])
+
+  return <div ref={containerRef} />
+}
+```
+
+You can also use the headless API to build a fully native React chat interface.
+See [Headless Mode](/docs/ui/headless) for a complete example.
+
+## Planned timeline
+
+The React adapter is the next UI package on the roadmap. The initial release will
+include:
+
+- `EdgekitProvider` context with runtime lifecycle management
+- `useEdgekit()` hook for conversation state and querying
+- `useEdgekitEvent()` hook for event subscriptions
+- `EdgeChat` component as a drop-in chat interface
+
+Server component support (for Next.js App Router) is planned for a subsequent
+release.
+
+## Next steps
+
+- [Web Component](/docs/ui/web-component) -- Use the web component today
+- [Headless Mode](/docs/ui/headless) -- Build a custom React chat UI now
+- [Theming](/docs/ui/theming) -- Customize the appearance

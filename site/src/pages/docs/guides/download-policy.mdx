@@ -1,0 +1,214 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Download Policy'
+description: 'Control when and how the AI model downloads to the visitor browser'
+---
+
+The download policy controls whether and when the AI model downloads to the visitor's browser. This is the most important UX decision you make with edgekit, because the model download is the biggest bottleneck between "visitor asks a question" and "visitor gets an AI-generated answer."
+
+## Three Modes
+
+Set the `downloadPolicy` field on your `RuntimeConfig`:
+
+```typescript
+import type { DownloadPolicy } from '@edgekit/core'
+
+// Type: 'auto' | 'prompt' | 'never'
+```
+
+### auto
+
+Downloads the model on the first query without asking. Best for sites where visitors expect AI-powered answers and are willing to wait.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'auto',
+})
+```
+
+**UX pattern:** The visitor types a question and hits send. A progress bar appears showing the model download (typically 300 MB - 2 GB depending on the tier). During download, RAG retrieval still runs and can provide initial results. Once the model is cached by the browser, subsequent visits start instantly.
+
+**When to use:**
+- Documentation sites where the chat widget is a primary feature
+- Internal tools where users visit repeatedly
+- Sites where visitors have strong internet connections
+
+**Trade-offs:** First-time visitors pay a significant download cost. On slow connections, this can take minutes. The browser caches the model after the first download, so return visits are fast.
+
+### prompt (default)
+
+Asks the visitor for permission before downloading. This is the default because it respects the visitor's bandwidth and device constraints.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',  // This is the default
+})
+```
+
+**UX pattern:** The visitor asks a question. Edgekit retrieves relevant content from the index and shows a retrieval-only response. The UI also displays a prompt: "Enable smarter answers by downloading a small AI model to your device. No data leaves your browser." with "Download Model" and "No Thanks" buttons.
+
+If the visitor accepts, the model downloads and future queries use full AI generation. If they decline, the widget continues in retrieval-only mode.
+
+**When to use:**
+- Public-facing sites with unknown visitor demographics
+- Content sites where the chat widget is supplementary
+- Mobile-first sites where bandwidth matters
+
+**Trade-offs:** Adds an interaction step before the visitor gets AI-generated answers. Some visitors will decline. Retrieval-only mode is always available as a fallback.
+
+### never
+
+Disables model download entirely. The runtime operates in retrieval-only mode, returning cited content chunks without any model generation.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'never',
+})
+```
+
+**UX pattern:** The visitor types a question. The RAG provider searches the content index and returns the top matching chunks, formatted with titles and source links. No model runs, no download prompt appears. Responses appear near-instantly.
+
+**When to use:**
+- Sites that want search-like behavior without AI generation
+- Environments where model downloads are not allowed (restricted networks, kiosks)
+- As a starting point before enabling AI features
+- Low-bandwidth or mobile-only audiences
+
+**Trade-offs:** No multi-turn conversation, no synthesized answers, no tool calling. The visitor gets raw content excerpts rather than generated responses.
+
+## Implementing a Custom Download Prompt
+
+The built-in `<edge-chat>` web component handles the download prompt automatically when using `downloadPolicy: 'prompt'`. It shows a centered card with an explanation and two buttons.
+
+For a custom UI, listen for the recoverable error event that fires when a query runs in prompt mode and the model has not been downloaded:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',
+})
+
+let modelReady = false
+let pendingQuery: string | null = null
+
+runtime.on((event) => {
+  if (
+    event.type === 'error' &&
+    event.recoverable &&
+    event.error.message === 'Model download requires user permission'
+  ) {
+    showCustomPrompt()
+  }
+
+  if (event.type === 'model:ready') {
+    modelReady = true
+    // Re-run the pending query now that the model is ready
+    if (pendingQuery) {
+      runQuery(pendingQuery)
+      pendingQuery = null
+    }
+  }
+})
+
+function showCustomPrompt() {
+  const dialog = document.createElement('div')
+  dialog.innerHTML = `
+    <p>Download a small AI model (~2 GB) for smarter answers?</p>
+    <p>The model runs entirely in your browser. Nothing leaves your device.</p>
+    <button id="accept">Download</button>
+    <button id="decline">Skip</button>
+  `
+
+  document.getElementById('accept')?.addEventListener('click', async () => {
+    dialog.remove()
+    await runtime.initModel()
+  })
+
+  document.getElementById('decline')?.addEventListener('click', () => {
+    dialog.remove()
+    // Visitor continues with retrieval-only responses
+  })
+
+  document.body.appendChild(dialog)
+}
+```
+
+## Tracking Download Progress
+
+When the model downloads (in `auto` mode or after the user accepts in `prompt` mode), the runtime emits progress events you can use to build a custom progress indicator:
+
+```typescript
+runtime.on((event) => {
+  switch (event.type) {
+    case 'model:download:start':
+      showProgressBar()
+      break
+    case 'model:download:progress':
+      // event.progress is a number from 0 to 1
+      updateProgressBar(event.progress)
+      break
+    case 'model:download:complete':
+      hideProgressBar()
+      break
+  }
+})
+```
+
+The `<edge-chat>` component renders a built-in progress bar during download. If you are building a custom UI, use these events to show download state.
+
+## Switching Policies at Runtime
+
+The download policy is set at runtime creation and cannot be changed afterward. If you need dynamic behavior (for example, starting in `prompt` mode and switching to `auto` after the user opts in), call `initModel()` directly:
+
+```typescript
+// Start in prompt mode
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',
+})
+
+// Later, when the user has opted in via your UI:
+await runtime.initModel()
+// From this point on, queries use the model automatically
+```
+
+## Decision Matrix
+
+| Scenario | Recommended Policy |
+|----------|--------------------|
+| Docs site, desktop audience | `auto` |
+| Blog, mixed audience | `prompt` |
+| E-commerce, mobile-heavy | `prompt` with `tiny` tier |
+| Internal tool, repeat users | `auto` |
+| Restricted network / kiosk | `never` |
+| Progressive rollout | `prompt`, track accept rate |
+
+## Next Steps
+
+- [Progressive Enhancement](/docs/guides/progressive) -- How the three tiers work together
+- [Events](/docs/guides/events) -- All download-related events
+- [Performance](/docs/guides/performance) -- Choosing the right model tier

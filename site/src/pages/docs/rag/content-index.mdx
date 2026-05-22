@@ -1,0 +1,239 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Content Index'
+description: 'Build and manage the content index that powers edgekit RAG'
+---
+
+The content index is a static JSON file that contains your chunked content and
+(optionally) embedding vectors. It is generated at build time by the
+`@edgekit/cli` and served as a static asset alongside your site. At runtime, the
+browser fetches this file and uses it for retrieval.
+
+## Getting started
+
+Initialize a new edgekit project to create the config file and content directory:
+
+```bash
+npx @edgekit/cli init
+```
+
+This creates two things:
+
+- `edgekit.config.json` -- Build configuration
+- `content/` -- Directory for your markdown source files
+
+## Configuration
+
+The `edgekit.config.json` file controls how content is processed:
+
+```json
+{
+  "contentDir": "./content",
+  "outputDir": "./public",
+  "chunkSize": 500,
+  "chunkOverlap": 50
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `contentDir` | `./content` | Directory containing your markdown files |
+| `outputDir` | `./public` | Where the built `content-index.json` is written |
+| `chunkSize` | `500` | Maximum characters per chunk |
+| `chunkOverlap` | `50` | Characters of overlap between consecutive chunks |
+
+## Adding content
+
+Place markdown (`.md`) or MDX (`.mdx`) files in your content directory. The CLI
+recursively scans all subdirectories:
+
+```
+content/
+  getting-started.md
+  guides/
+    installation.md
+    configuration.md
+  api/
+    core.md
+    types.md
+```
+
+Each file can include YAML frontmatter. The `title` field is extracted and stored
+as chunk metadata:
+
+```markdown
+---
+title: 'Getting Started'
+---
+
+Welcome to edgekit. This guide walks you through...
+```
+
+If no frontmatter title is present, the filename (without extension) is used as
+the title.
+
+## Building the index
+
+Run the build command to generate the content index:
+
+```bash
+npx @edgekit/cli build
+```
+
+You can also point it at a specific config file:
+
+```bash
+npx @edgekit/cli build ./path/to/edgekit.config.json
+```
+
+The CLI outputs a `content-index.json` file in your configured `outputDir`. The
+output includes a summary:
+
+```
+Built index: 47 chunks, hash a1b2c3d4e5f6g7h8
+```
+
+## How chunking works
+
+The CLI splits each markdown file into chunks using paragraph boundaries. It
+never cuts in the middle of a paragraph. The algorithm:
+
+1. Split the document body on double newlines (`\n\n`)
+2. Accumulate paragraphs until the chunk would exceed `chunkSize`
+3. Emit the current chunk and start a new one
+4. Carry over `chunkOverlap` characters worth of trailing words from the
+   previous chunk into the next one
+
+Overlap ensures that concepts spanning a paragraph boundary are captured in at
+least one chunk. This improves retrieval quality at the cost of slightly larger
+index files.
+
+### Tuning chunk size
+
+The right chunk size depends on your content:
+
+- **Small chunks (200-300 chars)** work well for FAQ-style content where each
+  answer is self-contained. They produce more precise retrieval but may lack
+  context.
+- **Medium chunks (400-600 chars)** are a good default for documentation. They
+  balance precision with enough surrounding context for the model.
+- **Large chunks (800-1200 chars)** suit narrative content like tutorials where
+  ideas build across paragraphs. They provide more context but reduce retrieval
+  precision.
+
+### Tuning chunk overlap
+
+Overlap prevents information loss at chunk boundaries:
+
+- **No overlap (0)** minimizes index size but risks splitting related content
+  across chunks with no shared context.
+- **Small overlap (30-50 chars)** is sufficient for most documentation.
+- **Large overlap (100-200 chars)** helps with dense technical content where
+  terms defined in one paragraph are referenced in the next.
+
+## Frontmatter extraction
+
+The CLI extracts the `title` field from YAML frontmatter and stores it in each
+chunk's metadata. This title is used for:
+
+- **Keyword search weighting** -- Title matches score 2x higher than body matches
+- **Citation display** -- The `<edge-chat>` component shows the title in citations
+- **Filtering** -- You can filter chunks by metadata in advanced retrieval
+
+All other frontmatter fields are currently ignored by the CLI. If you need custom
+metadata, see the [Advanced RAG](/docs/rag/advanced) page for how to extend chunk
+metadata.
+
+## Hash-based versioning
+
+Every content index includes a `contentHash` field -- a truncated SHA-256 hash
+of the concatenated chunk content. This hash serves as a version identifier.
+
+When the browser loads a content index, the `@edgekit/rag-local` package compares
+the remote hash against a locally stored hash in IndexedDB:
+
+```typescript
+import { fetchContentIndex, getStoredHash, needsReload, storeIndex } from '@edgekit/rag-local'
+
+const index = await fetchContentIndex('/content-index.json')
+const storedHash = await getStoredHash()
+
+if (needsReload(storedHash, index.contentHash)) {
+  // Content has changed -- re-index
+  await storeIndex(index)
+}
+```
+
+This mechanism ensures that:
+
+- Returning visitors do not re-process unchanged content
+- Content updates are detected automatically on the next visit
+- The IndexedDB cache can be used for offline retrieval
+
+## The generated index file
+
+The output `content-index.json` has this structure:
+
+```typescript
+{
+  "version": "1.0",
+  "contentHash": "a1b2c3d4e5f6g7h8",
+  "chunks": [
+    {
+      "id": "getting-started.md#0",
+      "content": "Welcome to edgekit...",
+      "embedding": [],
+      "metadata": {
+        "source": "getting-started.md",
+        "title": "Getting Started"
+      }
+    }
+    // ...
+  ],
+  "metadata": {
+    "createdAt": "2026-05-22T10:00:00.000Z",
+    "embeddingModel": "none",
+    "dimensions": 0,
+    "totalChunks": 47
+  }
+}
+```
+
+Note that `embedding` arrays are empty when built without an embedding model.
+The embeddings are computed at runtime in the browser by the `EmbeddingProvider`,
+or you can pre-compute them (see [Embeddings](/docs/rag/embeddings)).
+
+## Integrating with your build
+
+Add the edgekit build step to your site's build pipeline:
+
+```json
+{
+  "scripts": {
+    "build:content": "npx @edgekit/cli build",
+    "build:site": "astro build",
+    "build": "npm run build:content && npm run build:site"
+  }
+}
+```
+
+The content index is written to your public directory and deployed as a static
+asset. No server-side infrastructure is needed.
+
+## CI/CD considerations
+
+Because the content hash changes only when content changes, your CI pipeline can
+cache the generated index and skip rebuilding when no markdown files have been
+modified. A simple check:
+
+```bash
+# Only rebuild if content files changed
+if git diff --name-only HEAD~1 | grep -q "^content/"; then
+  npx @edgekit/cli build
+fi
+```
+
+## Next steps
+
+- [Embeddings](/docs/rag/embeddings) -- Add vector search to your content index
+- [Advanced RAG](/docs/rag/advanced) -- Custom retrieval strategies and hybrid search

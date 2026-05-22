@@ -1,0 +1,94 @@
+---
+layout: '@/layouts/Blog.astro'
+title: 'Privacy as Architecture, Not Policy'
+description: 'Why running AI locally is a stronger privacy guarantee than any privacy policy. No server to breach, no data to subpoena.'
+date: 'May 2026'
+---
+
+Every cloud AI service has a privacy policy. It describes what data they collect, how long they retain it, who can access it, and under what circumstances they might share it. These policies are written by lawyers, approved by compliance teams, and published on websites.
+
+They are also insufficient.
+
+A privacy policy is a promise. An architectural decision is a guarantee. When inference runs in the visitor's browser, there is no data to leak because there is no server to leak it from. Privacy stops being a policy you enforce and becomes a property of the system you built.
+
+## The problem with promises
+
+Cloud AI services handle user queries on their infrastructure. This means:
+
+**Data in transit.** The user's question travels over the network to the provider's servers. Even with TLS, the data is decrypted and processed on someone else's machine.
+
+**Data at rest.** Most providers log queries for some period -- for abuse detection, model improvement, or debugging. Even providers that claim zero-retention logging have infrastructure that temporarily stores requests in memory, in load balancer logs, or in monitoring systems.
+
+**Data under subpoena.** If the data exists on a server, it can be legally compelled. A government subpoena, a discovery request in litigation, or a national security letter can force disclosure of user queries. The provider may fight the request, but the data exists to be disclosed.
+
+**Data in breaches.** Servers get breached. It does not matter how good the security team is -- every server is a target, and the question is when, not if. If user queries are stored or logged, a breach exposes them.
+
+These are not theoretical risks. They are the inherent properties of any architecture where user data leaves the user's device.
+
+## Architecture as guarantee
+
+When edgekit runs inference in the browser, the data flow is fundamentally different:
+
+1. The user types a question in the chat UI.
+2. The question is matched against a content index stored in IndexedDB on the user's device.
+3. Retrieved context and the question are passed to a language model running on the user's GPU.
+4. The response streams back to the chat UI.
+
+At no point does the question leave the browser tab. There is no network request for inference. There is no server processing the query. There is no log file, no database record, no monitoring event.
+
+This is not a privacy policy. It is a constraint enforced by the architecture. You cannot leak data that never leaves the device. You cannot breach a server that does not exist. You cannot subpoena data that was never collected.
+
+## GDPR compliance by design
+
+The EU's General Data Protection Regulation imposes significant obligations on organizations that process personal data. Cloud AI services must address:
+
+- **Legal basis for processing** -- Why are you sending user queries to a third party?
+- **Data processing agreements** -- Your cloud AI provider is a data processor. You need a DPA.
+- **Data transfer mechanisms** -- If the provider is outside the EU, you need Standard Contractual Clauses or adequacy decisions.
+- **Right to deletion** -- Users can request deletion of their data. You need to ensure your AI provider actually deletes it.
+- **Data Protection Impact Assessment** -- AI processing of user queries may require a DPIA.
+- **Records of processing activities** -- You must document what data you send, where, and why.
+
+With edge AI, most of these obligations disappear. If user data never leaves the browser, you are not processing personal data on a server. There is no third-party processor. There is no cross-border transfer. There is no data to delete because none was collected.
+
+This does not make you exempt from GDPR entirely -- you still serve a website, set cookies, and collect whatever analytics you choose. But the AI feature specifically generates zero privacy obligations because it generates zero data flows.
+
+## Where this matters most
+
+Some domains have strict data handling requirements that make cloud AI difficult or impossible:
+
+**Healthcare.** Patient queries about symptoms, medications, or treatment plans are protected health information (PHI) under HIPAA. Sending PHI to a cloud AI provider requires a Business Associate Agreement and careful data handling. Running inference locally eliminates this concern entirely.
+
+**Legal.** Attorney-client privilege means that legal queries should not be shared with third parties. A law firm's internal knowledge base with browser-based AI can provide assistance without risking privilege waiver.
+
+**Finance.** Financial institutions face regulations around customer data handling. An internal tool that answers questions about company policies, compliance procedures, or product documentation can use edge AI without triggering data governance reviews.
+
+**Education.** Student data is protected under FERPA in the US and similar regulations globally. A study assistant that runs in the student's browser does not create a student data record that the institution must manage.
+
+**Government.** Government agencies often cannot send queries to commercial cloud services, especially for classified or sensitive content. Browser-based AI can operate within air-gapped or restricted networks.
+
+## The "but what about" responses
+
+**"What about the model weights? Don't they contain training data?"**
+Model weights are downloaded from a CDN, the same way fonts, images, or JavaScript libraries are. They do not contain user data. They are a static asset, like a dictionary or an encyclopedia. Serving them raises no more privacy concerns than serving a CSS file.
+
+**"What about the content index? Doesn't that contain site data?"**
+The content index contains your public content -- your documentation, blog posts, or product descriptions. This is the same content the user would see by browsing your site. It is not user data; it is your data, served to the user.
+
+**"What about browser extensions or malware?"**
+A compromised browser is a compromised browser, regardless of whether you use cloud or edge AI. This is an endpoint security concern, not an architectural one. Edge AI does not make this worse -- it makes it better, because there is no network exfiltration path for an attacker to intercept.
+
+**"What about analytics on the AI feature?"**
+You can choose to collect analytics on AI usage (query counts, topics, satisfaction ratings) by explicitly sending events from your frontend code. The difference is that this is opt-in and under your control, not a side effect of using a cloud provider. You decide exactly what data to collect, if any.
+
+## The simplest compliance strategy
+
+Privacy regulations are getting stricter globally. GDPR, CCPA, PIPEDA, LGPD, the UK Data Protection Act -- the trend is clear. The compliance burden of processing personal data through third-party services is growing, not shrinking.
+
+The simplest strategy is to not process the data in the first place.
+
+Edge AI is not a workaround for privacy regulation. It is the architecturally correct approach for use cases where user queries do not need to leave the device. Documentation search, product Q&A, content discovery, study aids -- none of these require a server to process the user's question.
+
+Privacy as architecture means you do not need a privacy policy for your AI feature. You do not need a data processing agreement with an AI provider. You do not need to respond to deletion requests for AI query logs, because there are no logs.
+
+The strongest privacy guarantee is the one that requires no enforcement: the data simply does not exist anywhere it shouldn't.

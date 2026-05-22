@@ -1,0 +1,238 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Chrome AI Provider'
+description: 'Use Gemini Nano via the Chrome Prompt API. Zero download, instant inference, no setup.'
+---
+
+## Overview
+
+The Chrome AI provider (`@edgekit/model-chrome`) uses Chrome's built-in Prompt API (`window.ai`) to run Gemini Nano directly in the browser. There is no model download -- Chrome ships the model as part of the browser itself.
+
+This makes Chrome AI the fastest path to working inference: zero download time, zero configuration, and instant first-token latency. The tradeoff is that it only works in Chrome 148+ and has a more limited feature set compared to the WebLLM provider.
+
+```typescript
+import { chromeAI } from '@edgekit/model-chrome'
+import { createRuntime } from '@edgekit/core'
+
+const runtime = createRuntime({
+  model: chromeAI(),
+})
+```
+
+## Availability
+
+The Chrome Prompt API is currently available in Chrome 148+ (Canary and Dev channels). It uses Gemini Nano, a small model built into Chrome that runs locally on the device.
+
+### Checking availability
+
+The provider checks `window.ai` on initialization. You should check availability before creating the runtime to provide a good fallback experience:
+
+```typescript
+async function getChromeAIStatus(): Promise<'ready' | 'downloadable' | 'unavailable'> {
+  if (typeof window === 'undefined' || !window.ai) {
+    return 'unavailable'
+  }
+
+  try {
+    const capabilities = await window.ai.languageModel.capabilities()
+
+    switch (capabilities.available) {
+      case 'readily':
+        return 'ready'
+      case 'after-download':
+        return 'downloadable'
+      case 'no':
+        return 'unavailable'
+    }
+  } catch {
+    return 'unavailable'
+  }
+}
+```
+
+The `capabilities()` call returns one of three states:
+
+| Status | Meaning |
+|---|---|
+| `'readily'` | Gemini Nano is available and ready to use immediately. |
+| `'after-download'` | The model is supported but needs to be downloaded first. Chrome handles this automatically. |
+| `'no'` | The Prompt API is not available on this device (unsupported hardware, disabled by policy, etc.). |
+
+### Capability metadata
+
+The capabilities object also includes default model parameters:
+
+```typescript
+const capabilities = await window.ai.languageModel.capabilities()
+
+// capabilities.defaultTemperature -- default sampling temperature
+// capabilities.defaultTopK         -- default top-K sampling value
+// capabilities.maxTopK             -- maximum allowed top-K value
+```
+
+## ChromeAIConfig
+
+```typescript
+interface ChromeAIConfig {
+  readonly temperature?: number
+  readonly topK?: number
+}
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `temperature` | `number` | Browser default | Sampling temperature for generation. Lower values produce more deterministic output. |
+| `topK` | `number` | Browser default | Top-K sampling. Limits token selection to the K most probable next tokens. |
+
+Both parameters are set when the language model session is created. Unlike the WebLLM provider, Chrome AI does not support per-request temperature or token limit changes -- these are fixed for the lifetime of the session.
+
+```typescript
+chromeAI({ temperature: 0.5, topK: 20 })
+```
+
+## Capabilities and limitations
+
+The Chrome AI provider has a different feature set compared to WebLLM:
+
+| Feature | Chrome AI | WebLLM |
+|---|---|---|
+| **Streaming** | Yes | Yes |
+| **Tool calling** | No | Yes |
+| **Structured generation** | No | Yes |
+| **Model selection** | Gemini Nano only | Multiple models |
+| **Download required** | No | Yes (first visit) |
+| **Per-request temperature** | No | Yes |
+| **Max tokens control** | No | Yes |
+
+### No tool calling
+
+The Chrome Prompt API does not support function/tool calling. If your runtime has skills registered, they will not be invoked when using Chrome AI. The model generates text-only responses.
+
+```typescript
+// capabilities() reflects this:
+const caps = chromeAI().capabilities()
+// {
+//   maxTokens: 4096,
+//   supportsToolCalling: false,  // <-- no tool calling
+//   supportsStreaming: true,
+//   modelId: 'gemini-nano'
+// }
+```
+
+### No structured generation
+
+Calling `generateStructured()` on the Chrome AI provider throws an error. If you need JSON schema-constrained output, use the WebLLM provider instead.
+
+## Lifecycle
+
+### init()
+
+Creates a language model session via `window.ai.languageModel.create()`. Throws an error if the Prompt API is not available or the model is not supported on the device.
+
+```typescript
+const provider = chromeAI({ temperature: 0.7 })
+
+try {
+  await provider.init()
+  // Ready to generate
+} catch (error) {
+  // Chrome AI not available, fall back to another provider
+  console.error(error.message)
+}
+```
+
+### generate()
+
+Streams text from the model. Messages are converted to a text prompt format internally:
+
+- `system` messages become `Instructions: ...`
+- `user` messages become `User: ...`
+- `assistant` messages become `Assistant: ...`
+- `tool` messages are filtered out (not supported)
+
+```typescript
+const messages = [
+  { role: 'system', content: 'Be concise.' },
+  { role: 'user', content: 'What is edgekit?' },
+]
+
+for await (const chunk of provider.generate(messages)) {
+  // chunk.type is always 'text' (no tool_calls support)
+  process.stdout.write(chunk.text)
+}
+```
+
+The Chrome Prompt API returns cumulative text (each chunk contains the full response so far). The provider handles the diffing internally, yielding only new tokens on each iteration.
+
+### dispose()
+
+Destroys the language model session and frees resources.
+
+```typescript
+await provider.dispose()
+```
+
+## Fallback strategy
+
+Chrome AI works well as a zero-cost, zero-latency first option with WebLLM as a fallback for browsers that do not support the Prompt API or when tool calling is needed.
+
+```typescript
+import { chromeAI } from '@edgekit/model-chrome'
+import { webllm } from '@edgekit/model-webllm'
+import { createRuntime } from '@edgekit/core'
+
+async function createBestRuntime() {
+  // Try Chrome AI first (instant, no download)
+  if (window.ai) {
+    try {
+      const capabilities = await window.ai.languageModel.capabilities()
+
+      if (capabilities.available !== 'no') {
+        return createRuntime({
+          model: chromeAI(),
+          systemPrompt: 'You are a helpful assistant.',
+        })
+      }
+    } catch {
+      // Fall through to WebLLM
+    }
+  }
+
+  // Fall back to WebLLM (requires download, but works everywhere with WebGPU)
+  return createRuntime({
+    model: webllm({ tier: 'standard' }),
+    downloadPolicy: 'prompt',
+    systemPrompt: 'You are a helpful assistant.',
+  })
+}
+```
+
+If you need tool calling, skip Chrome AI and go straight to WebLLM:
+
+```typescript
+import { blogChat } from '@edgekit/skills'
+
+// Skills require tool calling -- use WebLLM
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  skills: [blogChat()],
+})
+```
+
+## TypeScript types
+
+The `@edgekit/model-chrome` package includes ambient type declarations for the Chrome Prompt API. After installing the package, `window.ai` is typed in your editor with full autocomplete for:
+
+- `window.ai.languageModel.capabilities()`
+- `window.ai.languageModel.create()`
+- `LanguageModelSession.prompt()`
+- `LanguageModelSession.promptStreaming()`
+- `LanguageModelSession.destroy()`
+
+These types are declared in the `Window` interface and available globally without any import.
+
+## Next steps
+
+- [WebLLM Provider](/docs/providers/webllm) -- full-featured inference with tool calling and model selection
+- [Cloud Fallback](/docs/providers/cloud) -- planned server-side provider for unsupported browsers
+- [Configuration](/docs/configuration) -- runtime options for download policy and guardrails

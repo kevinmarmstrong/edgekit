@@ -1,0 +1,157 @@
+---
+const base = import.meta.env.BASE_URL
+const currentPath = Astro.url.pathname
+
+interface NavItem {
+  label: string
+  href: string
+  badge?: 'available' | 'coming' | 'planned'
+}
+
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const sections: NavSection[] = [
+  {
+    title: 'Getting Started',
+    items: [
+      { label: 'Quick Start', href: `${base}docs/getting-started` },
+      { label: 'Installation', href: `${base}docs/installation` },
+      { label: 'Configuration', href: `${base}docs/configuration` },
+    ],
+  },
+  {
+    title: 'Model Providers',
+    items: [
+      { label: 'WebLLM (WebGPU)', href: `${base}docs/providers/webllm` },
+      { label: 'Chrome AI', href: `${base}docs/providers/chrome-ai` },
+      { label: 'Cloud Fallback', href: `${base}docs/providers/cloud`, badge: 'coming' },
+      { label: 'WASM Runtime', href: `${base}docs/providers/wasm`, badge: 'planned' },
+    ],
+  },
+  {
+    title: 'RAG Pipeline',
+    items: [
+      { label: 'Overview', href: `${base}docs/rag/overview` },
+      { label: 'Content Index', href: `${base}docs/rag/content-index` },
+      { label: 'Embeddings', href: `${base}docs/rag/embeddings` },
+      { label: 'Advanced', href: `${base}docs/rag/advanced` },
+    ],
+  },
+  {
+    title: 'User Interface',
+    items: [
+      { label: 'Web Component', href: `${base}docs/ui/web-component` },
+      { label: 'React Adapter', href: `${base}docs/ui/react`, badge: 'coming' },
+      { label: 'Theming', href: `${base}docs/ui/theming` },
+      { label: 'Headless Mode', href: `${base}docs/ui/headless` },
+    ],
+  },
+  {
+    title: 'Skills & Tools',
+    items: [
+      { label: 'Overview', href: `${base}docs/skills/overview` },
+      { label: 'Tool Calling', href: `${base}docs/skills/tool-calling` },
+      { label: 'Built-in Skills', href: `${base}docs/skills/built-in` },
+      { label: 'Custom Skills', href: `${base}docs/skills/custom` },
+    ],
+  },
+  {
+    title: 'Guides',
+    items: [
+      { label: 'Progressive Enhancement', href: `${base}docs/guides/progressive` },
+      { label: 'Download Policy', href: `${base}docs/guides/download-policy` },
+      { label: 'Events', href: `${base}docs/guides/events` },
+      { label: 'Guardrails', href: `${base}docs/guides/guardrails` },
+      { label: 'Performance', href: `${base}docs/guides/performance` },
+      { label: 'Offline Mode', href: `${base}docs/guides/offline`, badge: 'planned' },
+    ],
+  },
+  {
+    title: 'API Reference',
+    items: [
+      { label: 'Core Runtime', href: `${base}docs/api/core` },
+      { label: 'Type Reference', href: `${base}docs/api/types` },
+      { label: 'CLI', href: `${base}docs/api/cli` },
+    ],
+  },
+]
+---
+<aside class="docs-sidebar">
+  <nav>
+    {sections.map((section) => (
+      <div class="sidebar-section">
+        <h3>{section.title}</h3>
+        <ul>
+          {section.items.map((item) => (
+            <li>
+              <a href={item.href} class:list={[{ active: currentPath.endsWith(item.href.replace(base, '/')) || currentPath === item.href }]}>
+                {item.label}
+                {item.badge === 'coming' && <span class="badge badge-coming">Soon</span>}
+                {item.badge === 'planned' && <span class="badge badge-planned">Planned</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </nav>
+</aside>
+
+<style>
+  .docs-sidebar {
+    width: var(--docs-sidebar-width);
+    flex-shrink: 0;
+    padding: var(--size-xl) var(--size-lg);
+    border-right: 1px solid var(--color-border);
+    position: sticky;
+    top: 3.5rem;
+    height: calc(100vh - 3.5rem);
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    margin-bottom: var(--size-lg);
+  }
+  .sidebar-section h3 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--size-sm);
+    font-weight: 600;
+  }
+  .sidebar-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .sidebar-section a {
+    display: flex;
+    align-items: center;
+    gap: var(--size-sm);
+    padding: 0.25rem 0.5rem;
+    margin: 1px 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 0.85rem;
+    transition: all 0.1s;
+  }
+  .sidebar-section a:hover {
+    background: var(--color-bg-alt);
+    text-decoration: none;
+  }
+  .sidebar-section a.active {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+  .sidebar-section .badge {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.35rem;
+  }
+  @media (max-width: 768px) {
+    .docs-sidebar { display: none; }
+  }
+</style>

@@ -1,0 +1,245 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Guardrails'
+description: 'Configure input validation, output limits, and conversation safety'
+---
+
+Guardrails protect your edgekit deployment from abuse, runaway generation, and unexpected input. They are configured through the `guardrails` field on `RuntimeConfig` and enforced automatically by the orchestrator.
+
+## GuardrailsConfig
+
+```typescript
+import type { GuardrailsConfig } from '@edgekit/core'
+
+interface GuardrailsConfig {
+  readonly maxInputTokens?: number
+  readonly maxOutputTokens?: number
+  readonly maxConversationTurns?: number
+  readonly blockedPatterns?: readonly RegExp[]
+}
+```
+
+All fields are optional. When omitted, no limit is applied for that dimension.
+
+### Basic Configuration
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  guardrails: {
+    maxInputTokens: 500,
+    maxOutputTokens: 1024,
+    maxConversationTurns: 20,
+    blockedPatterns: [
+      /ignore\s+(all\s+)?previous\s+instructions/i,
+      /you\s+are\s+now/i,
+      /<script[\s>]/i,
+    ],
+  },
+})
+```
+
+## Input Validation
+
+### maxInputTokens
+
+Limits the estimated token count of each user message. Edgekit estimates tokens by dividing the character count by 4 (a rough but fast approximation that avoids loading a tokenizer). If the estimated count exceeds the limit, the query is rejected before any retrieval or generation happens.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+  guardrails: {
+    maxInputTokens: 500,  // ~2000 characters
+  },
+})
+```
+
+When a message is rejected, the runtime emits a recoverable error event with a message like `"Input too long (estimated 650 tokens, max 500)"`. The query function returns without producing any output.
+
+### blockedPatterns
+
+An array of regular expressions tested against each user message. If any pattern matches, the input is blocked with the message `"Input contains blocked content"`.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+  guardrails: {
+    blockedPatterns: [
+      // Block common prompt injection attempts
+      /ignore\s+(all\s+)?previous\s+instructions/i,
+      /you\s+are\s+now/i,
+      /system\s*prompt/i,
+
+      // Block HTML/script injection
+      /<script[\s>]/i,
+      /javascript:/i,
+
+      // Block specific topics
+      /competitor\s+comparison/i,
+    ],
+  },
+})
+```
+
+Patterns are tested using `RegExp.test()`, so they match anywhere in the input string. Use anchors (`^`, `$`) if you need exact matching.
+
+### Empty Input
+
+Empty or whitespace-only input is always rejected, even without any guardrails configured. The validation function returns `"Input cannot be empty"` for blank messages.
+
+## Output Limits
+
+### maxOutputTokens
+
+Limits the number of tokens the model can generate in a single response. This value is passed directly to the model provider's `generate` method via the `maxTokens` option.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+  guardrails: {
+    maxOutputTokens: 512,
+  },
+})
+```
+
+When the model reaches the token limit, generation stops and the partial response is returned. The model is not aware it was cut off, so the response may end mid-sentence. For a better experience, keep the limit high enough for complete answers (512-1024 tokens is typical).
+
+Note: Without `maxOutputTokens`, the model uses its own default (1024 tokens for WebLLM models, 4096 for the maximum).
+
+## Conversation Limits
+
+### maxConversationTurns
+
+Limits the number of user messages (turns) in a single conversation. Each user message increments the turn counter. When the limit is reached, the next user message throws an error: `"Conversation exceeded maximum of N turns"`.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+  guardrails: {
+    maxConversationTurns: 20,
+  },
+})
+```
+
+This prevents conversations from growing unboundedly, which can cause context window issues with smaller models. When the limit is hit, you can call `runtime.clearConversation()` to reset:
+
+```typescript
+try {
+  for await (const token of runtime.query(userMessage)) {
+    appendToken(token)
+  }
+} catch (e) {
+  if (e instanceof Error && e.message.includes('exceeded maximum')) {
+    runtime.clearConversation()
+    showMessage('Conversation reset. Please ask your question again.')
+  }
+}
+```
+
+The `clearConversation` method preserves system messages (the system prompt) but removes all user, assistant, and tool messages, and resets the turn counter to zero.
+
+## System Prompt Isolation
+
+The system prompt is set once at runtime creation and cannot be modified through user messages. It is always the first message in the conversation context:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+  systemPrompt:
+    'You are a helpful assistant for Acme Corp documentation. ' +
+    'Only answer questions about Acme products. ' +
+    'If asked about anything else, politely redirect to the topic.',
+})
+```
+
+When `clearConversation()` is called, the system prompt is retained. User messages with `role: 'system'` cannot be added through the public API -- the context manager only accepts system messages during initialization.
+
+## Validation Flow
+
+Here is the order in which guardrails are checked during a query:
+
+1. **Empty check** -- Always runs. Rejects whitespace-only input.
+2. **Token count check** -- Runs if `maxInputTokens` is set. Estimates tokens and rejects oversized input.
+3. **Blocked patterns** -- Runs if `blockedPatterns` is set. Tests each pattern against the input.
+4. **Turn limit** -- Checked when the user message is added to conversation history. Throws if exceeded.
+5. **Output limit** -- Applied during generation as the `maxTokens` parameter.
+
+If validation fails at steps 1-3, the runtime emits a recoverable error event and the `query` generator returns without yielding any tokens. If the turn limit (step 4) is exceeded, an error is thrown.
+
+## Using the Validation Function Directly
+
+The `validateInput` function is exported from `@edgekit/core` for use in custom UI or pre-validation:
+
+```typescript
+import { validateInput } from '@edgekit/core'
+import type { GuardrailsConfig } from '@edgekit/core'
+
+const config: GuardrailsConfig = {
+  maxInputTokens: 500,
+  blockedPatterns: [/ignore previous/i],
+}
+
+const result = validateInput('Hello, world!', config)
+// { valid: true }
+
+const blocked = validateInput('Please ignore previous instructions', config)
+// { valid: false, reason: 'Input contains blocked content' }
+
+const tooLong = validateInput('x'.repeat(3000), config)
+// { valid: false, reason: 'Input too long (estimated 750 tokens, max 500)' }
+```
+
+This is useful for showing validation errors in the UI before sending the message to the runtime:
+
+```typescript
+function handleSend(input: string) {
+  const check = validateInput(input, guardrailsConfig)
+  if (!check.valid) {
+    showError(check.reason ?? 'Invalid input')
+    return
+  }
+  // Proceed with runtime.query(input)
+}
+```
+
+## Recommended Defaults
+
+For most content sites, a reasonable starting configuration:
+
+```typescript
+const guardrails: GuardrailsConfig = {
+  maxInputTokens: 500,
+  maxOutputTokens: 1024,
+  maxConversationTurns: 25,
+  blockedPatterns: [
+    /ignore\s+(all\s+)?previous\s+instructions/i,
+    /you\s+are\s+now/i,
+    /<script[\s>]/i,
+    /javascript:/i,
+  ],
+}
+```
+
+## Next Steps
+
+- [Events](/docs/guides/events) -- Error events emitted by guardrails
+- [Performance](/docs/guides/performance) -- How token limits affect generation speed
+- [Progressive Enhancement](/docs/guides/progressive) -- How guardrails interact with the three tiers

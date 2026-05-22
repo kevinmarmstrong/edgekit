@@ -1,0 +1,178 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Cloud Fallback Provider'
+description: 'Route to OpenAI, Anthropic, or other cloud APIs when the browser cannot run local inference.'
+---
+
+> **Coming Soon** -- The cloud provider is under active development. This page documents the planned API and design. The interface may change before release.
+
+## The problem
+
+Not every visitor can run local inference. Safari has no WebGPU support. Older devices lack sufficient GPU memory. Some corporate environments block WebGPU entirely. Today, these visitors get retrieval-only mode -- cited content chunks without AI-generated answers.
+
+The cloud fallback provider will fill this gap. When the browser cannot run a model locally, the runtime routes the query to a cloud API instead. The visitor still gets a full AI-powered experience, and you only pay for the requests that actually need server-side inference.
+
+## How it will work
+
+The cloud provider implements the same `ModelProvider` interface as WebLLM and Chrome AI. The runtime does not know or care whether tokens come from the visitor's GPU or a remote server -- the provider abstraction hides the difference.
+
+```typescript
+// Planned API
+import { cloud } from '@edgekit/model-cloud'
+import { webllm } from '@edgekit/model-webllm'
+import { createRuntime } from '@edgekit/core'
+
+const runtime = createRuntime({
+  model: withFallback(
+    webllm({ tier: 'standard' }),
+    cloud({
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      apiKey: 'your-proxy-endpoint-key',
+      endpoint: 'https://your-proxy.example.com/v1',
+    }),
+  ),
+})
+```
+
+## Planned architecture
+
+### Proxy-first design
+
+The cloud provider will **never** call OpenAI, Anthropic, or any third-party API directly from the browser. API keys must not be exposed in client-side code.
+
+Instead, you deploy a thin proxy endpoint on your own server. The proxy holds your API key, adds rate limiting, and forwards requests to the upstream provider. The browser sends requests to your proxy only.
+
+```
+Browser  -->  Your Proxy  -->  OpenAI / Anthropic / etc.
+              (holds API key)
+```
+
+This design keeps your API keys secure and lets you control costs with server-side rate limiting.
+
+### Planned CloudConfig
+
+```typescript
+// Planned interface -- subject to change
+interface CloudConfig {
+  readonly provider: 'openai' | 'anthropic' | 'custom'
+  readonly model: string
+  readonly endpoint: string
+  readonly apiKey?: string  // For your proxy, not the upstream provider
+  readonly maxTokens?: number
+  readonly temperature?: number
+}
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `provider` | `string` | Cloud provider type. Determines the request/response format. |
+| `model` | `string` | Model identifier (e.g., `'gpt-4o-mini'`, `'claude-sonnet-4-20250514'`). |
+| `endpoint` | `string` | Your proxy endpoint URL. All requests go here, never directly to the provider. |
+| `apiKey` | `string` | Optional authentication key for your proxy. |
+| `maxTokens` | `number` | Default max tokens per response. |
+| `temperature` | `number` | Default sampling temperature. |
+
+### Planned provider support
+
+| Provider | Streaming | Tool calling | Structured output |
+|---|---|---|---|
+| OpenAI | Yes | Yes | Yes |
+| Anthropic | Yes | Yes | Yes |
+| Custom (OpenAI-compatible) | Yes | Depends on endpoint | Depends on endpoint |
+
+## Planned fallback strategy
+
+The `withFallback` helper (also planned) wraps two providers: a primary and a fallback. It tries the primary first and switches to the fallback when the primary fails or is unavailable.
+
+```typescript
+// Planned API
+import { withFallback } from '@edgekit/core'
+
+const model = withFallback(
+  webllm({ tier: 'standard' }),   // Try local first
+  cloud({ ... }),                  // Fall back to cloud
+)
+```
+
+The fallback triggers when:
+- WebGPU is not available in the browser
+- The visitor declines the model download (`downloadPolicy: 'prompt'`)
+- Model initialization fails (insufficient VRAM, GPU error)
+- Generation fails mid-stream (rare but possible)
+
+## Cost implications
+
+With local-first + cloud fallback, you only pay for cloud API calls when the browser genuinely cannot run inference. Based on current WebGPU adoption:
+
+- **Chrome 113+, Edge 113+, Firefox 127+** -- local inference, zero cost
+- **Safari, older browsers** -- cloud fallback, per-token cost
+
+This means the majority of your traffic runs for free, and you only incur cloud costs for the long tail of unsupported browsers.
+
+## When to expect it
+
+The cloud fallback provider is the highest-priority planned feature. Follow the [GitHub repository](https://github.com/kevinmarmstrong/edgekit) for progress updates.
+
+In the meantime, you can implement your own cloud provider by implementing the `ModelProvider` interface:
+
+```typescript
+import type { ModelProvider } from '@edgekit/core'
+
+function myCloudProvider(): ModelProvider {
+  return {
+    id: 'my-cloud',
+
+    async init() {
+      // Verify endpoint is reachable
+    },
+
+    async *generate(messages, options) {
+      const response = await fetch('https://your-proxy.example.com/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, ...options }),
+      })
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value)
+        yield { type: 'text', text }
+      }
+    },
+
+    async generateStructured(messages, schema) {
+      // Call your proxy with schema constraint
+      const response = await fetch('https://your-proxy.example.com/v1/structured', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, schema }),
+      })
+      return response.json()
+    },
+
+    capabilities() {
+      return {
+        maxTokens: 4096,
+        supportsToolCalling: true,
+        supportsStreaming: true,
+        modelId: 'my-cloud-model',
+      }
+    },
+
+    async dispose() {
+      // Nothing to clean up
+    },
+  }
+}
+```
+
+## Next steps
+
+- [WebLLM Provider](/docs/providers/webllm) -- the primary local inference provider
+- [Chrome AI Provider](/docs/providers/chrome-ai) -- zero-download local inference
+- [WASM Runtime](/docs/providers/wasm) -- planned WASM-based inference for Safari

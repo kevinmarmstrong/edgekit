@@ -1,0 +1,307 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Configuration'
+description: 'Complete reference for RuntimeConfig options including model, RAG, UI, guardrails, and more.'
+---
+
+## RuntimeConfig
+
+The `createRuntime` function accepts a single `RuntimeConfig` object. This is the central configuration for the entire edgekit pipeline -- model inference, retrieval, UI, tool calling, and safety guardrails.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import type { RuntimeConfig } from '@edgekit/core'
+
+const config: RuntimeConfig = {
+  model: webllm(),               // required
+  rag: localRAG(),               // optional
+  embeddings: transformers(),    // optional
+  skills: [blogChat()],          // optional
+  ui: webComponent(),            // optional
+  downloadPolicy: 'prompt',     // optional
+  maxToolRounds: 3,              // optional
+  systemPrompt: '...',          // optional
+  guardrails: { ... },          // optional
+}
+
+const runtime = createRuntime(config)
+```
+
+## model (required)
+
+**Type:** `ModelProvider`
+
+The language model provider used for text generation. This is the only required field. Edgekit ships two built-in providers:
+
+```typescript
+import { webllm } from '@edgekit/model-webllm'
+import { chromeAI } from '@edgekit/model-chrome'
+
+// WebGPU inference with a quantized model
+createRuntime({ model: webllm({ tier: 'standard' }) })
+
+// Chrome Prompt API (Gemini Nano, no download)
+createRuntime({ model: chromeAI({ temperature: 0.7 }) })
+```
+
+You can also implement the `ModelProvider` interface to bring any model:
+
+```typescript
+interface ModelProvider {
+  readonly id: string
+  init(): Promise<void>
+  generate(messages: readonly Message[], options?: GenerateOptions): AsyncIterable<GenerateChunk>
+  generateStructured<T>(messages: readonly Message[], schema: Record<string, unknown>): Promise<T>
+  capabilities(): ModelCapabilities
+  dispose(): Promise<void>
+}
+```
+
+## rag
+
+**Type:** `RAGProvider | undefined`  
+**Default:** `undefined`
+
+An optional retrieval-augmented generation provider. When set, the runtime queries the RAG provider before every generation call. Retrieved chunks are injected into the conversation as a system message with instructions to cite sources.
+
+```typescript
+import { localRAG } from '@edgekit/rag-local'
+
+createRuntime({
+  model: webllm(),
+  rag: localRAG({
+    indexUrl: '/content-index.json',
+    topK: 5,
+  }),
+})
+```
+
+### LocalRAGConfig options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `indexUrl` | `string` | `undefined` | URL to a pre-built content index JSON file |
+| `topK` | `number` | `5` | Number of chunks to retrieve per query |
+| `embeddings` | `EmbeddingProvider` | `undefined` | Embedding provider for semantic search (falls back to keyword search) |
+
+## embeddings
+
+**Type:** `EmbeddingProvider | undefined`  
+**Default:** `undefined`
+
+An optional embedding provider for generating vector representations of text. Used by the RAG provider for semantic similarity search. Without this, `@edgekit/rag-local` falls back to keyword-based matching.
+
+```typescript
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  embeddings: transformersEmbedding({
+    model: 'Xenova/all-MiniLM-L6-v2',
+    quantized: true,
+  }),
+})
+```
+
+### TransformersEmbeddingConfig options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `model` | `string` | `'Xenova/all-MiniLM-L6-v2'` | Hugging Face model ID for the embedding model |
+| `quantized` | `boolean` | `true` | Whether to use the quantized version of the model |
+
+The default model produces 384-dimensional embeddings and works well for general-purpose retrieval.
+
+## skills
+
+**Type:** `readonly Skill[] | undefined`  
+**Default:** `undefined`
+
+An array of skill extensions that register tools the model can call during generation. Each skill provides a set of tool definitions and handlers.
+
+```typescript
+import { blogChat } from '@edgekit/skills'
+
+createRuntime({
+  model: webllm(),
+  skills: [
+    blogChat({ siteName: 'My Blog' }),
+  ],
+})
+```
+
+Skills implement the `Skill` interface:
+
+```typescript
+interface Skill {
+  readonly name: string
+  readonly description: string
+  readonly tools: readonly Tool[]
+  activate(context: SkillContext): void
+  deactivate?(): void
+  handleToolCall?(name: string, args: Record<string, unknown>): Promise<string>
+}
+```
+
+When the model generates a tool call, the runtime finds the skill that owns that tool and invokes `handleToolCall`. The result is fed back into the conversation for the next generation round. See `maxToolRounds` for controlling how many rounds of tool use are allowed.
+
+## ui
+
+**Type:** `UIProvider | undefined`  
+**Default:** `undefined`
+
+An optional UI provider that renders the chat interface. The built-in `webComponent` provider mounts a Lit-based `<edge-chat>` custom element.
+
+```typescript
+import { webComponent } from '@edgekit/ui-component'
+
+const ui = webComponent({
+  theme: 'dark',
+  placeholder: 'What would you like to know?',
+})
+
+const runtime = createRuntime({ model: webllm(), ui })
+
+ui.mount(document.getElementById('chat'), runtime)
+```
+
+### WebComponentConfig options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color theme. `'auto'` follows the user's system preference. |
+| `placeholder` | `string` | `'Ask a question...'` | Placeholder text for the input field |
+
+The UI provider interface is simple -- implement `mount` and `unmount` to build your own:
+
+```typescript
+interface UIProvider {
+  mount(container: HTMLElement, runtime: Runtime): void
+  unmount(): void
+}
+```
+
+## downloadPolicy
+
+**Type:** `'auto' | 'prompt' | 'never'`  
+**Default:** `'prompt'`
+
+Controls how the runtime handles model downloads.
+
+| Value | Behavior |
+|---|---|
+| `'auto'` | Download the model immediately when the runtime starts. Best for apps where AI is the primary feature. |
+| `'prompt'` | Wait for user permission before downloading. The UI component shows a consent prompt. Recommended for most sites. |
+| `'never'` | Never download a model. The runtime operates in retrieval-only mode, returning cited content chunks without generation. |
+
+When set to `'prompt'` and the model has not been downloaded yet, the first call to `runtime.query()` emits a recoverable error event. The `<edge-chat>` UI catches this and shows a download consent dialog. You can also call `runtime.initModel()` to trigger the download programmatically after getting user consent.
+
+## maxToolRounds
+
+**Type:** `number`  
+**Default:** `3`
+
+The maximum number of tool-calling round trips per query. Each round lets the model call tools and receive results before generating the next response. Setting this to `0` disables tool calling even if skills are registered.
+
+```typescript
+createRuntime({
+  model: webllm(),
+  skills: [blogChat()],
+  maxToolRounds: 5,  // Allow up to 5 rounds of tool use
+})
+```
+
+## systemPrompt
+
+**Type:** `string | undefined`  
+**Default:** `undefined`
+
+A system prompt prepended to every conversation. This is added as the first message with `role: 'system'` when the runtime is created. Use it to set the model's persona, define response format, or establish behavioral boundaries.
+
+```typescript
+createRuntime({
+  model: webllm(),
+  systemPrompt: `You are a documentation assistant for Acme Corp.
+Answer questions using only the provided context.
+If you don't know the answer, say so. Do not make up information.
+Always cite your sources.`,
+})
+```
+
+The system prompt persists across `clearConversation()` calls -- only user and assistant messages are cleared.
+
+## guardrails
+
+**Type:** `GuardrailsConfig | undefined`  
+**Default:** `undefined`
+
+Safety and resource limits for the runtime. All fields are optional.
+
+```typescript
+createRuntime({
+  model: webllm(),
+  guardrails: {
+    maxInputTokens: 1000,
+    maxOutputTokens: 2048,
+    maxConversationTurns: 20,
+    blockedPatterns: [
+      /ignore all previous instructions/i,
+      /you are now/i,
+    ],
+  },
+})
+```
+
+### GuardrailsConfig options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `maxInputTokens` | `number` | `undefined` | Maximum estimated tokens in a single user input. Token count is estimated at ~4 characters per token. Inputs exceeding this emit an error event and are not processed. |
+| `maxOutputTokens` | `number` | `undefined` | Maximum tokens the model is allowed to generate per response. Passed directly to the model provider's `maxTokens` option. |
+| `maxConversationTurns` | `number` | `undefined` | Maximum number of user turns before the conversation is forcefully ended. Throws an error when exceeded. |
+| `blockedPatterns` | `readonly RegExp[]` | `undefined` | Regular expressions tested against user input. If any pattern matches, the input is rejected with a generic "blocked content" message. Useful for basic prompt injection defense. |
+
+## Full example
+
+Here is a complete configuration using every available option:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+import { webComponent } from '@edgekit/ui-component'
+import { blogChat } from '@edgekit/skills'
+
+const ui = webComponent({ theme: 'auto', placeholder: 'Ask anything...' })
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({
+    indexUrl: '/content-index.json',
+    topK: 5,
+    embeddings: transformersEmbedding({ quantized: true }),
+  }),
+  embeddings: transformersEmbedding({ quantized: true }),
+  skills: [blogChat({ siteName: 'My Site' })],
+  ui,
+  downloadPolicy: 'prompt',
+  maxToolRounds: 3,
+  systemPrompt: 'Answer questions about My Site using the provided context.',
+  guardrails: {
+    maxInputTokens: 500,
+    maxOutputTokens: 1024,
+    maxConversationTurns: 25,
+    blockedPatterns: [/ignore previous/i],
+  },
+})
+
+ui.mount(document.getElementById('chat'), runtime)
+```
+
+## Next steps
+
+- [WebLLM Provider](/docs/providers/webllm) -- model tiers and WebGPU configuration
+- [Chrome AI Provider](/docs/providers/chrome-ai) -- zero-download inference with Gemini Nano
+- [Event System](/docs/guides/events) -- subscribe to runtime events for custom UI or analytics

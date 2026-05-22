@@ -1,0 +1,234 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Tool Calling'
+description: 'How tool calling works in the edgekit runtime pipeline'
+---
+
+Tool calling lets the model invoke functions during generation instead of producing only text. The model emits a structured `tool_calls` response, the orchestrator dispatches each call to the matching skill, and the result feeds back into the next generation round. This loop continues until the model produces a final text response or the maximum number of tool rounds is reached.
+
+## The ToolCall Type
+
+Every tool call flowing through the system uses the `ToolCall` interface:
+
+```typescript
+import type { ToolCall } from '@edgekit/core'
+
+interface ToolCall {
+  readonly id: string        // Unique ID for this call, e.g. "call_0"
+  readonly name: string      // Tool name, e.g. "search_content"
+  readonly arguments: string // JSON-encoded arguments string
+}
+```
+
+The `id` field ties a tool call to its result. The orchestrator uses it to create the corresponding `tool` role message with a matching `toolCallId`. The `arguments` field is always a JSON string, not a parsed object -- the orchestrator handles parsing before passing args to the skill.
+
+## How a Tool Call Flows Through the System
+
+Here is the complete lifecycle of a tool call, from user query to final response:
+
+### 1. User Sends a Query
+
+```typescript
+for await (const token of runtime.query('What articles mention TypeScript?')) {
+  process.stdout.write(token)
+}
+```
+
+### 2. Orchestrator Collects Tools
+
+The orchestrator gathers every tool from every registered skill into a flat array. These are sent to the model as available functions:
+
+```typescript
+// Internal to the orchestrator:
+const tools = skills.flatMap((s) => s.tools)
+```
+
+Each `Tool` has a JSON Schema `parameters` field that the model uses to understand what arguments it should generate:
+
+```typescript
+import type { Tool } from '@edgekit/core'
+
+const tool: Tool = {
+  name: 'search_content',
+  description: 'Search site content for relevant information',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query' },
+    },
+    required: ['query'],
+  },
+}
+```
+
+### 3. Model Generates a Tool Call
+
+Instead of producing text, the model emits a `GenerateChunk` with type `'tool_calls'`:
+
+```typescript
+type GenerateChunk =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'tool_calls'; readonly toolCalls: readonly ToolCall[] }
+```
+
+The model can emit multiple tool calls in a single generation round. For example, it might call `search_content` and `get_metadata` simultaneously.
+
+### 4. Orchestrator Dispatches to Skills
+
+For each tool call, the orchestrator finds the skill that owns the tool by matching the tool name:
+
+```typescript
+// Internal to the orchestrator:
+const handler = skills.find(
+  (s) => s.handleToolCall && s.tools.some((t) => t.name === tc.name),
+)
+```
+
+### 5. JSON Argument Parsing
+
+The orchestrator parses the `arguments` string from JSON into a plain object before passing it to the skill:
+
+```typescript
+// Internal to the orchestrator:
+let args: Record<string, unknown>
+try {
+  args = JSON.parse(tc.arguments) as Record<string, unknown>
+} catch {
+  // Emits an error event and skips this tool call
+  bus.emit({
+    type: 'error',
+    error: new Error(`Malformed tool call arguments for ${tc.name}`),
+    recoverable: true,
+  })
+  continue
+}
+```
+
+If the model produces invalid JSON (which can happen with smaller models), the orchestrator emits a recoverable error event and skips that tool call. The generation continues with whatever other tool calls or text were produced.
+
+### 6. Skill Handles the Call
+
+The skill's `handleToolCall` method receives the tool name and parsed arguments, and returns a string result:
+
+```typescript
+async handleToolCall(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<string> {
+  if (name === 'search_content') {
+    const query = args['query'] as string
+    const results = await searchIndex(query)
+    return JSON.stringify({ results })
+  }
+  throw new Error(`Unknown tool: ${name}`)
+}
+```
+
+The return value is always a string. If your tool returns structured data, serialize it to JSON. The model can parse it in the next round.
+
+### 7. Result Feeds Back Into Generation
+
+The tool result is added to the message history as a `tool` role message:
+
+```typescript
+import type { Message } from '@edgekit/core'
+
+const toolResultMessage: Message = {
+  role: 'tool',
+  content: result,         // The string returned by handleToolCall
+  toolCallId: tc.id,       // Ties this result to the original tool call
+}
+```
+
+The orchestrator then starts a new generation round with this updated message history. The model sees the tool result and can either produce a final text response or make additional tool calls.
+
+## Max Tool Rounds
+
+The `maxToolRounds` config option limits how many tool-call-and-respond cycles can happen per query. The default is 3. Set it higher if your skills involve multi-step reasoning, or lower if you want faster responses:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+  maxToolRounds: 5,  // Allow up to 5 tool rounds per query
+})
+```
+
+After the maximum rounds, the model's last text output becomes the final response regardless of whether it wanted to make more tool calls. This prevents infinite loops if the model keeps calling tools without producing a final answer.
+
+## Events During Tool Calling
+
+The runtime emits events at every stage of the tool calling process:
+
+```typescript
+runtime.on((event) => {
+  switch (event.type) {
+    case 'tool:call':
+      console.log(`Model calling tool: ${event.toolCall.name}`)
+      console.log(`Arguments: ${event.toolCall.arguments}`)
+      break
+    case 'tool:result':
+      console.log(`Tool ${event.toolCallId} returned: ${event.result}`)
+      break
+    case 'generation:start':
+      console.log('New generation round starting')
+      break
+    case 'error':
+      if (!event.recoverable) {
+        console.error('Fatal error:', event.error.message)
+      }
+      break
+  }
+})
+```
+
+These events fire in order: `generation:start` -> `tool:call` (one per call) -> `tool:result` (one per call) -> `generation:start` (next round). The final round ends with `generation:complete`.
+
+## Multiple Tool Calls in One Round
+
+The model can emit multiple tool calls in a single generation. The orchestrator processes them sequentially -- it calls `handleToolCall` for each one in order and adds all results to the message history before starting the next generation round.
+
+```typescript
+// The model might emit two tool calls at once:
+const chunk: GenerateChunk = {
+  type: 'tool_calls',
+  toolCalls: [
+    { id: 'call_0', name: 'search_content', arguments: '{"query":"TypeScript"}' },
+    { id: 'call_1', name: 'get_stats', arguments: '{"metric":"pageviews"}' },
+  ],
+}
+```
+
+Both results are injected before the model generates again, so it can synthesize information from multiple tool calls in its response.
+
+## Error Handling
+
+Tool calling can fail at several points. The orchestrator handles each gracefully:
+
+| Failure | Behavior |
+|---------|----------|
+| Malformed JSON in arguments | Recoverable error event, tool call skipped |
+| No skill owns the tool name | Tool call silently skipped |
+| `handleToolCall` throws | Error propagates to the caller |
+| Model keeps calling tools past `maxToolRounds` | Last text output becomes the response |
+
+For production use, always listen for error events so you can log or display them:
+
+```typescript
+runtime.on((event) => {
+  if (event.type === 'error') {
+    analytics.track('tool_error', {
+      message: event.error.message,
+      recoverable: event.recoverable,
+    })
+  }
+})
+```
+
+## Next Steps
+
+- [Built-in Skills](/docs/skills/built-in) -- Ready-made skills that ship with edgekit
+- [Custom Skills](/docs/skills/custom) -- Build a skill from scratch with a full walkthrough
+- [Events Guide](/docs/guides/events) -- All runtime events including tool call events

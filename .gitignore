@@ -3,6 +3,7 @@ dist/
 *.tsbuildinfo
 coverage/
 .vite/
+.astro/
 .DS_Store
 *.local
 .env

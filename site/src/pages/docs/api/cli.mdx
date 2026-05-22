@@ -1,0 +1,282 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'CLI Reference'
+description: 'edgekit init and edgekit build commands for content indexing'
+---
+
+The `@edgekit/cli` package provides two commands for building your content index at deploy time. The CLI reads your markdown files, splits them into chunks, and writes a static `content-index.json` file that the browser-side RAG provider loads at runtime.
+
+## Installation
+
+```bash
+npm install --save-dev @edgekit/cli
+```
+
+Or run directly with npx:
+
+```bash
+npx @edgekit/cli init
+npx @edgekit/cli build
+```
+
+## Commands
+
+### edgekit init
+
+Scaffolds a new edgekit project by creating a configuration file and a content directory.
+
+```bash
+npx @edgekit/cli init [dir]
+```
+
+**Arguments:**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `dir` | Current working directory | Directory to initialize |
+
+**What it creates:**
+
+1. `edgekit.config.json` -- Configuration file with default settings
+2. `content/` -- Empty directory for your markdown files
+
+**Example:**
+
+```bash
+npx @edgekit/cli init
+# Created edgekit.config.json and content/ directory
+
+npx @edgekit/cli init ./my-project
+# Creates config and content dir inside ./my-project
+```
+
+If `edgekit.config.json` already exists in the target directory, the command exits with an error to prevent overwriting your configuration.
+
+The generated config file contains:
+
+```json
+{
+  "contentDir": "./content",
+  "outputDir": "./public",
+  "chunkSize": 500,
+  "chunkOverlap": 50
+}
+```
+
+### edgekit build
+
+Reads all markdown files from the content directory, splits them into chunks, and writes the content index to the output directory.
+
+```bash
+npx @edgekit/cli build [config]
+```
+
+**Arguments:**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `config` | `edgekit.config.json` | Path to the configuration file |
+
+**Example:**
+
+```bash
+npx @edgekit/cli build
+# Built index: 142 chunks, hash a1b2c3d4e5f67890
+
+npx @edgekit/cli build ./custom-config.json
+# Uses a custom config file path
+```
+
+**Output:**
+
+The command writes `content-index.json` to the configured output directory. This file is a static JSON file that you deploy with your site.
+
+## edgekit.config.json Schema
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `contentDir` | `string` | `"./content"` | Directory containing your markdown files. Scanned recursively. |
+| `outputDir` | `string` | `"./public"` | Directory where `content-index.json` is written. |
+| `chunkSize` | `number` | `500` | Maximum characters per chunk. |
+| `chunkOverlap` | `number` | `50` | Characters of overlap between adjacent chunks. |
+
+**Example configuration:**
+
+```json
+{
+  "contentDir": "./docs",
+  "outputDir": "./public/data",
+  "chunkSize": 400,
+  "chunkOverlap": 75
+}
+```
+
+### contentDir
+
+The directory to scan for markdown files. The CLI recursively finds all `.md` and `.mdx` files in this directory and its subdirectories. If the directory does not exist, the build command exits with an error.
+
+### outputDir
+
+The directory where the built `content-index.json` file is written. The CLI creates this directory (and any parent directories) if it does not exist.
+
+### chunkSize
+
+Controls how many characters go into each chunk. The CLI splits content by paragraph boundaries (double newlines), accumulating paragraphs until adding the next one would exceed `chunkSize`. Smaller chunks give more precise retrieval but a larger index file. See the [Performance guide](/docs/guides/performance) for tuning advice.
+
+### chunkOverlap
+
+When a new chunk starts, the last N characters from the previous chunk are prepended to maintain context across chunk boundaries. This prevents information from being lost when a concept spans two paragraphs. The overlap is measured in characters and approximated by taking the last few words from the previous chunk.
+
+## Output Format: content-index.json
+
+The build command produces a `ContentIndex` object serialized as JSON:
+
+```typescript
+import type { ContentIndex } from '@edgekit/core'
+
+interface ContentIndex {
+  readonly version: string        // Schema version, currently "1.0"
+  readonly contentHash: string    // SHA-256 hash of all content (first 16 hex chars)
+  readonly chunks: readonly IndexedChunk[]
+  readonly metadata: IndexMetadata
+}
+
+interface IndexedChunk {
+  readonly id: string             // e.g. "getting-started.md#0"
+  readonly content: string        // The chunk text
+  readonly embedding: readonly number[]  // Empty array (embeddings computed at runtime)
+  readonly metadata: ChunkMetadata
+}
+
+interface ChunkMetadata {
+  readonly source: string         // Relative path from contentDir
+  readonly title?: string         // Extracted from frontmatter, or filename
+}
+
+interface IndexMetadata {
+  readonly createdAt: string      // ISO 8601 timestamp
+  readonly embeddingModel: string // "none" (CLI does not compute embeddings)
+  readonly dimensions: number     // 0 (no embeddings)
+  readonly totalChunks: number    // Total number of chunks in the index
+}
+```
+
+**Example output (abbreviated):**
+
+```json
+{
+  "version": "1.0",
+  "contentHash": "a1b2c3d4e5f67890",
+  "chunks": [
+    {
+      "id": "getting-started.md#0",
+      "content": "Edgekit adds an AI assistant to any website...",
+      "embedding": [],
+      "metadata": {
+        "source": "getting-started.md",
+        "title": "Getting Started"
+      }
+    },
+    {
+      "id": "getting-started.md#1",
+      "content": "Install the core package and a model provider...",
+      "embedding": [],
+      "metadata": {
+        "source": "getting-started.md",
+        "title": "Getting Started"
+      }
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-05-22T10:30:00.000Z",
+    "embeddingModel": "none",
+    "dimensions": 0,
+    "totalChunks": 2
+  }
+}
+```
+
+## Content Hash Versioning
+
+The `contentHash` field is a SHA-256 hash of all chunk content, truncated to 16 hexadecimal characters. It changes whenever the content of any markdown file changes.
+
+The browser-side RAG provider uses this hash to decide whether to re-download the index. When `loadAndInitRAG` is called, it compares the remote index's `contentHash` against the hash stored in IndexedDB. If they match, the cached index is used. If they differ, the new index is downloaded and stored.
+
+```typescript
+import { localRAG, loadAndInitRAG } from '@edgekit/rag-local'
+
+const rag = localRAG({ topK: 5 })
+const { reloaded } = await loadAndInitRAG(rag, '/content-index.json')
+
+if (reloaded) {
+  console.log('Content index updated to latest version')
+} else {
+  console.log('Using cached content index')
+}
+```
+
+This means you can deploy a new `content-index.json` with every build, and visitors will only download it when the content has actually changed.
+
+## Supported Input Formats
+
+The CLI processes two file types:
+
+### Markdown (.md)
+
+Standard markdown files. The CLI extracts the `title` from YAML frontmatter if present:
+
+```markdown
+---
+title: Getting Started
+---
+
+Your content here...
+```
+
+If no frontmatter is present, the filename (without extension) is used as the title.
+
+### MDX (.mdx)
+
+MDX files are treated identically to markdown. The CLI strips frontmatter and processes the remaining text content. JSX components and imports are included as plain text in the chunks -- the CLI does not execute or render them.
+
+## Integrating with Your Build Pipeline
+
+Add edgekit build to your deployment scripts:
+
+```json
+{
+  "scripts": {
+    "build": "astro build && npx @edgekit/cli build",
+    "build:index": "npx @edgekit/cli build"
+  }
+}
+```
+
+For CI/CD pipelines, run the build command after your content is generated:
+
+```bash
+# Build your site
+npm run build
+
+# Build the content index
+npx @edgekit/cli build
+
+# Deploy public/ to your CDN
+```
+
+The `content-index.json` file is a static asset. Serve it from the same origin as your site, or from a CDN. The browser-side `localRAG` provider fetches it via the URL you pass to `indexUrl`.
+
+## Error Handling
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Config not found` | No `edgekit.config.json` in the working directory | Run `npx @edgekit/cli init` first |
+| `Config already exists` | Running `init` in a directory that already has a config | Delete the existing config or use a different directory |
+| `Content directory does not exist` | The `contentDir` path does not exist | Create the directory or fix the path in config |
+| `No markdown files found` | The `contentDir` exists but contains no `.md` or `.mdx` files | Add markdown content to the directory |
+
+## Next Steps
+
+- [RAG Overview](/docs/rag/overview) -- How the content index is used at runtime
+- [Performance](/docs/guides/performance) -- Chunk size and overlap tuning
+- [Progressive Enhancement](/docs/guides/progressive) -- How retrieval-only mode uses the index

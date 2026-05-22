@@ -1,0 +1,85 @@
+---
+const base = import.meta.env.BASE_URL
+---
+<footer class="site-footer">
+  <div class="footer-inner container">
+    <div class="footer-grid">
+      <div class="footer-section">
+        <h4>Product</h4>
+        <a href={`${base}docs/getting-started`}>Getting Started</a>
+        <a href={`${base}demos`}>Live Demos</a>
+        <a href={`${base}roadmap`}>Roadmap</a>
+        <a href={`${base}pricing`}>Pricing</a>
+      </div>
+      <div class="footer-section">
+        <h4>Documentation</h4>
+        <a href={`${base}docs/configuration`}>Configuration</a>
+        <a href={`${base}docs/providers/webllm`}>Model Providers</a>
+        <a href={`${base}docs/rag/overview`}>RAG Pipeline</a>
+        <a href={`${base}docs/api/core`}>API Reference</a>
+      </div>
+      <div class="footer-section">
+        <h4>Resources</h4>
+        <a href={`${base}blog/why-browser-ai`}>Blog</a>
+        <a href={`${base}use-cases/documentation`}>Use Cases</a>
+        <a href={`${base}comparison`}>Comparison</a>
+        <a href="https://github.com/kevinmarmstrong/edgekit">GitHub</a>
+      </div>
+      <div class="footer-section">
+        <h4>Community</h4>
+        <a href="https://github.com/kevinmarmstrong/edgekit/issues">Issues</a>
+        <a href="https://github.com/kevinmarmstrong/edgekit/discussions">Discussions</a>
+        <a href="https://github.com/kevinmarmstrong/edgekit/blob/main/CONTRIBUTING.md">Contributing</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>edgekit is open source under the MIT License.</p>
+      <p>AI runs on the visitor's device. No data leaves the browser.</p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--color-border);
+    padding: var(--size-2xl) 0 var(--size-xl);
+    margin-top: var(--size-3xl);
+    background: var(--color-bg-alt);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--size-xl);
+  }
+  .footer-section h4 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: var(--size-md);
+  }
+  .footer-section a {
+    display: block;
+    color: var(--color-text);
+    font-size: 0.875rem;
+    padding: 0.2rem 0;
+  }
+  .footer-section a:hover {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  .footer-bottom {
+    margin-top: var(--size-2xl);
+    padding-top: var(--size-lg);
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+  }
+  .footer-bottom p {
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    margin: var(--size-xs) 0;
+  }
+  @media (max-width: 768px) {
+    .footer-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

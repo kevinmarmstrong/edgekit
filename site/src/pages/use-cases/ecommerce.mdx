@@ -1,0 +1,141 @@
+---
+layout: '@/layouts/Base.astro'
+title: 'E-Commerce Product Search'
+description: 'AI-powered product Q&A grounded in your catalog. Shoppers ask natural-language questions and get product recommendations with zero server cost.'
+---
+
+Shoppers do not think in filters. They think in problems. "I need a waterproof jacket for hiking in the Pacific Northwest" does not map cleanly to a dropdown for category, a checkbox for waterproof, and a price slider. Traditional e-commerce search forces the shopper to decompose their intent into structured facets. Most give up and bounce.
+
+Edgekit lets you add a conversational product assistant that understands natural-language questions, retrieves relevant products from your catalog, and generates grounded recommendations -- all running in the shopper's browser.
+
+## The problem
+
+Product search on e-commerce sites is broken in predictable ways:
+
+**Keyword mismatch.** A shopper searching for "running shoes for flat feet" will miss products described as "stability running footwear with arch support" unless you maintain a synonym dictionary.
+
+**Filter fatigue.** Faceted search works when the shopper knows exactly what they want. When they are exploring, clicking through filters is slow and frustrating.
+
+**No synthesis.** A search bar returns a list of products. It cannot explain why one product is better than another for a specific use case, or compare features across options.
+
+**Support load.** Questions that product search cannot answer become support tickets that cost $5-15 each to resolve.
+
+## The solution
+
+Edgekit indexes your product catalog and lets shoppers ask questions in plain language. The AI retrieves matching products, compares features, and explains why each recommendation fits the query.
+
+Example interactions:
+
+- "Waterproof hiking boots under $150 with good ankle support" -- Filters by multiple criteria simultaneously
+- "What's the difference between the Pro and Standard models?" -- Compares specific products
+- "I need a gift for someone who likes cooking and is a beginner" -- Handles subjective, context-rich queries
+- "Which of your laptops has the best battery life for travel?" -- Ranks products by a specific attribute
+
+Each answer cites the product pages, so the shopper can click through to the full listing.
+
+## Implementation
+
+### Step 1: Index your catalog
+
+Export your product data as markdown files. Each product becomes a document with structured frontmatter:
+
+```markdown
+---
+title: 'Trail Runner Pro X'
+price: 129.99
+category: 'Running Shoes'
+tags: ['trail', 'waterproof', 'stability']
+---
+
+The Trail Runner Pro X features a Gore-Tex waterproof membrane,
+Vibram Megagrip outsole, and a medial post for overpronation support.
+Available in sizes 7-14. Weight: 310g per shoe.
+```
+
+Build the index with the CLI:
+
+```bash
+npx @edgekit/cli build \
+  --input ./content/products \
+  --output ./public/content-index.json
+```
+
+### Step 2: Add the product assistant
+
+```html
+<div id="product-chat"></div>
+
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({
+    theme: 'auto',
+    placeholder: 'Ask about our products...',
+  })
+
+  const runtime = createRuntime({
+    model: webllm(),
+    rag: localRAG({ indexUrl: '/content-index.json', topK: 8 }),
+    ui,
+    downloadPolicy: 'prompt',
+    systemPrompt: `You are a product assistant. Answer questions using
+      only the provided product information. When recommending products,
+      mention the product name, price, and key features. If the catalog
+      does not have a matching product, say so honestly.`,
+    guardrails: {
+      maxInputTokens: 200,
+      maxOutputTokens: 600,
+      maxConversationTurns: 15,
+    },
+  })
+
+  ui.mount(document.getElementById('product-chat'), runtime)
+</script>
+```
+
+### Step 3: Keep the index in sync
+
+Rebuild the content index when your catalog changes. Most e-commerce platforms can export product data as part of a CI/CD pipeline:
+
+```json
+{
+  "scripts": {
+    "export-products": "node scripts/export-catalog.js",
+    "build:index": "npm run export-products && npx @edgekit/cli build"
+  }
+}
+```
+
+## What shoppers experience
+
+**First visit:** The shopper sees a chat widget. They type a product question and are prompted to download the AI model (~2.5 GB). If they decline, they still get product matches from the content index (retrieval-only mode with links to product pages).
+
+**After model download:** Product questions are answered in 1-3 seconds with conversational recommendations. The shopper can ask follow-up questions to narrow down their choice.
+
+**Repeat visits:** The model is cached. Startup is instant.
+
+## ROI
+
+| Metric | Before | After |
+|---|---|---|
+| Search-to-purchase conversion | 2-4% | Improved by 15-30% |
+| Support tickets from product questions | High | Reduced 30-50% |
+| Cost per AI-assisted interaction | $0.003+ (cloud) | $0 |
+| Average pages per session | 3-4 | 5-8 (citation click-through) |
+
+## Privacy advantage
+
+Shoppers are increasingly wary of search data being collected and sold to advertisers. With edgekit, product queries never leave the shopper's device. There is no search history to collect, no query data to monetize, and no third-party tracking through your AI feature.
+
+This is a genuine competitive advantage for stores that position themselves on trust and privacy.
+
+## Best practices
+
+**Rich product descriptions.** The AI can only recommend based on what is in the index. Products with detailed descriptions, specifications, and use-case notes produce better results than bare-bones listings.
+
+**Include comparison content.** If you have buying guides or comparison pages, index those alongside individual products. The AI can use them to explain trade-offs between options.
+
+**Structured frontmatter.** Include price, category, availability, and other structured data in your markdown frontmatter. The AI uses this context when generating recommendations.

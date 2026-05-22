@@ -1,0 +1,112 @@
+---
+layout: '@/layouts/Blog.astro'
+title: 'Small Models, Big Impact'
+description: 'What 3-4B parameter models can actually do. RAG as the quality multiplier. Bounded domains vs general knowledge.'
+date: 'May 2026'
+---
+
+The AI industry is obsessed with scale. Bigger models, bigger context windows, bigger training runs. GPT-4 has an estimated 1.8 trillion parameters. Claude Opus runs on clusters of high-end GPUs. The implicit message is clear: quality requires size.
+
+For a large class of practical applications, this is wrong.
+
+A 3.8-billion-parameter model, running locally in a browser, can produce better results than GPT-4 for specific, bounded tasks -- when you give it the right context. The key is understanding what "better" means in practice and how RAG changes the quality equation.
+
+## What small models can do
+
+Modern small models (3-4B parameters) are not the small models of two years ago. Architecture improvements, better training data, and refined training techniques have pushed the quality frontier dramatically downward.
+
+Phi-4-Mini (3.8B) can:
+
+- Summarize a 500-word passage accurately
+- Answer factual questions when given relevant context
+- Follow instructions to cite sources
+- Maintain coherent conversation over 5-10 turns
+- Generate structured responses (lists, comparisons, step-by-step explanations)
+- Reason through simple multi-step problems when the information is in the prompt
+
+Phi-4-Mini cannot:
+
+- Answer questions about topics not in its training data or provided context
+- Perform complex mathematical reasoning reliably
+- Generate creative writing that matches large model quality
+- Handle nuanced, multi-domain questions that require broad knowledge synthesis
+- Maintain coherence over very long conversations (20+ turns)
+
+The gap between these two lists is the difference between a general-purpose assistant and a domain-specific tool. For edgekit's use cases -- documentation search, product Q&A, content discovery -- everything falls in the "can do" list.
+
+## RAG as the quality multiplier
+
+Without RAG, a small model answers from its training data. Its training data is a compressed, lossy representation of the internet. For specific questions about your product, your documentation, or your content, the training data is either missing or outdated.
+
+With RAG, the model does not need to "know" anything about your domain. The retrieval pipeline provides the relevant context, and the model's job reduces to reading comprehension and synthesis. This is a much easier task that small models handle well.
+
+Here is the quality chain:
+
+1. **Chunking quality** determines whether the right information is available. Good chunking preserves semantic boundaries -- a section of documentation stays together rather than being split mid-paragraph.
+
+2. **Embedding quality** determines whether the right chunks are retrieved. Edgekit uses a compact embedding model (all-MiniLM-L6-v2 or similar) that runs in the browser and produces 384-dimensional vectors. The quality is sufficient for semantic similarity matching within a single domain.
+
+3. **Retrieval precision** is the ratio of relevant chunks to total retrieved chunks. Edgekit retrieves the top-K chunks (default: 5) by cosine similarity. For well-chunked content, precision is typically 80-90% -- meaning 4 out of 5 retrieved chunks are genuinely relevant.
+
+4. **Model synthesis** is the final step. Given 4-5 relevant paragraphs, the model produces a coherent answer with citations. This is well within the capability envelope of a 3.8B model.
+
+The chain makes clear that model size is only one factor, and not the most important one. A 3.8B model with excellent retrieval outperforms a 70B model with poor retrieval for domain-specific questions.
+
+## Bounded domains vs general knowledge
+
+The distinction between "bounded" and "open" domains explains when small models work and when they don't.
+
+**Bounded domain:** a documentation site for a JavaScript framework. The total knowledge corpus is 200 pages of docs, a changelog, and a migration guide. Every question has an answer somewhere in this corpus. The user is asking about *this specific thing*, not about the world in general.
+
+**Open domain:** a general-purpose chatbot. The user might ask about history, science, cooking, relationship advice, or the weather. There is no corpus to ground the answers. The model must rely on its training data.
+
+Small models excel in bounded domains because:
+
+- The corpus is finite and indexable
+- Questions have deterministic answers (the docs say what they say)
+- Retrieval reduces the model's job to reading comprehension
+- The system prompt can constrain behavior ("Answer only from the provided context")
+- Hallucination risk is low because the model can cite specific passages
+
+Small models struggle in open domains because:
+
+- There is no corpus to retrieve from
+- The model must rely on compressed training knowledge
+- 3.8B parameters cannot store as much world knowledge as 1.8T parameters
+- Hallucination risk is high without grounding context
+
+## When small models beat GPT-4
+
+This is not a rhetorical claim. There are concrete scenarios where a local 3.8B model produces a better user experience than a cloud API call to a frontier model:
+
+**Latency-sensitive interactions.** When the user asks a question and expects an immediate response, the 200-500ms network round-trip to a cloud API is noticeable. A local model starts generating in under 1 second. For short answers (1-2 sentences), the local model often finishes before the cloud model starts.
+
+**High-frequency queries.** A developer debugging code might ask 50 questions in an hour. With a cloud API, this hits rate limits, accumulates cost, and adds latency. With a local model, it is free and instant.
+
+**Privacy-critical contexts.** A healthcare portal where patients ask questions about their medications. A legal tool where attorneys search case law. The cloud API might produce a marginally better answer, but the privacy cost of sending the query to a third party is unacceptable.
+
+**Offline or low-connectivity environments.** A student on a train with spotty WiFi. A field worker in a remote location. The cloud API is unavailable, but the model cached in the browser works perfectly.
+
+**Cost-sensitive applications.** An indie developer cannot afford $300/month in API costs for their documentation site. The choice is not between a small model and GPT-4 -- it is between a small model and no AI feature at all.
+
+## Making small models work well
+
+Getting good results from a 3.8B model requires discipline in a few areas:
+
+**System prompts matter more.** Large models can infer intent from vague prompts. Small models benefit from explicit instructions: "Answer the user's question using only the provided context. If the context does not contain the answer, say so. Cite the source for each fact."
+
+**Context quality matters more.** With a large context window, you can throw in extra chunks and let a big model sort through them. With a small model, every token in the context window counts. Retrieve fewer, more relevant chunks.
+
+**Conversation length matters more.** Small models degrade faster over long conversations as the context fills up. Design your UI for focused, task-oriented interactions rather than open-ended chat.
+
+**Temperature matters more.** Lower temperature (0.1-0.3) works better for factual, grounded tasks. Small models are more sensitive to sampling parameters than large models.
+
+None of these are hard constraints. They are tuning decisions that take an hour to get right and then work reliably for the life of the deployment.
+
+## The trajectory
+
+Small models are getting better faster than large models are getting bigger. Each generation of 3-4B models closes the gap with the previous generation's 70B models for specific task categories.
+
+The practical implication: use cases that require a large cloud model today may be feasible with a small local model in 6-12 months. The set of problems that truly require a frontier model is shrinking, while the set that a browser-local model can handle is growing.
+
+For bounded domains with good retrieval, that future is already here.

@@ -1,0 +1,98 @@
+---
+layout: '@/layouts/Blog.astro'
+title: 'Zero Marginal Cost AI'
+description: 'The economics of edge vs cloud AI. How edgekit shifts compute cost to the visitor and why this matters for indie devs and small teams.'
+date: 'May 2026'
+---
+
+Every cloud AI provider charges per token. OpenAI, Anthropic, Google, Cohere -- the pricing models differ in detail but share the same structure: you pay for every query your users make. The more useful your AI feature becomes, the more it costs you.
+
+This creates a perverse incentive. The better the feature works, the more people use it, and the faster your bill grows. Success is expensive.
+
+Edgekit inverts this. The inference runs on the visitor's GPU. Your cost per query is zero. Your millionth user costs the same as your first.
+
+## The per-token tax
+
+Consider a documentation site with an AI search feature powered by a cloud API. Reasonable assumptions:
+
+- Average query: 200 input tokens (system prompt + context + question)
+- Average response: 300 output tokens
+- Cost: ~$0.003 per query (GPT-4o-mini pricing)
+- 10,000 queries/month: $30/month
+
+Thirty dollars a month sounds fine. But usage is spiky. A Hacker News mention can drive 10x normal traffic in a day. A product launch can sustain 5x for a week. An enterprise customer onboarding their team can generate thousands of queries in the first hour.
+
+The problem is not the average cost. It is the variance. You cannot predict usage, so you cannot predict cost. This leads to defensive engineering:
+
+- Rate limiting per user (degrading the experience)
+- Session caps ("You've used 5 AI queries today")
+- Removing the AI feature from free tiers
+- Adding authentication just to track and limit usage
+- Setting hard budget caps that kill the feature mid-month
+
+These are not technical decisions. They are anxiety-driven responses to an unpredictable cost structure.
+
+## The static-site analogy
+
+The web already solved this problem once. Dynamic application servers (Rails, Django, Express) had per-request compute costs. As traffic grew, you needed more servers. Scaling was expensive and operationally complex.
+
+Static site generators (Jekyll, Hugo, Astro) shifted the compute to build time. Your server became a CDN serving pre-built HTML. The marginal cost of serving one more visitor is effectively zero. This is why Jamstack took over marketing sites, documentation, and blogs -- the economics are unbeatable.
+
+Edge AI applies the same pattern to inference. Instead of running a model on your server per-query, the model runs on the visitor's device. Your "server" is a CDN serving static model weights, a content index, and your HTML. Build-time compute (indexing your content) replaces runtime compute (running inference per query).
+
+The cost structure becomes:
+
+- **CDN bandwidth**: Model weights (~2.5 GB) are downloaded once per visitor and cached. A CDN like Cloudflare or Vercel charges fractions of a cent per GB. After the first visit, bandwidth is zero.
+- **Build-time indexing**: The CLI processes your content at deploy time. This takes seconds and runs in CI. Cost: whatever your CI runner costs, amortized across all visitors.
+- **Runtime inference**: Zero. The visitor's GPU does the work.
+
+## What this means for indie developers
+
+If you are a solo developer or a small team, cloud AI costs create a real barrier:
+
+- You cannot offer AI features on a free tier without risking a surprise bill
+- You need billing infrastructure, usage tracking, and rate limiting before you can ship
+- You are competing with venture-funded companies who can subsidize AI costs temporarily
+
+Edge AI removes this barrier. You can ship an AI-powered documentation site, product catalog, or learning platform with zero ongoing AI costs. The only cost is hosting static files, which is free or near-free on modern platforms.
+
+This matters more than it might seem. The difference between "I can add AI to my side project for free" and "I need to set up billing, usage caps, and a cloud API key" is often the difference between shipping and not shipping.
+
+## What this means for small teams
+
+For teams of 2-20 people building products, the economics change at a different level:
+
+**Pricing simplicity.** You can offer AI features without per-seat or per-query pricing tiers. Your SaaS pricing is based on the value you deliver, not the compute you consume.
+
+**Margin protection.** If AI queries cost you $0.003 each, a power user generating 1,000 queries/month costs you $3/month. That might exceed what they pay you. With edge AI, power users cost you nothing extra.
+
+**No cloud vendor lock-in.** You do not have an API key tied to a specific provider. No rate limits to manage. No outages to monitor. No terms of service changes to react to.
+
+**Global performance.** Every user gets the same latency regardless of their distance from your server (because there is no server involved in inference). A user in Tokyo gets the same response speed as a user in San Francisco.
+
+## The tradeoffs are real
+
+Edge AI is not free of cost. The costs are different:
+
+**First-visit download.** Users download 2-2.5 GB of model weights on first visit. This is a real friction point on slow connections. Edgekit mitigates this with download policies (prompt the user, allow them to opt in) and progressive enhancement (retrieval-only mode works without the model).
+
+**Device capability.** Not every device can run inference. Older laptops, Chromebooks, and most mobile devices lack the GPU capability. You need a fallback path. Edgekit provides this automatically.
+
+**Model quality.** A 3.8B model is not GPT-4. For open-ended, general-knowledge tasks, cloud models are better. Edge AI works best for bounded domains where RAG provides the necessary context.
+
+These tradeoffs are acceptable for a wide range of use cases. Documentation search, product Q&A, content discovery, study aids -- these are bounded problems where the economics of edge AI are overwhelmingly favorable.
+
+## The math
+
+For a documentation site serving 100,000 AI queries per month:
+
+| Approach | Monthly cost | Annual cost |
+|---|---|---|
+| Cloud API (GPT-4o-mini) | ~$300 | ~$3,600 |
+| Cloud API (Claude Haiku) | ~$200 | ~$2,400 |
+| Self-hosted (GPU instance) | ~$500+ | ~$6,000+ |
+| Edge AI (edgekit) | ~$0 | ~$0 |
+
+The edge AI row is not a typo. Your server serves static files. The compute happens on hardware your visitors already own. The cost is the same whether you serve 1,000 or 1,000,000 queries.
+
+This is not a marginal improvement. It is a structural advantage that compounds over time.

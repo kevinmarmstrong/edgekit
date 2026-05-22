@@ -1,0 +1,190 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Offline Mode'
+description: 'Full AI assistant with zero network after the first visit'
+---
+
+> **Planned Feature** -- Offline mode is not yet implemented. This page describes the planned architecture and API. The feature is tracked on the edgekit roadmap.
+
+## The Vision
+
+After a visitor's first visit, edgekit can work with zero network connectivity. The model, content index, and embedding data are all stored locally. A Service Worker intercepts requests and serves everything from the cache. The visitor gets a fully functional AI assistant on an airplane, in a subway, or on a spotty connection.
+
+## Architecture
+
+Offline mode adds a Service Worker layer that caches three categories of assets:
+
+1. **The AI model** -- Already cached by WebLLM in the browser's Cache Storage after the first download. Offline mode ensures the Service Worker knows about this cache and serves it when offline.
+
+2. **The content index** -- The `content-index.json` file is cached by the Service Worker after the first fetch. Hash-based versioning ensures the cache is updated when content changes.
+
+3. **The application shell** -- Your HTML, CSS, and JavaScript bundles are precached by the Service Worker at install time.
+
+```
+First Visit (Online)                Return Visit (Offline)
+--------------------                ----------------------
+Browser -> Network -> Model         Browser -> Service Worker -> Cache -> Model
+Browser -> Network -> Index         Browser -> Service Worker -> Cache -> Index
+Browser -> Network -> App Shell     Browser -> Service Worker -> Cache -> App Shell
+         |                                          |
+         v                                          v
+    Cache Storage                              Cache Storage
+    (model, index, shell)                      (model, index, shell)
+         |                                          |
+         v                                          v
+    IndexedDB                                  IndexedDB
+    (parsed index, embeddings)                 (parsed index, embeddings)
+```
+
+## Planned API
+
+### Registering the Service Worker
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { registerOfflineWorker } from '@edgekit/offline'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'auto',
+})
+
+// Register the Service Worker with the content assets to cache
+await registerOfflineWorker({
+  indexUrl: '/content-index.json',
+  appShellUrls: [
+    '/',
+    '/chat',
+    '/styles.css',
+    '/main.js',
+  ],
+})
+```
+
+### Checking Offline Readiness
+
+```typescript
+import { isOfflineReady } from '@edgekit/offline'
+
+const status = await isOfflineReady()
+// {
+//   modelCached: true,
+//   indexCached: true,
+//   appShellCached: true,
+//   ready: true,
+// }
+
+if (status.ready) {
+  showBadge('Available offline')
+}
+```
+
+### Updating Cached Content
+
+When the content index changes (new blog posts, updated docs), the Service Worker detects the hash mismatch and updates its cache:
+
+```typescript
+import { checkForUpdates } from '@edgekit/offline'
+
+const update = await checkForUpdates()
+if (update.indexChanged) {
+  // New content is available
+  // The Service Worker will fetch the new index on next activation
+  showNotification('New content available. Refresh to update.')
+}
+```
+
+## Service Worker Strategy
+
+The planned Service Worker uses a cache-first strategy for all edgekit assets:
+
+1. **Model files** -- Cache-first, never revalidate. Model files are versioned by their filename/URL. A new model version gets a new URL.
+
+2. **Content index** -- Stale-while-revalidate. Serve the cached version immediately, then check for updates in the background. If the `contentHash` has changed, update the cache and notify the app.
+
+3. **App shell** -- Cache-first with background update. The Service Worker precaches the app shell at install time and serves it from cache. Updates are applied on the next navigation.
+
+### Cache Size Considerations
+
+| Asset | Typical Size | Cache Lifetime |
+|-------|-------------|----------------|
+| AI model (tiny tier) | ~300 MB | Until model version changes |
+| AI model (standard tier) | ~2 GB | Until model version changes |
+| Content index | 500 KB - 5 MB | Until content hash changes |
+| App shell | 50 KB - 500 KB | Until deployment |
+| Embedding model | ~30 MB | Until model version changes |
+
+Total cache for a standard deployment: approximately 2-3 GB. The browser may evict caches under storage pressure. The Service Worker should handle cache misses gracefully by falling back to network requests.
+
+## Planned Events
+
+Offline mode will emit events through the runtime event bus:
+
+```typescript
+runtime.on((event) => {
+  switch (event.type) {
+    case 'offline:ready':
+      // All assets are cached, offline mode is available
+      break
+    case 'offline:update':
+      // New content index is available
+      break
+    case 'offline:serving':
+      // Currently serving from cache (no network)
+      break
+  }
+})
+```
+
+## Progressive Enhancement with Offline
+
+Offline mode layers on top of edgekit's existing progressive enhancement:
+
+- **Online + WebGPU**: Full AI assistant with live index updates
+- **Online + No WebGPU**: Retrieval-only with live index
+- **Offline + WebGPU**: Full AI assistant with cached index
+- **Offline + No WebGPU**: Retrieval-only with cached index
+
+The visitor never sees a broken state. If they go offline before the model is cached, they get retrieval-only mode from the cached content index. If they go offline before the content index is cached, they see the app shell with a message that content is not yet available.
+
+## Prerequisites
+
+When offline mode ships, it will require:
+
+- A browser that supports Service Workers (all modern browsers)
+- The visitor must have visited the site at least once while online
+- Sufficient storage quota for the model and content index
+- HTTPS (Service Workers require secure contexts)
+
+## Current Workarounds
+
+Until offline mode is officially supported, you can achieve partial offline capability:
+
+1. **Model caching is automatic.** WebLLM stores downloaded models in Cache Storage. Return visits load from cache even without a Service Worker.
+
+2. **Content index in IndexedDB.** The `loadAndInitRAG` function stores the index in IndexedDB. If the network is unavailable, you can fall back to the stored index:
+
+```typescript
+import { localRAG, loadAndInitRAG } from '@edgekit/rag-local'
+
+const rag = localRAG({ topK: 5 })
+
+try {
+  await loadAndInitRAG(rag, '/content-index.json')
+} catch {
+  // Network unavailable -- initialize with no index
+  // The RAG provider will return empty results
+  await rag.init()
+}
+```
+
+3. **Manual Service Worker.** You can write your own Service Worker that caches `content-index.json` and your app shell. The `@edgekit/offline` package will formalize this pattern when it ships.
+
+## Next Steps
+
+- [Progressive Enhancement](/docs/guides/progressive) -- The three-tier system offline mode builds on
+- [Performance](/docs/guides/performance) -- Cache and startup optimization
+- [Download Policy](/docs/guides/download-policy) -- How download policy interacts with offline caching

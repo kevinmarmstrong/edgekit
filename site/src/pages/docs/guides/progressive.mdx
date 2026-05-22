@@ -1,0 +1,176 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Progressive Enhancement'
+description: 'How edgekit gracefully degrades across browser capabilities'
+---
+
+Edgekit is built around the principle that every visitor should get a useful experience, regardless of their browser's capabilities. There is no error screen, no "your browser is not supported" message, and no blank widget. Instead, the runtime detects what the browser can do and adapts automatically.
+
+## Three Tiers
+
+Edgekit operates in one of three tiers, determined at runtime by browser capability detection:
+
+### Tier 1: Full (WebGPU + RAG)
+
+**Requirements:** WebGPU support, sufficient GPU memory, model downloaded
+
+**Experience:** The complete AI assistant. The model runs inference on the visitor's GPU via WebGPU, RAG retrieval provides grounded context, and the model can use tool calling to invoke registered skills. Streaming token output, multi-turn conversation, and source citations all work.
+
+**Browsers:** Chrome 113+, Edge 113+, Firefox 127+ (with WebGPU enabled)
+
+### Tier 2: Partial (Chrome AI + RAG)
+
+**Requirements:** Chrome 148+ with Prompt API (`window.ai` available)
+
+**Experience:** The model runs via Chrome's built-in Gemini Nano, which requires no download and starts instantly. RAG retrieval still works, so answers are grounded in your content. Tool calling is not available because Chrome AI does not support function calls. The model generates text-only responses using the conversation history and retrieved context.
+
+**Browsers:** Chrome 148+ (with AI features enabled)
+
+### Tier 3: Retrieval-Only (No Model)
+
+**Requirements:** None beyond basic JavaScript
+
+**Experience:** When no model is available -- either because the browser lacks WebGPU and Chrome AI, or because the download policy is set to `'never'`, or because the user declined the model download -- edgekit falls back to retrieval-only mode. The RAG provider searches the content index and returns the most relevant chunks as formatted text with source citations. There is no generation, but the visitor still gets a useful answer.
+
+**Browsers:** All browsers, including Safari, older Firefox, and mobile browsers
+
+## How Capability Detection Works
+
+The runtime does not ask the visitor what their browser supports. It detects capabilities silently during the query flow:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',
+})
+```
+
+When `runtime.query()` is called:
+
+1. **RAG retrieval runs first.** This always works because it uses IndexedDB and JavaScript -- no GPU needed. Relevant content chunks are retrieved immediately.
+
+2. **Model readiness is checked.** The orchestrator calls `ensureModel()`, which checks the download policy and model state:
+   - If `downloadPolicy` is `'never'`, the model is skipped entirely.
+   - If `downloadPolicy` is `'prompt'` and the model has not been downloaded, a recoverable error event is emitted and the model is skipped.
+   - If `downloadPolicy` is `'auto'`, the model initializes (downloading if needed) and then generates.
+
+3. **Fallback to retrieval-only.** If the model is not ready but retrieved chunks exist, the runtime formats them into a plain-text response with source titles and citations:
+
+```
+Here's what I found (model not yet available):
+
+**Getting Started Guide**: Edgekit adds an AI assistant to any site...
+
+**API Reference**: The createRuntime function accepts a RuntimeConfig...
+```
+
+This means the visitor sees relevant content from your site immediately, even if the model never loads.
+
+## Configuring the Fallback Behavior
+
+### Download Policy
+
+The `downloadPolicy` setting on `RuntimeConfig` is the primary control for how edgekit handles model availability:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+// Always try to download and run the model
+const autoRuntime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'auto',
+})
+
+// Ask the user before downloading (default)
+const promptRuntime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',
+})
+
+// Never download -- retrieval only
+const retrievalRuntime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'never',
+})
+```
+
+See the [Download Policy guide](/docs/guides/download-policy) for detailed UX patterns for each mode.
+
+### Model Tier Selection
+
+Choosing a smaller model can make Tier 1 accessible on more devices. The `@edgekit/model-webllm` package provides three tiers:
+
+| Tier | Model | Size | Best For |
+|------|-------|------|----------|
+| `tiny` | Qwen2.5-0.5B | ~300 MB | Mobile, low-end laptops |
+| `standard` | Phi-4-Mini | ~2 GB | Most desktops (default) |
+| `high` | Phi-3.5-Mini | ~2 GB | Maximum quality |
+
+```typescript
+import { webllm } from '@edgekit/model-webllm'
+
+// Use a smaller model for broader device support
+const model = webllm({ tier: 'tiny' })
+```
+
+See the [Performance guide](/docs/guides/performance) for device-specific tuning advice.
+
+## User-Triggered Model Loading
+
+When using `downloadPolicy: 'prompt'`, the user controls when (or if) the model downloads. The `<edge-chat>` web component shows a built-in download prompt with "Download Model" and "No Thanks" buttons.
+
+For a custom UI, listen for the error event and call `initModel()` when the user accepts:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',
+})
+
+runtime.on((event) => {
+  if (event.type === 'error' && event.recoverable) {
+    // Show a custom download prompt in your UI
+    showDownloadDialog({
+      onAccept: async () => {
+        await runtime.initModel()
+        // Re-run the original query if needed
+      },
+      onDecline: () => {
+        // User stays in retrieval-only mode
+      },
+    })
+  }
+})
+```
+
+## The User Never Sees an Error
+
+This is the core promise of progressive enhancement in edgekit. Regardless of which tier the runtime lands on:
+
+- **No blank screens.** The UI always renders and accepts input.
+- **No "not supported" banners.** The runtime adapts silently.
+- **No broken states.** If the model fails mid-download or mid-generation, the runtime falls back to retrieval-only and emits an error event for your analytics.
+- **No wasted bandwidth.** The model only downloads when the policy allows it and the browser supports it.
+
+The visitor with a powerful desktop GPU and the visitor on a three-year-old phone both get answers. The quality differs -- one gets a fluent, multi-turn conversation with tool calling, the other gets cited excerpts from your content -- but neither gets nothing.
+
+## Next Steps
+
+- [Download Policy](/docs/guides/download-policy) -- UX patterns for each download mode
+- [Performance](/docs/guides/performance) -- Optimize for different devices
+- [Events](/docs/guides/events) -- Track which tier each visitor is using

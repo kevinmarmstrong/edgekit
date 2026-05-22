@@ -1,0 +1,285 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Event System'
+description: 'Subscribe to runtime events for custom analytics, UI, and debugging'
+---
+
+Every stage of the edgekit pipeline emits typed events through a single event bus. You subscribe with `runtime.on()` and receive a `RuntimeEvent` discriminated union. One handler, one subscription, all events.
+
+## Subscribing to Events
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm(),
+})
+
+const unsubscribe = runtime.on((event) => {
+  console.log(event.type, event)
+})
+
+// Later, to stop listening:
+unsubscribe()
+```
+
+The `on` method returns an unsubscribe function. Call it to remove your handler. Multiple handlers can be registered -- each receives every event independently.
+
+## All RuntimeEvent Types
+
+The `RuntimeEvent` type is a discriminated union. Every event has a `type` field you can switch on:
+
+```typescript
+import type { RuntimeEvent } from '@edgekit/core'
+```
+
+### Model Download Events
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `model:download:start` | `modelId: string` | Model download has begun. Fires once per download. |
+| `model:download:progress` | `modelId: string`, `progress: number` | Download progress updated. `progress` ranges from 0 to 1. Fires many times during download. |
+| `model:download:complete` | `modelId: string` | Model download finished. The model is now cached in the browser. |
+| `model:ready` | -- | Model is initialized and ready for inference. Fires after download completes or after loading from cache. |
+
+### Generation Events
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `generation:start` | -- | A new generation round has started. Fires once per round, including tool-call re-generation rounds. |
+| `generation:token` | `token: string` | A single token was generated. Fires for each token during streaming output. |
+| `generation:complete` | `text: string` | Generation finished. `text` contains the full generated response for this round. |
+| `generation:error` | `error: Error` | Generation failed with an error. |
+
+### Retrieval Events
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `retrieval:start` | `query: string` | RAG retrieval has started for the given query. |
+| `retrieval:complete` | `chunks: readonly Chunk[]` | Retrieval finished. `chunks` contains the matched content with scores and metadata. |
+
+### Tool Calling Events
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `tool:call` | `toolCall: ToolCall` | The model is invoking a tool. `toolCall` contains the tool name, arguments, and call ID. |
+| `tool:result` | `toolCallId: string`, `result: string` | A tool call has completed. `result` is the string returned by the skill's `handleToolCall`. |
+
+### Error Events
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `error` | `error: Error`, `recoverable: boolean` | An error occurred. If `recoverable` is true, the runtime can continue (e.g., a skipped tool call). If false, the query has failed. |
+
+## Example: Progress Bar During Model Download
+
+Build a custom download progress indicator using the model download events:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  downloadPolicy: 'auto',
+})
+
+const progressEl = document.getElementById('progress') as HTMLProgressElement
+const statusEl = document.getElementById('status') as HTMLDivElement
+
+runtime.on((event) => {
+  switch (event.type) {
+    case 'model:download:start':
+      progressEl.style.display = 'block'
+      statusEl.textContent = `Downloading ${event.modelId}...`
+      break
+
+    case 'model:download:progress': {
+      const pct = Math.round(event.progress * 100)
+      progressEl.value = pct
+      statusEl.textContent = `Downloading... ${pct}%`
+      break
+    }
+
+    case 'model:download:complete':
+      progressEl.style.display = 'none'
+      statusEl.textContent = 'Model ready'
+      break
+
+    case 'model:ready':
+      statusEl.textContent = 'AI assistant is ready'
+      break
+  }
+})
+```
+
+## Example: Streaming Token Display
+
+Render tokens as they arrive for a typewriter effect:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const runtime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+})
+
+const outputEl = document.getElementById('output') as HTMLDivElement
+let currentResponse = ''
+
+runtime.on((event) => {
+  switch (event.type) {
+    case 'generation:start':
+      currentResponse = ''
+      outputEl.textContent = ''
+      break
+
+    case 'generation:token':
+      currentResponse += event.token
+      outputEl.textContent = currentResponse
+      break
+
+    case 'generation:complete':
+      // Final text is in event.text, matches accumulated tokens
+      outputEl.textContent = event.text
+      break
+
+    case 'retrieval:complete':
+      // Show source count before the answer arrives
+      if (event.chunks.length > 0) {
+        console.log(`Found ${event.chunks.length} relevant sources`)
+      }
+      break
+  }
+})
+```
+
+## Building Custom Analytics
+
+Track user behavior and system performance by listening to events:
+
+```typescript
+import type { RuntimeEvent } from '@edgekit/core'
+
+interface AnalyticsPayload {
+  readonly event: string
+  readonly properties: Record<string, unknown>
+  readonly timestamp: number
+}
+
+function createAnalyticsHandler(
+  send: (payload: AnalyticsPayload) => void,
+) {
+  let queryStartTime = 0
+  let downloadStartTime = 0
+
+  return (event: RuntimeEvent) => {
+    const timestamp = Date.now()
+
+    switch (event.type) {
+      case 'retrieval:start':
+        queryStartTime = timestamp
+        send({
+          event: 'query_submitted',
+          properties: { query: event.query },
+          timestamp,
+        })
+        break
+
+      case 'generation:complete':
+        send({
+          event: 'response_generated',
+          properties: {
+            responseLength: event.text.length,
+            latencyMs: timestamp - queryStartTime,
+          },
+          timestamp,
+        })
+        break
+
+      case 'model:download:start':
+        downloadStartTime = timestamp
+        send({
+          event: 'model_download_started',
+          properties: { modelId: event.modelId },
+          timestamp,
+        })
+        break
+
+      case 'model:download:complete':
+        send({
+          event: 'model_download_completed',
+          properties: {
+            modelId: event.modelId,
+            durationMs: timestamp - downloadStartTime,
+          },
+          timestamp,
+        })
+        break
+
+      case 'tool:call':
+        send({
+          event: 'tool_called',
+          properties: { toolName: event.toolCall.name },
+          timestamp,
+        })
+        break
+
+      case 'error':
+        send({
+          event: 'error_occurred',
+          properties: {
+            message: event.error.message,
+            recoverable: event.recoverable,
+          },
+          timestamp,
+        })
+        break
+    }
+  }
+}
+
+// Usage:
+const analytics = createAnalyticsHandler((payload) => {
+  // Send to your analytics service
+  navigator.sendBeacon('/api/analytics', JSON.stringify(payload))
+})
+
+runtime.on(analytics)
+```
+
+## Event Bus Internals
+
+The event bus is a simple pub/sub system created by `createEventBus()`. Handlers are stored in a `Set` and called synchronously when an event is emitted. If a handler throws, the error is silently caught so other handlers continue to receive events.
+
+```typescript
+import { createEventBus } from '@edgekit/core'
+
+const bus = createEventBus()
+
+// Add a handler
+const unsub = bus.on((event) => {
+  console.log(event.type)
+})
+
+// Emit an event
+bus.emit({ type: 'model:ready' })
+
+// Remove the handler
+unsub()
+
+// Remove all handlers
+bus.dispose()
+```
+
+You typically do not interact with `createEventBus` directly -- the runtime creates one internally and exposes it through `runtime.on()`. The standalone function is available if you need an event bus in a custom integration.
+
+## Next Steps
+
+- [Guardrails](/docs/guides/guardrails) -- Configure input and output limits
+- [Progressive Enhancement](/docs/guides/progressive) -- How events relate to the three tiers
+- [Skills Overview](/docs/skills/overview) -- Custom events from skills

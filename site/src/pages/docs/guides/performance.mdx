@@ -1,0 +1,216 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Performance Optimization'
+description: 'Optimize edgekit for fast startup, efficient inference, and low memory usage'
+---
+
+Edgekit runs inference on the visitor's device, so performance depends on their hardware. This guide covers the levers you can pull to make the experience fast across a range of devices.
+
+## Model Tier Selection
+
+The single biggest performance decision is which model to use. The `@edgekit/model-webllm` package provides three tiers:
+
+| Tier | Model | Download Size | VRAM Usage | Tokens/sec (M-series) | Tokens/sec (mid-range GPU) |
+|------|-------|---------------|------------|----------------------|---------------------------|
+| `tiny` | Qwen2.5-0.5B | ~300 MB | ~500 MB | 40-50 | 25-35 |
+| `standard` | Phi-4-Mini | ~2 GB | ~3 GB | 29-34 | 15-25 |
+| `high` | Phi-3.5-Mini | ~2 GB | ~3 GB | 25-30 | 12-20 |
+
+```typescript
+import { webllm } from '@edgekit/model-webllm'
+
+// For mobile and low-end devices
+const tinyModel = webllm({ tier: 'tiny' })
+
+// For most desktops (default)
+const standardModel = webllm({ tier: 'standard' })
+
+// For maximum quality
+const highModel = webllm({ tier: 'high' })
+```
+
+### Choosing the Right Tier
+
+**`tiny`** -- Use when you need the broadest device compatibility. The 0.5B parameter model downloads quickly (~300 MB) and runs on devices with limited GPU memory. Answers are shorter and less nuanced, but still useful for simple Q&A grounded in your content via RAG.
+
+**`standard`** -- The default for a reason. Phi-4-Mini handles multi-step reasoning, tool calling, and longer responses well. The 2 GB download is a one-time cost cached by the browser. Choose this for documentation sites and content-heavy applications.
+
+**`high`** -- Marginally better quality than standard, but similar resource requirements. Use when answer quality is the top priority and your audience has capable hardware.
+
+### Device-Based Selection
+
+You can select the model tier based on device capabilities at runtime:
+
+```typescript
+import { webllm } from '@edgekit/model-webllm'
+import { createRuntime } from '@edgekit/core'
+
+function selectTier(): 'tiny' | 'standard' | 'high' {
+  // Check available GPU memory via WebGPU adapter
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent)
+  const cores = navigator.hardwareConcurrency ?? 4
+
+  if (isMobile || cores <= 4) return 'tiny'
+  if (cores >= 8) return 'high'
+  return 'standard'
+}
+
+const runtime = createRuntime({
+  model: webllm({ tier: selectTier() }),
+})
+```
+
+## Cold Start vs Warm Start
+
+**Cold start** is the first time a visitor uses the AI assistant. The model must download, which dominates the wait time. On a 50 Mbps connection, the standard model (~2 GB) takes about 5 minutes. The tiny model (~300 MB) takes about 45 seconds.
+
+**Warm start** is every subsequent visit. The browser has cached the model in its storage. The model loads from cache and initializes the WebGPU compute pipeline. This typically takes 2-5 seconds on a modern device.
+
+### Reducing Cold Start Impact
+
+1. **Use `downloadPolicy: 'prompt'`** so visitors can start using retrieval-only mode immediately while deciding whether to download the model.
+
+2. **Consider the `tiny` tier** if your audience includes many first-time visitors. A 300 MB download is much more palatable than 2 GB.
+
+3. **Pre-warm the model** on pages where the chat widget is likely to be used. Call `initModel()` before the user asks their first question:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  downloadPolicy: 'auto',
+})
+
+// Start model download in the background
+// This does not block the main thread
+runtime.initModel().catch(() => {
+  // Model download failed -- retrieval-only mode is fine
+})
+```
+
+### Reducing Warm Start Time
+
+Warm start time is dominated by WebGPU shader compilation. There is no configuration lever for this -- it depends on the browser's shader cache. Chrome and Edge tend to cache compiled shaders aggressively, so the second warm start is faster than the first.
+
+## IndexedDB Caching for RAG
+
+The content index is cached in IndexedDB with hash-based versioning. When `loadAndInitRAG` fetches the index, it compares the `contentHash` of the remote file against the stored hash. If they match, the cached index is used without re-downloading.
+
+```typescript
+import { localRAG, loadAndInitRAG } from '@edgekit/rag-local'
+
+const rag = localRAG({ topK: 5 })
+
+const { reloaded } = await loadAndInitRAG(rag, '/content-index.json')
+// reloaded: true if the index was updated, false if the cache was used
+```
+
+This means your content index only downloads when its content actually changes. The `contentHash` is a SHA-256 truncated to 16 hex characters, computed from the concatenated chunk content at build time by the CLI.
+
+## Chunk Size Tuning
+
+The CLI's `chunkSize` and `chunkOverlap` settings in `edgekit.config.json` affect both retrieval quality and performance:
+
+```json
+{
+  "contentDir": "./content",
+  "outputDir": "./public",
+  "chunkSize": 500,
+  "chunkOverlap": 50
+}
+```
+
+### chunkSize
+
+Controls how many characters go into each chunk. Smaller chunks mean more precise retrieval but a larger index file. Larger chunks mean fewer, broader results.
+
+| Chunk Size | Index Size (100 pages) | Retrieval Precision | Context Window Usage |
+|-----------|----------------------|--------------------|--------------------|
+| 200 | ~1.5 MB | High | Low per chunk |
+| 500 (default) | ~800 KB | Medium | Medium per chunk |
+| 1000 | ~500 KB | Lower | High per chunk |
+
+For most sites, the default of 500 characters works well. If your content has very short, self-contained sections (like API reference entries), try 200-300. If your content has long-form essays, try 800-1000.
+
+### chunkOverlap
+
+Controls how many characters overlap between adjacent chunks. Overlap prevents information from being split across chunk boundaries. The default of 50 characters (about 10 words) is sufficient for most content. Increase it if you see retrieval missing information that spans paragraph boundaries.
+
+## Reducing Time to First Token
+
+Time to first token (TTFT) is the delay between the user pressing send and the first token appearing. It has several components:
+
+1. **Input validation** -- Negligible (< 1ms)
+2. **RAG retrieval** -- Fast (< 10ms for keyword search, < 50ms with embeddings)
+3. **Model warm-up** -- 0ms if already initialized, 2-5s on warm start
+4. **Prompt processing** -- Depends on context length (200-500ms typical)
+5. **First token generation** -- Depends on model and hardware (50-200ms)
+
+The main lever for TTFT is context length. Fewer and smaller RAG chunks means a shorter prompt, which means faster processing:
+
+```typescript
+import { localRAG } from '@edgekit/rag-local'
+
+// Reduce topK to return fewer chunks
+const rag = localRAG({
+  indexUrl: '/content-index.json',
+  topK: 3,  // Default is 5. Try 3 for faster TTFT.
+})
+```
+
+You can also limit the system prompt length. Every token in the system prompt adds to processing time on every query.
+
+## Memory Pressure Detection
+
+WebGPU models consume GPU memory (VRAM). If the device runs low on memory, the browser may terminate the GPU process or the model may produce errors. Edgekit does not currently detect memory pressure directly, but you can monitor for signs:
+
+```typescript
+runtime.on((event) => {
+  if (event.type === 'error' && !event.recoverable) {
+    // GPU out-of-memory errors often show up here
+    if (event.error.message.includes('lost') || event.error.message.includes('memory')) {
+      // Suggest the user reload or use a smaller model
+      showMessage('The AI model ran out of memory. Try reloading the page.')
+    }
+  }
+
+  if (event.type === 'generation:error') {
+    // Generation failures can also indicate memory pressure
+    console.warn('Generation failed:', event.error.message)
+  }
+})
+```
+
+### Preventing Memory Issues
+
+- **Use the `tiny` tier on mobile devices.** Mobile GPUs have significantly less VRAM than desktop GPUs.
+- **Limit conversation length.** Long conversations accumulate context that the model must process. Set `maxConversationTurns` in guardrails.
+- **Dispose when not in use.** Call `runtime.dispose()` when the chat widget is hidden or the user navigates away. This frees the model's GPU memory.
+
+```typescript
+// Free all resources when the widget is closed
+document.getElementById('close-chat')?.addEventListener('click', async () => {
+  await runtime.dispose()
+})
+```
+
+## Performance Checklist
+
+Before deploying, verify these settings:
+
+- [ ] Model tier appropriate for your audience's devices
+- [ ] `topK` set to the minimum needed for good answers (3-5)
+- [ ] `chunkSize` tuned for your content type
+- [ ] `maxOutputTokens` set to prevent runaway generation
+- [ ] `maxConversationTurns` set to prevent unbounded context growth
+- [ ] `downloadPolicy` set based on your audience's bandwidth
+- [ ] Content index hash versioning working (check `reloaded` return value)
+- [ ] `dispose()` called when the chat UI is removed from the page
+
+## Next Steps
+
+- [Download Policy](/docs/guides/download-policy) -- Optimize the first-visit experience
+- [Progressive Enhancement](/docs/guides/progressive) -- Fallback behavior for low-end devices
+- [Guardrails](/docs/guides/guardrails) -- Token limits that affect performance

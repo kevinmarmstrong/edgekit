@@ -1,0 +1,239 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'WebLLM Provider'
+description: 'Run quantized language models on the visitor GPU via WebGPU. Model tiers, configuration, and performance.'
+---
+
+## Overview
+
+The WebLLM provider (`@edgekit/model-webllm`) runs quantized language models directly on the visitor's GPU using WebGPU. It wraps the [MLC WebLLM](https://webllm.mlc.ai/) engine and exposes it through edgekit's `ModelProvider` interface.
+
+Models are downloaded once and cached by the browser. After the initial download, inference starts in seconds. There is no server component -- every token is generated on the visitor's device.
+
+```typescript
+import { webllm } from '@edgekit/model-webllm'
+import { createRuntime } from '@edgekit/core'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+})
+```
+
+## Model ladder
+
+Edgekit ships with three pre-configured model tiers. Each tier maps to a specific quantized model optimized for browser inference.
+
+| Tier | Model | Parameters | Download size | Best for |
+|---|---|---|---|---|
+| `tiny` | `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` | 0.5B | ~300 MB | Fast responses, low VRAM devices, testing |
+| `standard` | `Phi-4-mini-instruct-q4f16_1-MLC` | 3.8B | ~2 GB | Best balance of quality and speed. Recommended default. |
+| `high` | `Phi-3.5-mini-instruct-q4f16_1-MLC` | 3.8B | ~2 GB | Alternative instruction-tuned model, strong reasoning |
+
+Select a tier by name:
+
+```typescript
+webllm({ tier: 'tiny' })     // Smallest, fastest
+webllm({ tier: 'standard' }) // Recommended (default)
+webllm({ tier: 'high' })     // Alternative high-quality model
+```
+
+If no `tier` or `model` is specified, the provider defaults to `standard`.
+
+## Custom models
+
+You can bypass the tier system and specify any MLC-compatible model ID directly. The model must be available in the MLC model registry.
+
+```typescript
+webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' })
+```
+
+When both `model` and `tier` are provided, `model` takes precedence.
+
+## WebLLMConfig
+
+```typescript
+interface WebLLMConfig {
+  readonly model?: string
+  readonly tier?: 'tiny' | 'standard' | 'high'
+  readonly onEvent?: (event: RuntimeEvent) => void
+}
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `model` | `string` | `undefined` | Explicit MLC model ID. Overrides `tier` if both are set. |
+| `tier` | `'tiny' \| 'standard' \| 'high'` | `'standard'` | Pre-configured model tier from the model ladder. |
+| `onEvent` | `(event: RuntimeEvent) => void` | `undefined` | Direct event callback for download progress and readiness. Also accessible through the runtime's event bus. |
+
+## Lifecycle
+
+### init()
+
+Downloads the model weights (if not already cached) and loads them onto the GPU. This is the slowest step -- it can take 30 seconds to several minutes on the first visit depending on the model size and connection speed.
+
+The provider emits three event types during initialization:
+
+```typescript
+// 1. Download starts
+{ type: 'model:download:start', modelId: 'Phi-4-mini-instruct-q4f16_1-MLC' }
+
+// 2. Progress updates (0.0 to 1.0)
+{ type: 'model:download:progress', modelId: '...', progress: 0.45 }
+
+// 3. Download complete, model loaded on GPU
+{ type: 'model:download:complete', modelId: '...' }
+
+// 4. Ready for inference
+{ type: 'model:ready' }
+```
+
+You do not need to call `init()` directly in most cases. The runtime calls it automatically based on the `downloadPolicy` setting. Call `runtime.initModel()` to trigger it manually after getting user consent.
+
+### generate()
+
+Accepts a message array and optional generation parameters. Returns an async iterable of chunks -- either text tokens or tool calls.
+
+```typescript
+const provider = webllm({ tier: 'standard' })
+await provider.init()
+
+const messages = [
+  { role: 'system', content: 'You are a helpful assistant.' },
+  { role: 'user', content: 'What is WebGPU?' },
+]
+
+for await (const chunk of provider.generate(messages)) {
+  if (chunk.type === 'text') {
+    process.stdout.write(chunk.text)
+  } else if (chunk.type === 'tool_calls') {
+    console.log('Tool calls:', chunk.toolCalls)
+  }
+}
+```
+
+#### GenerateOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `temperature` | `number` | `0.7` | Sampling temperature. Lower values are more deterministic. |
+| `maxTokens` | `number` | `1024` | Maximum tokens to generate in this response. |
+| `tools` | `readonly Tool[]` | `undefined` | Tool definitions the model can invoke. |
+| `stopSequences` | `readonly string[]` | `undefined` | Sequences that stop generation when encountered. |
+
+### generateStructured()
+
+Generates a response constrained to a JSON schema. Useful for extracting structured data from user input.
+
+```typescript
+const result = await provider.generateStructured<{ intent: string }>(
+  [{ role: 'user', content: 'I want to cancel my subscription' }],
+  {
+    type: 'object',
+    properties: {
+      intent: { type: 'string', enum: ['cancel', 'upgrade', 'question'] },
+    },
+    required: ['intent'],
+  },
+)
+// result.intent === 'cancel'
+```
+
+Structured generation uses `temperature: 0` internally for deterministic output.
+
+### capabilities()
+
+Returns the model's capability metadata:
+
+```typescript
+const caps = provider.capabilities()
+// {
+//   maxTokens: 4096,
+//   supportsToolCalling: true,
+//   supportsStreaming: true,
+//   modelId: 'Phi-4-mini-instruct-q4f16_1-MLC'
+// }
+```
+
+### dispose()
+
+Unloads the model from GPU memory. Call this when you are done with the provider to free resources.
+
+```typescript
+await provider.dispose()
+```
+
+After calling `dispose()`, the provider cannot be used again. You must create a new one.
+
+## Tool calling
+
+The WebLLM provider supports tool calling. When you pass `tools` in the generation options, the model can choose to invoke them instead of (or in addition to) generating text.
+
+Tool calls are streamed as delta chunks and assembled by the provider. When the model finishes a generation turn with tool calls, the provider yields a single `tool_calls` chunk containing all calls for that turn.
+
+```typescript
+const tools = [
+  {
+    name: 'search',
+    description: 'Search the knowledge base',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+      },
+      required: ['query'],
+    },
+  },
+]
+
+for await (const chunk of provider.generate(messages, { tools })) {
+  if (chunk.type === 'tool_calls') {
+    for (const call of chunk.toolCalls) {
+      const args = JSON.parse(call.arguments)
+      // Execute the tool and feed results back
+    }
+  }
+}
+```
+
+In practice, the runtime handles tool calling loops for you via the `skills` configuration. See [Configuration](/docs/configuration) for details.
+
+## Performance characteristics
+
+Performance depends on the model size, GPU capability, and available VRAM.
+
+| Device | Model tier | Tokens/sec | First token latency |
+|---|---|---|---|
+| MacBook Pro M3 | standard | 29-34 | ~2s |
+| MacBook Pro M3 | tiny | 50-60 | ~1s |
+| Desktop RTX 3060 | standard | 25-35 | ~2s |
+| Desktop RTX 3060 | high | 20-30 | ~3s |
+| Mid-range laptop (integrated GPU) | tiny | 10-15 | ~5s |
+
+These are approximate figures for cached models (no download time). First-visit performance includes the model download.
+
+## WebGPU requirements
+
+WebGPU is required for the WebLLM provider. Before using this provider, check that the visitor's browser supports WebGPU:
+
+```typescript
+if (!navigator.gpu) {
+  // Fall back to Chrome AI, retrieval-only, or cloud provider
+}
+```
+
+Minimum GPU requirements:
+- **VRAM:** 4 GB for `tiny`, 6 GB for `standard` and `high`
+- **WebGPU support:** Chrome 113+, Edge 113+, Firefox 127+
+- **Safari:** Not supported (no WebGPU). Use retrieval-only mode or the planned WASM provider.
+
+## Browser caching
+
+After the first download, model weights are cached using the browser's Cache API. Subsequent visits skip the download entirely. The cache persists until the user clears browser data or storage pressure forces eviction.
+
+You can observe caching behavior through the download events -- if the model is already cached, the `model:download:progress` events fire rapidly (reading from cache) rather than slowly (downloading from network).
+
+## Next steps
+
+- [Chrome AI Provider](/docs/providers/chrome-ai) -- zero-download alternative using Gemini Nano
+- [Configuration](/docs/configuration) -- controlling download policy and model behavior
+- [Cloud Fallback](/docs/providers/cloud) -- planned server-side fallback for unsupported browsers

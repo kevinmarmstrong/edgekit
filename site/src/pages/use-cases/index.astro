@@ -1,0 +1,125 @@
+---
+import Base from '@/layouts/Base.astro'
+const base = import.meta.env.BASE_URL
+
+const useCases = [
+  {
+    slug: 'documentation',
+    title: 'Documentation Sites',
+    description: 'Add AI-powered search to your docs without per-query costs or privacy concerns. The strongest use case for edgekit.',
+  },
+  {
+    slug: 'blogs',
+    title: 'Blogs and Content Sites',
+    description: 'Let readers ask questions about your archive. AI-powered content discovery that runs in the browser.',
+  },
+  {
+    slug: 'ecommerce',
+    title: 'E-Commerce Product Search',
+    description: 'AI-powered product Q&A grounded in your catalog. Shoppers ask natural-language questions and get recommendations.',
+  },
+  {
+    slug: 'education',
+    title: 'Education and Learning',
+    description: 'Study assistants that run on student devices. No cloud costs, no data collection, full offline support.',
+  },
+  {
+    slug: 'internal-tools',
+    title: 'Internal Knowledge Bases',
+    description: 'Company wikis and internal docs with AI search where sensitive data stays in the browser.',
+  },
+  {
+    slug: 'privacy-first',
+    title: 'Privacy-First Applications',
+    description: 'AI features where user data never leaves the device. Health apps, finance tools, children\'s apps, and more.',
+  },
+]
+---
+<Base title="Use Cases" description="How teams use edgekit to add AI features that run entirely in the browser.">
+  <main class="use-cases-page container">
+    <h1>Use Cases</h1>
+    <p class="page-sub">Edgekit works wherever you need AI that runs in the browser. No server, no API key, no per-query cost. These are the patterns teams are building with today.</p>
+
+    <div class="use-case-grid">
+      {useCases.map((uc) => (
+        <a href={`${base}use-cases/${uc.slug}`} class="use-case-card">
+          <h2>{uc.title}</h2>
+          <p>{uc.description}</p>
+          <span class="card-link">Learn more</span>
+        </a>
+      ))}
+    </div>
+
+    <section class="use-cases-cta">
+      <h2>Have a different use case?</h2>
+      <p>If your application needs AI that answers questions about a known body of content, edgekit can probably help. The pattern is the same: index your content, embed the runtime, deploy as static files.</p>
+      <a href={`${base}docs/getting-started`} class="btn btn-primary">Get Started</a>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .use-cases-page {
+    padding: var(--size-2xl) var(--size-lg);
+  }
+  .use-cases-page h1 {
+    margin-bottom: var(--size-sm);
+  }
+  .page-sub {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    max-width: 42rem;
+    margin-bottom: var(--size-2xl);
+  }
+  .use-case-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    gap: var(--size-lg);
+    margin-bottom: var(--size-3xl);
+  }
+  .use-case-card {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--size-lg);
+    background: var(--color-surface);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .use-case-card:hover {
+    border-color: var(--color-primary, #3b82f6);
+  }
+  .use-case-card h2 {
+    font-size: 1.1rem;
+    margin: 0 0 var(--size-xs) 0;
+  }
+  .use-case-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0 0 var(--size-sm) 0;
+    line-height: 1.5;
+  }
+  .card-link {
+    font-size: 0.85rem;
+    color: var(--color-primary, #3b82f6);
+    font-weight: 500;
+  }
+  .use-cases-cta {
+    text-align: center;
+    padding: var(--size-2xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-alt);
+  }
+  .use-cases-cta h2 {
+    margin-top: 0;
+  }
+  .use-cases-cta p {
+    color: var(--color-text-muted);
+    margin-bottom: var(--size-lg);
+    max-width: 36rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+</style>

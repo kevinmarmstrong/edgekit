@@ -1,0 +1,206 @@
+---
+import Base from '@/layouts/Base.astro'
+const base = import.meta.env.BASE_URL
+---
+<Base title="Pricing" description="Edgekit is free. Forever. Here's why.">
+  <main class="pricing-page container">
+    <h1>Pricing</h1>
+    <p class="page-sub">Edgekit is open source under the MIT License. There is no paid tier, no usage limits, no "contact sales" button.</p>
+
+    <div class="pricing-card-hero">
+      <div class="pricing-label">The only plan</div>
+      <div class="pricing-amount">$0</div>
+      <div class="pricing-period">per query, per user, forever</div>
+      <ul class="pricing-features">
+        <li>Unlimited queries</li>
+        <li>Unlimited users</li>
+        <li>All model providers (WebLLM, Chrome AI)</li>
+        <li>Full RAG pipeline</li>
+        <li>Web component UI</li>
+        <li>Skills & tool calling</li>
+        <li>CLI for content indexing</li>
+        <li>Event system</li>
+        <li>TypeScript, fully typed</li>
+        <li>MIT License</li>
+      </ul>
+      <a href={`${base}docs/getting-started`} class="btn btn-primary btn-lg">Get Started</a>
+    </div>
+
+    <section class="pricing-why">
+      <h2>Why is it free?</h2>
+      <div class="why-grid">
+        <div class="why-card">
+          <h3>No server to pay for</h3>
+          <p>Edgekit runs entirely in the visitor's browser. There's no inference server, no API gateway, no database. Your server serves static files. Our costs are near zero, so yours are too.</p>
+        </div>
+        <div class="why-card">
+          <h3>Compute is on the visitor's device</h3>
+          <p>The visitor's GPU runs the model. Their IndexedDB stores the content index. Their browser cache holds the model weights. You're not paying for any of that compute. They already own the hardware.</p>
+        </div>
+        <div class="why-card">
+          <h3>Open source is the point</h3>
+          <p>Edgekit exists to make browser AI accessible to everyone. Indie developers, small teams, students, hobbyists. A paywall would defeat the purpose. If cloud AI pricing is the problem, we can't be part of the same problem.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing-compare">
+      <h2>What you'd pay with cloud AI</h2>
+      <p class="section-sub">Back-of-envelope math for a documentation site with 10,000 monthly visitors, 3 questions each.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Cost per query (est.)</th>
+            <th>30K queries/month</th>
+            <th>Annual cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>OpenAI GPT-4o</td>
+            <td>~$0.01-0.03</td>
+            <td>$300-900</td>
+            <td>$3,600-10,800</td>
+          </tr>
+          <tr>
+            <td>Claude API</td>
+            <td>~$0.01-0.02</td>
+            <td>$300-600</td>
+            <td>$3,600-7,200</td>
+          </tr>
+          <tr>
+            <td>Self-hosted (GPU server)</td>
+            <td>~$0.001</td>
+            <td>$30 + server</td>
+            <td>$2,400+ (server lease)</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Edgekit</strong></td>
+            <td><strong>$0</strong></td>
+            <td><strong>$0</strong></td>
+            <td><strong>$0</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="table-note">Estimates based on ~500 input tokens + ~200 output tokens per query. Actual costs vary by model and prompt length.</p>
+    </section>
+
+    <section class="pricing-faq">
+      <h2>FAQ</h2>
+      <div class="faq-list">
+        <details>
+          <summary>Is there a catch?</summary>
+          <p>No. Edgekit is MIT licensed. You can use it commercially, modify it, sell products built with it. There's no telemetry, no tracking, no "free tier" that expires.</p>
+        </details>
+        <details>
+          <summary>Will there ever be a paid version?</summary>
+          <p>The core library will always be free. We may offer optional paid services in the future (managed content indexing, model hosting for cloud fallback), but the runtime itself stays free and open source.</p>
+        </details>
+        <details>
+          <summary>What about the model download cost?</summary>
+          <p>The visitor downloads the model from a CDN (handled by WebLLM). This is a one-time ~500MB-2GB download that gets cached by the browser. You're not paying for the bandwidth — it's served from WebLLM's CDN, not your server.</p>
+        </details>
+        <details>
+          <summary>What about the content index hosting cost?</summary>
+          <p>The content-index.json is a static file you host alongside your site. Typical size: 100KB-5MB depending on content volume. This is negligible — less than a single hero image on most websites.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .pricing-page { padding: var(--size-2xl) var(--size-lg); max-width: 56rem; }
+  .pricing-page h1 { text-align: center; }
+  .page-sub {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    max-width: 36rem;
+    margin: var(--size-sm) auto var(--size-2xl);
+  }
+  .pricing-card-hero {
+    text-align: center;
+    padding: var(--size-2xl);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+    margin-bottom: var(--size-3xl);
+  }
+  .pricing-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-primary);
+  }
+  .pricing-amount {
+    font-size: 4rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .pricing-period {
+    color: var(--color-text-muted);
+    margin-bottom: var(--size-xl);
+  }
+  .pricing-features {
+    list-style: none;
+    padding: 0;
+    columns: 2;
+    gap: var(--size-xl);
+    text-align: left;
+    max-width: 28rem;
+    margin: 0 auto var(--size-xl);
+  }
+  .pricing-features li {
+    padding: var(--size-xs) 0;
+    font-size: 0.9rem;
+  }
+  .pricing-features li::before {
+    content: '\2713\00a0';
+    color: var(--color-success);
+    font-weight: 700;
+  }
+
+  .pricing-why, .pricing-compare, .pricing-faq { margin-bottom: var(--size-3xl); }
+  .pricing-why h2, .pricing-compare h2, .pricing-faq h2 { text-align: center; margin-top: 0; }
+  .section-sub { text-align: center; color: var(--color-text-muted); margin: var(--size-sm) auto var(--size-xl); }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--size-lg);
+    margin-top: var(--size-lg);
+  }
+  .why-card {
+    padding: var(--size-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+  .why-card h3 { font-size: 1rem; margin: 0; }
+  .why-card p { color: var(--color-text-muted); font-size: 0.9rem; }
+
+  .highlight-row { background: var(--color-primary-light); }
+  .table-note { font-size: 0.8rem; color: var(--color-text-muted); text-align: center; }
+
+  .faq-list { max-width: 40rem; margin: var(--size-lg) auto 0; }
+  details {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--size-md) var(--size-lg);
+    margin-bottom: var(--size-sm);
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  details p { color: var(--color-text-muted); font-size: 0.9rem; margin-top: var(--size-sm); }
+
+  @media (max-width: 768px) {
+    .why-grid { grid-template-columns: 1fr; }
+    .pricing-features { columns: 1; }
+  }
+</style>

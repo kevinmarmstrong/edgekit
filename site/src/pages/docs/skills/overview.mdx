@@ -1,0 +1,138 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Skills Overview'
+description: 'What skills are in edgekit and how they extend the runtime with tool calling'
+---
+
+Skills are pluggable modules that give the model the ability to take actions beyond generating text. A skill registers one or more tools that the model can invoke during a conversation, and provides the handler that executes when the model calls one.
+
+Without skills, the model can only generate text based on the conversation history and any retrieved context. With skills, it can search content, look up data, perform calculations, or interact with browser APIs -- all while staying in the same conversation loop.
+
+## The Skill Interface
+
+Every skill implements the `Skill` interface from `@edgekit/core`:
+
+```typescript
+import type { Skill, SkillContext, Tool } from '@edgekit/core'
+
+interface Skill {
+  readonly name: string
+  readonly description: string
+  readonly tools: readonly Tool[]
+  activate(context: SkillContext): void
+  deactivate?(): void
+  handleToolCall?(name: string, args: Record<string, unknown>): Promise<string>
+}
+```
+
+### Properties
+
+**`name`** -- A unique identifier for the skill. Used internally to route tool calls and for debugging. Examples: `'blog-chat'`, `'weather'`, `'calculator'`.
+
+**`description`** -- A human-readable description of what the skill does. This is not currently sent to the model, but it is useful for documentation and debugging.
+
+**`tools`** -- An array of `Tool` definitions that the model can call. Each tool has a name, description, and a JSON Schema parameters object that tells the model what arguments to pass:
+
+```typescript
+import type { Tool } from '@edgekit/core'
+
+const searchTool: Tool = {
+  name: 'search_content',
+  description: 'Search site content for relevant information',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'The search query' },
+      limit: { type: 'number', description: 'Max results to return' },
+    },
+    required: ['query'],
+  },
+}
+```
+
+### Methods
+
+**`activate(context)`** -- Called once when the runtime initializes. Receives a `SkillContext` that provides access to the model provider, RAG provider, conversation state, and an event emitter. Use this to store references you need during tool call handling.
+
+**`deactivate()`** -- Optional cleanup method called when the runtime is disposed. Release any resources, close connections, or remove event listeners here.
+
+**`handleToolCall(name, args)`** -- Called by the orchestrator when the model invokes one of this skill's tools. Receives the tool name and parsed arguments. Must return a string result that gets fed back into the model's next generation round.
+
+## SkillContext
+
+When a skill is activated, it receives a context object with everything it needs to interact with the runtime:
+
+```typescript
+interface SkillContext {
+  readonly model: ModelProvider
+  readonly rag?: RAGProvider
+  readonly conversation: ConversationState
+  emit(event: string, data: unknown): void
+}
+```
+
+- **`model`** -- The active model provider. Skills can use this to make additional inference calls if needed.
+- **`rag`** -- The RAG provider, if one is configured. Skills like `blogChat` use this to search the content index.
+- **`conversation`** -- A snapshot of the current conversation state (messages and turn count).
+- **`emit`** -- Emit custom events through the runtime's event bus.
+
+## How Skills Fit Into the Pipeline
+
+When a user sends a query, the runtime orchestrator follows this sequence:
+
+1. **Input validation** -- The guardrails module checks the input against configured limits and blocked patterns.
+2. **RAG retrieval** -- If a RAG provider is configured, relevant content chunks are retrieved and injected into the message context.
+3. **Tool collection** -- The orchestrator collects all tools from all registered skills into a single flat array.
+4. **Model generation** -- The model receives the conversation history, retrieved context, and available tools. It can either generate text or emit tool calls.
+5. **Tool dispatch** -- If the model emits tool calls, the orchestrator finds the skill that owns each tool and calls its `handleToolCall` method.
+6. **Result injection** -- Tool results are added to the message history as `tool` role messages.
+7. **Re-generation** -- The model generates again with the tool results in context. This loop repeats up to `maxToolRounds` times (default: 3).
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { blogChat } from '@edgekit/skills'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  skills: [blogChat({ siteName: 'My Docs' })],
+  maxToolRounds: 5,
+})
+```
+
+## Registering Multiple Skills
+
+You can register any number of skills. Their tools are merged into a single array before being sent to the model. Make sure tool names are unique across all skills:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { blogChat } from '@edgekit/skills'
+
+const runtime = createRuntime({
+  model: webllm(),
+  skills: [
+    blogChat({ siteName: 'Acme Docs' }),
+    weatherSkill(),
+    calculatorSkill(),
+  ],
+  maxToolRounds: 3,
+})
+```
+
+The model decides which tools to call based on the user's query and each tool's name and description. A well-written tool description is the most important factor in getting the model to use the right tool at the right time.
+
+## Model Requirements
+
+Tool calling requires a model that supports it. The `ModelCapabilities` interface includes a `supportsToolCalling` flag:
+
+- **WebLLM** (`@edgekit/model-webllm`) -- Supports tool calling. Models like Phi-4-Mini and Qwen2.5 handle function calls well.
+- **Chrome AI** (`@edgekit/model-chrome`) -- Does not support tool calling. `capabilities().supportsToolCalling` returns `false`. Skills are still registered but their tools are not sent to the model.
+
+When using a model without tool calling support, the runtime skips tool dispatch entirely. The model generates plain text responses using only the conversation history and retrieved context.
+
+## Next Steps
+
+- [Tool Calling](/docs/skills/tool-calling) -- Deep dive into how tool calls flow through the system
+- [Built-in Skills](/docs/skills/built-in) -- Skills that ship with edgekit
+- [Custom Skills](/docs/skills/custom) -- Build your own skill from scratch

@@ -1,0 +1,392 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Headless Mode'
+description: 'Use the edgekit runtime without the built-in UI to build your own chat interface'
+---
+
+Headless mode means using the edgekit runtime directly -- without the `<edge-chat>`
+web component or any UI provider. You create the runtime, call `query()` to send
+messages, subscribe to events for streaming tokens, and render everything yourself.
+This gives you complete control over the user experience.
+
+## Setting up the runtime
+
+Create a runtime without the `ui` option:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  rag: localRAG({
+    indexUrl: '/content-index.json',
+    embeddings: transformersEmbedding(),
+  }),
+  systemPrompt: 'You are a helpful documentation assistant.',
+  downloadPolicy: 'auto',
+})
+```
+
+## The Runtime interface
+
+The `Runtime` object exposes everything you need:
+
+```typescript
+interface Runtime {
+  readonly config: RuntimeConfig
+  query(input: string): AsyncIterable<string>
+  getConversation(): ConversationState
+  clearConversation(): void
+  initModel(): Promise<void>
+  on(handler: (event: RuntimeEvent) => void): () => void
+  dispose(): Promise<void>
+}
+```
+
+### query(input)
+
+Sends a user message and returns an async iterable of string tokens. The runtime
+handles the full pipeline: input validation, RAG retrieval, prompt assembly, and
+model generation.
+
+```typescript
+for await (const token of runtime.query('How do I install edgekit?')) {
+  appendToUI(token)
+}
+```
+
+The async iterable yields individual tokens as they are generated. Concatenate
+them to build the full response.
+
+### getConversation()
+
+Returns the current conversation state:
+
+```typescript
+const state = runtime.getConversation()
+// { messages: [...], turn: 3 }
+```
+
+Each message has a `role` (`'system'`, `'user'`, `'assistant'`, or `'tool'`) and
+`content` string. Use this to render the full conversation history.
+
+### clearConversation()
+
+Resets the conversation to its initial state (system prompt only):
+
+```typescript
+runtime.clearConversation()
+```
+
+### initModel()
+
+Explicitly triggers model download and initialization. Use this when you want to
+pre-load the model before the user sends their first message:
+
+```typescript
+await runtime.initModel()
+```
+
+### on(handler)
+
+Subscribes to runtime events. Returns an unsubscribe function:
+
+```typescript
+const unsubscribe = runtime.on((event) => {
+  switch (event.type) {
+    case 'generation:token':
+      appendToken(event.token)
+      break
+    case 'generation:complete':
+      finalizeMessage(event.text)
+      break
+    case 'retrieval:complete':
+      showCitations(event.chunks)
+      break
+    case 'error':
+      showError(event.error.message)
+      break
+  }
+})
+
+// Later, when cleaning up:
+unsubscribe()
+```
+
+## Event types
+
+The full set of runtime events:
+
+| Event type | Fields | Description |
+|------------|--------|-------------|
+| `model:download:start` | `modelId` | Model download has begun |
+| `model:download:progress` | `modelId`, `progress` | Download progress (0 to 1) |
+| `model:download:complete` | `modelId` | Model download finished |
+| `model:ready` | -- | Model is initialized and ready |
+| `generation:start` | -- | Generation round has begun |
+| `generation:token` | `token` | A single token was generated |
+| `generation:complete` | `text` | Full response text for this round |
+| `generation:error` | `error` | Generation failed |
+| `retrieval:start` | `query` | RAG retrieval has begun |
+| `retrieval:complete` | `chunks` | Retrieved chunks with scores |
+| `tool:call` | `toolCall` | A tool is being invoked |
+| `tool:result` | `toolCallId`, `result` | Tool returned a result |
+| `error` | `error`, `recoverable` | General error |
+
+## Building a custom React chat UI
+
+Here is a complete example of a React chat interface built on headless mode.
+It handles streaming tokens, download progress, citations, and error states.
+
+```tsx
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createRuntime, type Runtime, type RuntimeEvent, type Chunk } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+interface ChatMessage {
+  readonly role: 'user' | 'assistant'
+  readonly content: string
+  readonly citations?: readonly Chunk[]
+}
+
+function useRuntime() {
+  const runtimeRef = useRef<Runtime | null>(null)
+
+  useEffect(() => {
+    const rt = createRuntime({
+      model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+      rag: localRAG({
+        indexUrl: '/content-index.json',
+        embeddings: transformersEmbedding(),
+      }),
+      downloadPolicy: 'auto',
+    })
+    runtimeRef.current = rt
+
+    return () => {
+      rt.dispose()
+    }
+  }, [])
+
+  return runtimeRef
+}
+
+export function Chat() {
+  const runtimeRef = useRuntime()
+  const [messages, setMessages] = useState<readonly ChatMessage[]>([])
+  const [streamingText, setStreamingText] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [input, setInput] = useState('')
+  const pendingCitations = useRef<Chunk[]>([])
+
+  useEffect(() => {
+    const runtime = runtimeRef.current
+    if (!runtime) return
+
+    const unsubscribe = runtime.on((event: RuntimeEvent) => {
+      switch (event.type) {
+        case 'model:download:start':
+          setDownloadProgress(0)
+          break
+        case 'model:download:progress':
+          setDownloadProgress(event.progress)
+          break
+        case 'model:download:complete':
+          setDownloadProgress(null)
+          break
+        case 'retrieval:complete':
+          pendingCitations.current = [...event.chunks]
+          break
+        case 'generation:token':
+          setStreamingText((prev) => prev + event.token)
+          break
+        case 'generation:complete':
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: event.text,
+              citations: pendingCitations.current.length > 0
+                ? [...pendingCitations.current]
+                : undefined,
+            },
+          ])
+          setStreamingText('')
+          pendingCitations.current = []
+          setIsGenerating(false)
+          break
+        case 'error':
+          setError(event.error.message)
+          setIsGenerating(false)
+          break
+      }
+    })
+
+    return unsubscribe
+  }, [runtimeRef])
+
+  const handleSubmit = useCallback(async () => {
+    const runtime = runtimeRef.current
+    if (!runtime || !input.trim() || isGenerating) return
+
+    const userMessage = input.trim()
+    setInput('')
+    setError(null)
+    setIsGenerating(true)
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
+
+    try {
+      for await (const _token of runtime.query(userMessage)) {
+        // Events handle UI updates
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'An error occurred')
+      setIsGenerating(false)
+    }
+  }, [input, isGenerating, runtimeRef])
+
+  return (
+    <div className="chat">
+      {downloadProgress !== null && (
+        <div className="download-bar">
+          Downloading model... {Math.round(downloadProgress * 100)}%
+          <progress value={downloadProgress} max={1} />
+        </div>
+      )}
+
+      {error && <div className="error">{error}</div>}
+
+      <div className="messages">
+        {messages.map((msg, i) => (
+          <div key={i} className={`message ${msg.role}`}>
+            <strong>{msg.role === 'user' ? 'You' : 'Assistant'}</strong>
+            <p>{msg.content}</p>
+            {msg.citations && msg.citations.length > 0 && (
+              <ul className="citations">
+                {msg.citations.map((c) => (
+                  <li key={c.id}>{c.metadata.title ?? c.metadata.source}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+
+        {streamingText && (
+          <div className="message assistant streaming">
+            <strong>Assistant</strong>
+            <p>{streamingText}</p>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); handleSubmit() }}>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask a question..."
+          disabled={isGenerating}
+        />
+        <button type="submit" disabled={isGenerating}>
+          Send
+        </button>
+      </form>
+    </div>
+  )
+}
+```
+
+## Building a custom vanilla JS UI
+
+If you are not using a framework, the same pattern applies with DOM
+manipulation:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  downloadPolicy: 'auto',
+})
+
+const messagesEl = document.getElementById('messages')!
+const inputEl = document.getElementById('input') as HTMLInputElement
+const sendBtn = document.getElementById('send') as HTMLButtonElement
+
+let streamingEl: HTMLElement | null = null
+
+runtime.on((event) => {
+  switch (event.type) {
+    case 'generation:token':
+      if (!streamingEl) {
+        streamingEl = document.createElement('div')
+        streamingEl.className = 'message assistant'
+        messagesEl.appendChild(streamingEl)
+      }
+      streamingEl.textContent += event.token
+      messagesEl.scrollTop = messagesEl.scrollHeight
+      break
+
+    case 'generation:complete':
+      streamingEl = null
+      break
+
+    case 'error':
+      const errorEl = document.createElement('div')
+      errorEl.className = 'error'
+      errorEl.textContent = event.error.message
+      messagesEl.appendChild(errorEl)
+      break
+  }
+})
+
+async function send() {
+  const text = inputEl.value.trim()
+  if (!text) return
+
+  inputEl.value = ''
+  sendBtn.disabled = true
+
+  const userEl = document.createElement('div')
+  userEl.className = 'message user'
+  userEl.textContent = text
+  messagesEl.appendChild(userEl)
+
+  for await (const _token of runtime.query(text)) {
+    // Events handle rendering
+  }
+
+  sendBtn.disabled = false
+}
+
+sendBtn.addEventListener('click', send)
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') send()
+})
+```
+
+## Cleanup
+
+Always dispose the runtime when your component unmounts or the page unloads.
+This releases the model from memory and cleans up event subscriptions:
+
+```typescript
+// In a React effect cleanup:
+return () => { runtime.dispose() }
+
+// In a vanilla JS page unload:
+window.addEventListener('beforeunload', () => runtime.dispose())
+```
+
+## Next steps
+
+- [Web Component](/docs/ui/web-component) -- Use the pre-built chat component
+- [Theming](/docs/ui/theming) -- Style the built-in UI
+- [Events](/docs/guides/events) -- Full event reference

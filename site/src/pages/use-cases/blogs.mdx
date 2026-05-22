@@ -1,0 +1,119 @@
+---
+layout: '@/layouts/Base.astro'
+title: 'Blogs and Content Sites'
+description: 'Let readers ask questions about your archive. AI-powered content discovery that runs in the browser.'
+---
+
+A blog with 500 posts is a goldmine of knowledge locked behind chronological ordering and a mediocre search bar. Readers find your latest post through social media, read it, and leave. The other 499 posts might as well not exist.
+
+Edgekit turns your archive into a conversational knowledge base. Readers can ask questions and get answers drawn from your entire body of work, with citations linking back to the original posts.
+
+## The problem
+
+Content sites have a discovery problem. The standard navigation tools -- category pages, tag clouds, search bars, "related posts" widgets -- all require the reader to know what they are looking for. But the most valuable interactions happen when a reader does not know what to look for.
+
+A reader who just read your post on database indexing might benefit from your post on query optimization from two years ago, your comparison of Postgres and MySQL from last month, and your essay on denormalization from 2022. They do not know these posts exist. Your site's navigation will not surface them because the connection is semantic, not categorical.
+
+## The solution
+
+Edgekit indexes your entire blog archive and lets readers ask natural-language questions. The AI retrieves relevant posts (or sections of posts), synthesizes an answer, and cites the sources.
+
+Example interactions:
+
+- "What have you written about database performance?" -- Surfaces posts across multiple years and categories
+- "How does your opinion on ORMs compare to what you said in 2023?" -- Finds and contrasts specific posts
+- "What's the best way to handle authentication based on your experience?" -- Synthesizes advice from multiple posts
+- "Summarize your main arguments about microservices" -- Pulls from several related essays
+
+Each answer links back to the original posts, driving readers deeper into your archive.
+
+## Setup
+
+### Step 1: Index your content
+
+Point the CLI at your blog's content directory:
+
+```bash
+npx @edgekit/cli build \
+  --input ./content/posts \
+  --output ./public/content-index.json \
+  --glob "**/*.md"
+```
+
+The CLI extracts frontmatter (title, date, tags) and includes it in the chunk metadata, so the AI can reference post titles and dates in its answers.
+
+### Step 2: Add to your site
+
+```html
+<div id="blog-chat"></div>
+
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { blogChat } from '@edgekit/skills'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({
+    theme: 'auto',
+    placeholder: 'Ask about anything I have written...',
+  })
+
+  const runtime = createRuntime({
+    model: webllm(),
+    rag: localRAG({ indexUrl: '/content-index.json' }),
+    skills: [blogChat({ siteName: 'My Blog' })],
+    ui,
+    downloadPolicy: 'prompt',
+    systemPrompt: `You are an assistant for this blog. Answer questions
+      using the provided blog posts. Always mention the post title and
+      date when citing a source. If multiple posts are relevant,
+      reference all of them. Be conversational but accurate.`,
+  })
+
+  ui.mount(document.getElementById('blog-chat'), runtime)
+</script>
+```
+
+### Step 3: Rebuild on publish
+
+Add the index build step to your publishing workflow. Most static site generators support build hooks:
+
+```json
+{
+  "scripts": {
+    "build": "astro build && npx @edgekit/cli build --input ./src/content --output ./dist/content-index.json"
+  }
+}
+```
+
+The content index updates every time you publish a new post.
+
+## Content discovery metrics
+
+Blogs with AI-powered search typically see:
+
+- **2-3x increase in pages per session** -- Readers follow citation links to older posts
+- **Lower bounce rate** -- Readers who engage with the AI assistant stay longer
+- **Longer session duration** -- Conversational interaction keeps readers on site
+- **Reduced "dead content"** -- Old posts get traffic when they are relevant to current questions
+
+These are organic improvements driven by making your existing content more accessible. You are not creating new content -- you are unlocking the value of what you have already written.
+
+## What works well
+
+**Technical blogs** where readers have specific questions about implementation details, tool comparisons, or best practices. The AI can cross-reference multiple posts to give comprehensive answers.
+
+**Personal blogs with deep archives** (100+ posts) where the author has developed nuanced views over time. The AI can trace how opinions evolved and find connections the reader would not discover through browsing.
+
+**Multi-author publications** where different authors have written about overlapping topics. The AI can surface complementary perspectives.
+
+**Tutorial sites** where learners need to find the right tutorial for their skill level and specific problem. The AI acts as a personalized learning path navigator.
+
+## What to expect
+
+**Quality depends on your content.** The AI can only answer from what you have written. If your blog is 20 posts, the AI will be limited. At 100+ posts, the experience becomes genuinely useful.
+
+**Chunking matters.** Blog posts with clear headings and focused sections produce better retrieval results than long, unstructured essays. Consider adding headings to improve AI search quality alongside human readability.
+
+**First-visit friction.** The model download is the same for all edgekit use cases: ~2.5 GB, prompted with user consent, cached after first download. For a blog, this is a bigger ask than for documentation (where the user has a pressing question). The retrieval-only fallback ensures value even without the model.

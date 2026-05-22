@@ -1,0 +1,218 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Embeddings'
+description: 'Add vector search to edgekit with in-browser embedding models'
+---
+
+Vector search improves retrieval quality by matching on meaning rather than exact
+keywords. edgekit provides an embedding provider powered by
+[Transformers.js](https://huggingface.co/docs/transformers.js) that runs entirely
+in the browser using WebGPU or WASM -- no server, no API calls.
+
+## How it works
+
+At query time, the embedding provider converts the user's question into a dense
+vector (a `Float32Array`). This vector is compared against pre-computed chunk
+embeddings in the content index using cosine similarity. Chunks with the highest
+similarity scores are returned as retrieval results.
+
+The embedding model is loaded once and cached by the browser. Subsequent queries
+encode in milliseconds.
+
+## Quick setup
+
+Install the embeddings package:
+
+```bash
+npm install @edgekit/embeddings
+```
+
+Wire it into your runtime configuration:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+import { webllm } from '@edgekit/model-webllm'
+
+const embeddings = transformersEmbedding()
+
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  embeddings,
+  rag: localRAG({
+    indexUrl: '/content-index.json',
+    embeddings,
+  }),
+})
+```
+
+The `embeddings` instance is passed to both the runtime config and the RAG
+provider. The runtime calls `init()` during startup, which downloads and loads
+the embedding model. The RAG provider calls `encode()` on each query to produce
+the query vector.
+
+## The TransformersEmbeddingConfig
+
+```typescript
+import { transformersEmbedding } from '@edgekit/embeddings'
+
+const embeddings = transformersEmbedding({
+  model: 'Xenova/all-MiniLM-L6-v2',  // HuggingFace model ID
+  quantized: true,                     // Use quantized weights (default: true)
+})
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `model` | `Xenova/all-MiniLM-L6-v2` | The HuggingFace model identifier |
+| `quantized` | `true` | Whether to load quantized (smaller) weights |
+
+## Model selection
+
+The default model, `Xenova/all-MiniLM-L6-v2`, is a good general-purpose choice.
+It produces 384-dimensional vectors and the quantized version is approximately
+23 MB. Here are some alternatives:
+
+| Model | Dimensions | Size (quantized) | Notes |
+|-------|-----------|-------------------|-------|
+| `Xenova/all-MiniLM-L6-v2` | 384 | ~23 MB | Fast, good quality. Default. |
+| `Xenova/all-MiniLM-L12-v2` | 384 | ~33 MB | Higher quality, slightly slower |
+| `Xenova/bge-small-en-v1.5` | 384 | ~33 MB | Strong on English benchmarks |
+| `Xenova/gte-small` | 384 | ~33 MB | Good multilingual support |
+
+When choosing a model, consider:
+
+- **Download size** -- The user downloads this model on first visit. Smaller is
+  better for initial load time.
+- **Encoding speed** -- Smaller models encode faster. For interactive use,
+  encoding should complete in under 100ms.
+- **Quality** -- Larger models generally produce better similarity rankings but
+  have diminishing returns for typical documentation search.
+
+## The EmbeddingProvider interface
+
+The `@edgekit/embeddings` package implements the `EmbeddingProvider` interface
+defined in `@edgekit/core`:
+
+```typescript
+interface EmbeddingProvider {
+  readonly id: string
+  readonly dimensions: number
+  init(): Promise<void>
+  encode(text: string): Promise<Float32Array>
+  encodeBatch(texts: readonly string[]): Promise<readonly Float32Array[]>
+  dispose(): Promise<void>
+}
+```
+
+### init()
+
+Downloads and loads the model. This is called automatically by the runtime during
+startup. The model is cached by the browser after the first download.
+
+### encode(text)
+
+Converts a single string into a dense vector. The output is a `Float32Array`
+with length equal to `dimensions`. The vector is mean-pooled and L2-normalized.
+
+```typescript
+const embeddings = transformersEmbedding()
+await embeddings.init()
+
+const vector = await embeddings.encode('How do I install edgekit?')
+// Float32Array(384) [0.0234, -0.0891, 0.0412, ...]
+```
+
+### encodeBatch(texts)
+
+Encodes multiple strings sequentially. Useful for pre-computing embeddings or
+encoding multiple queries:
+
+```typescript
+const vectors = await embeddings.encodeBatch([
+  'installation guide',
+  'configuration options',
+  'deployment steps',
+])
+// [Float32Array(384), Float32Array(384), Float32Array(384)]
+```
+
+The current implementation processes texts one at a time. Future versions may
+batch them through the model for better throughput.
+
+### dispose()
+
+Releases the model from memory. Call this when you no longer need embeddings:
+
+```typescript
+await embeddings.dispose()
+```
+
+## Performance considerations
+
+### First load
+
+The embedding model must be downloaded on the user's first visit. The quantized
+`all-MiniLM-L6-v2` model is approximately 23 MB. After download, the browser
+caches it in the Cache Storage API. Subsequent visits load from cache.
+
+To give users feedback during download, listen for model events:
+
+```typescript
+runtime.on((event) => {
+  if (event.type === 'model:download:start') {
+    showLoadingIndicator()
+  }
+  if (event.type === 'model:download:progress') {
+    updateProgress(event.progress) // 0 to 1
+  }
+  if (event.type === 'model:download:complete') {
+    hideLoadingIndicator()
+  }
+})
+```
+
+### Query encoding latency
+
+On modern hardware, encoding a short query takes 10-50ms with WebGPU acceleration
+and 50-200ms with the WASM fallback. This is fast enough for interactive use.
+The encoding happens during the retrieval step, before the LLM generates a
+response, so it does not add perceived latency to the generation.
+
+### Memory usage
+
+The embedding model uses approximately 50-100 MB of memory depending on the model
+and browser. This is separate from the LLM model memory. On devices with limited
+memory, consider using keyword-only retrieval instead.
+
+## Using embeddings without RAG
+
+You can use the embedding provider independently for other tasks like semantic
+search, clustering, or content recommendation:
+
+```typescript
+import { transformersEmbedding } from '@edgekit/embeddings'
+import { cosineSimilarity } from '@edgekit/rag-local'
+
+const embeddings = transformersEmbedding()
+await embeddings.init()
+
+const docVectors = await embeddings.encodeBatch([
+  'React hooks for state management',
+  'CSS grid layout tutorial',
+  'Node.js stream processing',
+])
+
+const queryVector = await embeddings.encode('frontend state management')
+
+const scores = docVectors.map((doc) =>
+  cosineSimilarity([...queryVector], [...doc])
+)
+// [0.82, 0.34, 0.12] -- first doc is most similar
+```
+
+## Next steps
+
+- [Content Index](/docs/rag/content-index) -- Build the content index for your site
+- [Advanced RAG](/docs/rag/advanced) -- Hybrid search, metadata filtering, custom providers

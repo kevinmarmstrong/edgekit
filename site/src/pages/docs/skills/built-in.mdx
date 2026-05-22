@@ -1,0 +1,154 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Built-in Skills'
+description: 'Skills that ship with edgekit out of the box'
+---
+
+Edgekit ships with the `@edgekit/skills` package, which provides ready-made skills for common use cases. These skills follow the same `Skill` interface as custom skills and are registered through the `skills` array in your runtime config.
+
+## blogChat
+
+The `blogChat` skill is designed for content sites, blogs, and documentation. It gives the model a `search_content` tool that queries your content index, so the model can find and cite relevant articles when answering questions.
+
+### Installation
+
+```bash
+npm install @edgekit/skills
+```
+
+### Basic Usage
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { blogChat } from '@edgekit/skills'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  skills: [blogChat({ siteName: 'My Blog' })],
+  systemPrompt: 'Answer questions about this blog using the provided context.',
+})
+```
+
+### Configuration
+
+The `blogChat` function accepts a `BlogChatConfig` object:
+
+```typescript
+import type { BlogChatConfig } from '@edgekit/skills'
+
+interface BlogChatConfig {
+  readonly siteName?: string
+}
+```
+
+**`siteName`** -- The name of your site. Used in the tool description so the model knows what content it is searching. Defaults to `'this site'`.
+
+When the site name is set, the `search_content` tool's description becomes `"Search My Blog content for relevant information"`, which helps the model understand the context of its search results.
+
+### Tools Provided
+
+The `blogChat` skill registers one tool:
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `search_content` | Search site content for relevant information | `query` (string, required) |
+
+When the model calls `search_content`, the skill queries the RAG provider with the given search query and returns the matching content chunks as a JSON string. The model then uses those results to formulate a cited answer.
+
+### How It Works
+
+1. The user asks a question like "What articles cover deployment?"
+2. The model decides to call `search_content` with `{"query": "deployment"}`
+3. The `blogChat` skill's `handleToolCall` runs the query against the RAG provider
+4. Results come back as JSON with matching content chunks
+5. The model generates a response citing the relevant articles
+
+### Full Example
+
+Here is a complete setup with RAG, the blogChat skill, and the web component UI:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG, loadAndInitRAG } from '@edgekit/rag-local'
+import { webComponent } from '@edgekit/ui-component'
+import { blogChat } from '@edgekit/skills'
+
+const rag = localRAG({ topK: 3 })
+const ui = webComponent({
+  theme: 'auto',
+  placeholder: 'Ask a question about the blog...',
+})
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  rag,
+  skills: [blogChat({ siteName: "Kevin's Blog" })],
+  ui,
+  downloadPolicy: 'prompt',
+  systemPrompt:
+    'You are a helpful assistant that answers questions about this blog. ' +
+    'Use the provided context to give accurate, concise answers. ' +
+    'Cite sources when possible.',
+})
+
+async function init() {
+  const container = document.getElementById('chat-container')
+  if (!container) return
+
+  try {
+    await loadAndInitRAG(rag, './content-index.json')
+  } catch (e) {
+    console.warn('Failed to load content index:', e)
+  }
+
+  ui.mount(container, runtime)
+}
+
+init()
+```
+
+### Combining with Other Skills
+
+The `blogChat` skill works alongside any other skills. Tool names are unique, so there are no conflicts:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { blogChat } from '@edgekit/skills'
+
+const runtime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  skills: [
+    blogChat({ siteName: 'Acme Docs' }),
+    myCustomSkill(),
+  ],
+})
+```
+
+## Future Built-in Skills
+
+The following skills are planned for future releases of `@edgekit/skills`:
+
+### productFAQ
+
+A skill for e-commerce sites that lets the model answer product questions. Will provide tools for looking up product details, checking availability, and comparing items. Designed to ground answers in your actual product catalog rather than general knowledge.
+
+### codeExplorer
+
+A skill for documentation sites that host code examples. Will provide tools for searching code snippets, looking up API references, and finding related examples. Useful for SDK documentation and developer portals.
+
+### searchAssistant
+
+A general-purpose search skill that provides a `web_search` tool backed by a configurable search provider. Lets the model pull in information beyond what is in your content index. Will support pluggable backends so you can use your own search API.
+
+## Next Steps
+
+- [Custom Skills](/docs/skills/custom) -- Build your own skill from scratch
+- [Tool Calling](/docs/skills/tool-calling) -- How the tool calling loop works
+- [Skills Overview](/docs/skills/overview) -- The Skill interface and architecture

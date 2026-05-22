@@ -1,0 +1,336 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Custom Skills'
+description: 'Build your own skills to extend edgekit with custom tool calling'
+---
+
+Custom skills let you give the model any capability you want. A skill is a plain object that implements the `Skill` interface -- define your tools, write the handler, and register it with the runtime.
+
+## Step-by-Step: Building a Weather Skill
+
+This walkthrough builds a weather skill that the model can call to get current weather data. We will use mock data, but the pattern applies to any data source: APIs, local storage, browser APIs, or computed values.
+
+### Step 1: Define Your Tools
+
+Each tool needs a name, description, and a JSON Schema for its parameters. The description is critical -- it is what the model reads to decide when to use the tool.
+
+```typescript
+import type { Tool } from '@edgekit/core'
+
+const tools: readonly Tool[] = [
+  {
+    name: 'get_weather',
+    description: 'Get the current weather for a given city. Returns temperature, conditions, and humidity.',
+    parameters: {
+      type: 'object',
+      properties: {
+        city: {
+          type: 'string',
+          description: 'City name, e.g. "San Francisco" or "London"',
+        },
+        units: {
+          type: 'string',
+          enum: ['celsius', 'fahrenheit'],
+          description: 'Temperature unit. Defaults to celsius.',
+        },
+      },
+      required: ['city'],
+    },
+  },
+]
+```
+
+Tips for good tool definitions:
+
+- **Be specific in the description.** "Get weather" is vague. "Get the current weather for a given city" tells the model exactly when to use it.
+- **Document every parameter.** Include examples in the description string.
+- **Use `required` to mark mandatory fields.** The model will always include required parameters.
+- **Use `enum` for constrained values.** It prevents the model from inventing invalid options.
+
+### Step 2: Implement handleToolCall
+
+The handler receives the tool name and parsed arguments, and returns a string. If your skill has multiple tools, switch on the name:
+
+```typescript
+interface WeatherData {
+  readonly city: string
+  readonly temperature: number
+  readonly units: string
+  readonly conditions: string
+  readonly humidity: number
+}
+
+function getWeatherData(city: string, units: string): WeatherData {
+  // In production, this would call a weather API.
+  // For this example, we return mock data.
+  const mockData: Record<string, WeatherData> = {
+    'san francisco': {
+      city: 'San Francisco',
+      temperature: units === 'fahrenheit' ? 62 : 17,
+      units,
+      conditions: 'Foggy',
+      humidity: 78,
+    },
+    'london': {
+      city: 'London',
+      temperature: units === 'fahrenheit' ? 55 : 13,
+      units,
+      conditions: 'Cloudy',
+      humidity: 82,
+    },
+  }
+
+  const key = city.toLowerCase()
+  return mockData[key] ?? {
+    city,
+    temperature: units === 'fahrenheit' ? 70 : 21,
+    units,
+    conditions: 'Clear',
+    humidity: 45,
+  }
+}
+```
+
+### Step 3: Assemble the Skill
+
+Combine the tools, activation logic, and handler into a single `Skill` object. Use a factory function so each instance gets its own closure:
+
+```typescript
+import type { Skill, SkillContext } from '@edgekit/core'
+
+export interface WeatherSkillConfig {
+  readonly defaultUnits?: 'celsius' | 'fahrenheit'
+}
+
+export function weatherSkill(config: WeatherSkillConfig = {}): Skill {
+  const defaultUnits = config.defaultUnits ?? 'celsius'
+  let context: SkillContext | null = null
+
+  return {
+    name: 'weather',
+    description: 'Provides current weather information for cities worldwide',
+    tools,
+
+    activate(ctx: SkillContext) {
+      context = ctx
+    },
+
+    deactivate() {
+      context = null
+    },
+
+    async handleToolCall(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<string> {
+      if (name === 'get_weather') {
+        const city = args['city'] as string
+        const units = (args['units'] as string) ?? defaultUnits
+
+        if (!city || city.trim().length === 0) {
+          return JSON.stringify({ error: 'City name is required' })
+        }
+
+        const data = getWeatherData(city, units)
+        return JSON.stringify(data)
+      }
+
+      return JSON.stringify({ error: `Unknown tool: ${name}` })
+    },
+  }
+}
+```
+
+### Step 4: Register with the Runtime
+
+Pass your skill in the `skills` array when creating the runtime:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'standard' }),
+  skills: [weatherSkill({ defaultUnits: 'fahrenheit' })],
+  systemPrompt: 'You are a helpful assistant that can look up weather information.',
+})
+```
+
+Now when a user asks "What's the weather in London?", the model will call the `get_weather` tool, receive the mock data, and generate a natural language response incorporating the weather information.
+
+## Skills with Multiple Tools
+
+A single skill can register multiple related tools. This is useful when the tools share state or context:
+
+```typescript
+import type { Skill, SkillContext, Tool } from '@edgekit/core'
+
+export function mathSkill(): Skill {
+  const tools: readonly Tool[] = [
+    {
+      name: 'calculate',
+      description: 'Evaluate a mathematical expression and return the result',
+      parameters: {
+        type: 'object',
+        properties: {
+          expression: { type: 'string', description: 'Math expression, e.g. "2 + 2 * 3"' },
+        },
+        required: ['expression'],
+      },
+    },
+    {
+      name: 'convert_units',
+      description: 'Convert a value between units (e.g. miles to km, lbs to kg)',
+      parameters: {
+        type: 'object',
+        properties: {
+          value: { type: 'number', description: 'The numeric value to convert' },
+          from: { type: 'string', description: 'Source unit' },
+          to: { type: 'string', description: 'Target unit' },
+        },
+        required: ['value', 'from', 'to'],
+      },
+    },
+  ]
+
+  return {
+    name: 'math',
+    description: 'Mathematical calculations and unit conversions',
+    tools,
+
+    activate(_ctx: SkillContext) {},
+
+    async handleToolCall(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<string> {
+      switch (name) {
+        case 'calculate':
+          return evaluateExpression(args['expression'] as string)
+        case 'convert_units':
+          return convertUnits(
+            args['value'] as number,
+            args['from'] as string,
+            args['to'] as string,
+          )
+        default:
+          return JSON.stringify({ error: `Unknown tool: ${name}` })
+      }
+    },
+  }
+}
+```
+
+## Using the SkillContext
+
+The `SkillContext` passed to `activate` gives you access to the model, RAG provider, and event bus. A skill that uses RAG to search content might store the context and use it in `handleToolCall`:
+
+```typescript
+import type { Skill, SkillContext } from '@edgekit/core'
+
+export function docSearchSkill(): Skill {
+  let ctx: SkillContext | null = null
+
+  return {
+    name: 'doc-search',
+    description: 'Search documentation for specific topics',
+    tools: [
+      {
+        name: 'search_docs',
+        description: 'Search documentation by topic',
+        parameters: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string', description: 'Topic to search for' },
+          },
+          required: ['topic'],
+        },
+      },
+    ],
+
+    activate(context: SkillContext) {
+      ctx = context
+    },
+
+    deactivate() {
+      ctx = null
+    },
+
+    async handleToolCall(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<string> {
+      if (name === 'search_docs' && ctx?.rag) {
+        const topic = args['topic'] as string
+        const chunks = await ctx.rag.retrieve(topic, 3)
+        return JSON.stringify(
+          chunks.map((c) => ({
+            title: c.metadata.title,
+            content: c.content,
+            source: c.metadata.source,
+          })),
+        )
+      }
+      return JSON.stringify({ results: [] })
+    },
+  }
+}
+```
+
+## Testing Skills
+
+Skills are plain objects with async methods, so they are straightforward to test without the full runtime:
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { weatherSkill } from './weather-skill'
+
+describe('weatherSkill', () => {
+  it('returns weather data for a known city', async () => {
+    const skill = weatherSkill({ defaultUnits: 'celsius' })
+
+    // Activate with a minimal mock context
+    skill.activate({
+      model: {} as any,
+      conversation: { messages: [], turn: 0 },
+      emit: () => {},
+    })
+
+    const result = await skill.handleToolCall!('get_weather', {
+      city: 'London',
+    })
+
+    const data = JSON.parse(result)
+    expect(data.city).toBe('London')
+    expect(data.conditions).toBe('Cloudy')
+    expect(data.units).toBe('celsius')
+  })
+
+  it('returns an error for unknown tools', async () => {
+    const skill = weatherSkill()
+    skill.activate({
+      model: {} as any,
+      conversation: { messages: [], turn: 0 },
+      emit: () => {},
+    })
+
+    const result = await skill.handleToolCall!('nonexistent', {})
+    const data = JSON.parse(result)
+    expect(data.error).toContain('Unknown tool')
+  })
+})
+```
+
+## Best Practices
+
+- **Return JSON strings from handleToolCall.** The model can parse structured data more reliably than unformatted text.
+- **Validate arguments in the handler.** The model might omit optional fields or pass unexpected types. Defensive parsing prevents crashes.
+- **Keep tools focused.** One tool should do one thing. If you need five capabilities, register five tools rather than one with a `mode` parameter.
+- **Use factory functions.** Returning a new skill object from a function (not exporting a singleton) ensures each runtime gets its own state.
+- **Clean up in deactivate.** If your skill opens connections, sets timers, or allocates resources, release them when the runtime disposes.
+
+## Next Steps
+
+- [Skills Overview](/docs/skills/overview) -- The Skill interface and lifecycle
+- [Tool Calling](/docs/skills/tool-calling) -- How tool calls flow through the orchestrator
+- [Events Guide](/docs/guides/events) -- Listen for tool call events in your UI

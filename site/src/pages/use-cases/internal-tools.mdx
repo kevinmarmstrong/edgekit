@@ -1,0 +1,158 @@
+---
+layout: '@/layouts/Base.astro'
+title: 'Internal Knowledge Bases'
+description: 'Company wikis and internal docs with AI search where sensitive data stays in the browser. No cloud AI vendor sees your internal content.'
+---
+
+Every company has a knowledge base problem. Internal documentation exists across wikis, Notion pages, Confluence spaces, and shared drives. Employees spend significant time searching for information that someone in the organization has already documented. The information exists. Finding it is the bottleneck.
+
+Edgekit adds AI-powered search to internal knowledge bases with a critical advantage: the content and queries never leave the employee's browser. No cloud AI vendor sees your internal documentation. No employee questions are logged on third-party servers.
+
+## The problem
+
+Internal knowledge search fails for the same reasons public documentation search fails, plus additional constraints:
+
+**Sensitivity.** Internal docs contain proprietary processes, customer information, salary bands, strategic plans, and legal documents. Sending this content to a cloud AI service -- even for search -- creates data exposure risk.
+
+**Vendor agreements.** Using cloud AI for internal content often requires security reviews, data processing agreements, and legal sign-off. These processes can take months.
+
+**Cost unpredictability.** An organization of 500 employees making 10 AI queries per day is 150,000 queries per month. At $0.003 per query, that is $450/month -- for search alone. Costs scale linearly with adoption.
+
+**Access control.** Different employees have access to different content. Cloud AI services do not natively understand your organization's permission model.
+
+## The solution
+
+Edgekit indexes your internal documentation and serves AI search from the employee's browser. The architecture eliminates data exposure by design:
+
+1. The content index is built at deploy time from your internal docs
+2. The index is served from your internal infrastructure (intranet, VPN, or authenticated CDN)
+3. The AI model runs locally on the employee's device
+4. Queries and answers never leave the browser
+
+## Implementation
+
+### Step 1: Export and index your content
+
+Extract content from your knowledge base into markdown:
+
+```bash
+# Export from your wiki (example for a custom exporter)
+node scripts/export-wiki.js --output ./content
+
+# Build the content index
+npx @edgekit/cli build \
+  --input ./content \
+  --output ./dist/content-index.json
+```
+
+For common platforms, community exporters can convert Notion, Confluence, or GitBook content to markdown.
+
+### Step 2: Deploy the assistant
+
+```html
+<div id="kb-assistant"></div>
+
+<script type="module">
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { webComponent } from '@edgekit/ui-component'
+
+  const ui = webComponent({
+    theme: 'auto',
+    placeholder: 'Search the knowledge base...',
+  })
+
+  const runtime = createRuntime({
+    model: webllm({ tier: 'standard' }),
+    rag: localRAG({ indexUrl: '/content-index.json', topK: 6 }),
+    ui,
+    downloadPolicy: 'prompt',
+    systemPrompt: `You are an internal knowledge base assistant.
+      Answer questions using only the provided documentation.
+      Cite the source document for each fact. If the documentation
+      does not cover a topic, say so rather than guessing.
+      Never fabricate internal processes or policies.`,
+  })
+
+  ui.mount(document.getElementById('kb-assistant'), runtime)
+</script>
+```
+
+### Step 3: Serve from internal infrastructure
+
+Deploy the content index behind your existing access controls:
+
+```
+Internal CDN or intranet server
+  index.html          (the assistant page)
+  content-index.json  (built from internal docs)
+  assets/             (JS bundles)
+```
+
+The content index is a static JSON file. Serve it from wherever you host internal tools -- behind VPN, behind SSO, or on an intranet server. The model weights are served from a public CDN (they are open-source model weights, not your data).
+
+## Security architecture
+
+The security model is straightforward because the attack surface is minimal:
+
+| Concern | Cloud AI Search | Edgekit |
+|---|---|---|
+| Content exposure | Internal docs sent to vendor API | Content index served from internal infra only |
+| Query logging | Vendor logs all queries | No server to log queries |
+| Data residency | Vendor's data centers | Employee's device |
+| Breach surface | Vendor + transit + API | Internal hosting only |
+| Compliance | Requires vendor security review | No third-party data processing |
+
+The content index does contain your documentation text (chunked and indexed), so it should be served from infrastructure with appropriate access controls. But the critical point is that it stays on infrastructure you control -- it is never sent to a third-party AI service.
+
+## Access control patterns
+
+For organizations with different content tiers, build separate indexes:
+
+```bash
+# Public knowledge base (all employees)
+npx @edgekit/cli build \
+  --input ./content/public \
+  --output ./dist/public/content-index.json
+
+# Engineering-only content
+npx @edgekit/cli build \
+  --input ./content/engineering \
+  --output ./dist/engineering/content-index.json
+
+# Leadership-only content
+npx @edgekit/cli build \
+  --input ./content/leadership \
+  --output ./dist/leadership/content-index.json
+```
+
+Serve each index behind the appropriate access control layer. The engineering content index is only accessible to engineers. The AI assistant on the engineering portal loads that index.
+
+## Deployment options
+
+**Intranet page.** A standalone HTML page on your internal web server. Simplest deployment.
+
+**Wiki integration.** Embed the chat widget into your existing Confluence, Notion, or custom wiki using a script tag or iframe.
+
+**Slack/Teams app.** Use the edgekit runtime as a backend for a chat integration. The runtime runs in a headless browser context on the employee's machine.
+
+**Desktop app.** Wrap the assistant in Electron or Tauri for a native desktop experience with full offline support.
+
+## What employees experience
+
+**First use:** The employee opens the knowledge base assistant and types a question. They are prompted to download the AI model. After the download, the assistant answers questions in 1-3 seconds with citations to specific wiki pages or documents.
+
+**Daily use:** The model is cached. The assistant starts instantly. Employees ask questions about processes, policies, or technical procedures and get direct answers with source links.
+
+**Offline.** The assistant works without network access after the initial setup. Employees traveling or working in restricted environments can still search the knowledge base.
+
+## ROI
+
+| Metric | Impact |
+|---|---|
+| Time spent searching for information | Reduced 30-50% |
+| Repeated questions in Slack/Teams | Reduced as employees self-serve |
+| Cloud AI vendor costs | Eliminated |
+| Security review cycles | Eliminated (no vendor data processing) |
+| Onboarding time for new employees | Reduced through instant Q&A on processes |

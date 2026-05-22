@@ -1,0 +1,359 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Type Reference'
+description: 'Complete type reference for every exported type and interface in @edgekit/core.'
+---
+
+All types are exported from `@edgekit/core` and are fully readonly. Edgekit enforces immutability at the type level -- you never mutate a message, chunk, or config object. You create new ones.
+
+```typescript
+import type { Message, Runtime, RuntimeConfig } from '@edgekit/core'
+```
+
+---
+
+## Data types
+
+### `Message`
+
+A single message in the conversation history.
+
+```typescript
+interface Message {
+  readonly role: 'system' | 'user' | 'assistant' | 'tool'
+  readonly content: string
+  readonly toolCallId?: string
+  readonly toolCalls?: readonly ToolCall[]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `role` | `'system' \| 'user' \| 'assistant' \| 'tool'` | The message author. Tool messages carry results back from skill execution. |
+| `content` | `string` | The text content of the message. |
+| `toolCallId` | `string?` | Present on `tool` role messages. Links the result back to the originating call. |
+| `toolCalls` | `ToolCall[]?` | Present on `assistant` messages when the model invokes tools. |
+
+### `ToolCall`
+
+A single tool invocation requested by the model.
+
+```typescript
+interface ToolCall {
+  readonly id: string
+  readonly name: string
+  readonly arguments: string
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique identifier for this call. Used to match results. |
+| `name` | `string` | The tool name, matching a tool registered by a skill. |
+| `arguments` | `string` | JSON-encoded arguments. Parsed by the skill's `handleToolCall`. |
+
+### `Tool`
+
+A tool definition registered by a skill. Follows the JSON Schema convention for function parameters.
+
+```typescript
+interface Tool {
+  readonly name: string
+  readonly description: string
+  readonly parameters: Record<string, unknown>
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | `string` | Unique tool name. |
+| `description` | `string` | Human-readable description. Included in the model prompt so it knows when to call the tool. |
+| `parameters` | `Record<string, unknown>` | JSON Schema describing the expected arguments. |
+
+### `Chunk`
+
+A retrieved content chunk from the RAG pipeline.
+
+```typescript
+interface Chunk {
+  readonly id: string
+  readonly content: string
+  readonly metadata: ChunkMetadata
+  readonly score?: number
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique chunk identifier. |
+| `content` | `string` | The text content of this chunk. |
+| `metadata` | `ChunkMetadata` | Source, title, URL, and custom metadata. |
+| `score` | `number?` | Cosine similarity score (0-1) from vector search. Present after retrieval. |
+
+### `ChunkMetadata`
+
+Metadata attached to a content chunk. Extensible with custom fields.
+
+```typescript
+interface ChunkMetadata {
+  readonly source: string
+  readonly title?: string
+  readonly url?: string
+  readonly [key: string]: unknown
+}
+```
+
+### `ModelCapabilities`
+
+Describes what a model provider supports. Returned by `provider.capabilities()`.
+
+```typescript
+interface ModelCapabilities {
+  readonly maxTokens: number
+  readonly supportsToolCalling: boolean
+  readonly supportsStreaming: boolean
+  readonly modelId: string
+}
+```
+
+### `GenerateOptions`
+
+Options passed to `ModelProvider.generate()`. The runtime builds these from your config and skill registrations.
+
+```typescript
+interface GenerateOptions {
+  readonly temperature?: number
+  readonly maxTokens?: number
+  readonly tools?: readonly Tool[]
+  readonly stopSequences?: readonly string[]
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `temperature` | `number` | Provider default | Sampling temperature. Lower = more deterministic. |
+| `maxTokens` | `number` | Provider default | Maximum tokens to generate. |
+| `tools` | `Tool[]` | `undefined` | Tools the model may call during generation. |
+| `stopSequences` | `string[]` | `undefined` | Sequences that halt generation when encountered. |
+
+---
+
+## Index types
+
+These types describe the static content index built by the CLI and consumed by the RAG provider.
+
+### `ContentIndex`
+
+The top-level index structure. Serialized as JSON and served as a static file.
+
+```typescript
+interface ContentIndex {
+  readonly version: string
+  readonly contentHash: string
+  readonly chunks: readonly IndexedChunk[]
+  readonly metadata: IndexMetadata
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `version` | `string` | Schema version for forward compatibility. |
+| `contentHash` | `string` | Hash of the source content. Used for cache invalidation. |
+| `chunks` | `IndexedChunk[]` | All indexed chunks with their embeddings. |
+| `metadata` | `IndexMetadata` | Index-level metadata (model, dimensions, timestamps). |
+
+### `IndexedChunk`
+
+A chunk stored in the content index, including its pre-computed embedding vector.
+
+```typescript
+interface IndexedChunk {
+  readonly id: string
+  readonly content: string
+  readonly embedding: readonly number[]
+  readonly metadata: ChunkMetadata
+}
+```
+
+### `IndexMetadata`
+
+Metadata about the content index itself.
+
+```typescript
+interface IndexMetadata {
+  readonly createdAt: string
+  readonly embeddingModel: string
+  readonly dimensions: number
+  readonly totalChunks: number
+}
+```
+
+---
+
+## Union types
+
+### `DownloadPolicy`
+
+Controls whether the runtime downloads the model automatically.
+
+```typescript
+type DownloadPolicy = 'auto' | 'prompt' | 'never'
+```
+
+| Value | Behavior |
+|---|---|
+| `'auto'` | Download starts immediately on first query. |
+| `'prompt'` | Emits an error event requesting user permission. The UI can show a download button. |
+| `'never'` | Never downloads. The runtime operates in retrieval-only mode. |
+
+### `GenerateChunk`
+
+A chunk emitted during streaming generation. Either a text fragment or a set of tool calls.
+
+```typescript
+type GenerateChunk =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'tool_calls'; readonly toolCalls: readonly ToolCall[] }
+```
+
+### `RuntimeEvent`
+
+Typed events emitted by the runtime's event bus. Subscribe via `runtime.on()`.
+
+```typescript
+type RuntimeEvent =
+  | { readonly type: 'model:download:start'; readonly modelId: string }
+  | { readonly type: 'model:download:progress'; readonly modelId: string; readonly progress: number }
+  | { readonly type: 'model:download:complete'; readonly modelId: string }
+  | { readonly type: 'model:ready' }
+  | { readonly type: 'generation:start' }
+  | { readonly type: 'generation:token'; readonly token: string }
+  | { readonly type: 'generation:complete'; readonly text: string }
+  | { readonly type: 'generation:error'; readonly error: Error }
+  | { readonly type: 'retrieval:start'; readonly query: string }
+  | { readonly type: 'retrieval:complete'; readonly chunks: readonly Chunk[] }
+  | { readonly type: 'tool:call'; readonly toolCall: ToolCall }
+  | { readonly type: 'tool:result'; readonly toolCallId: string; readonly result: string }
+  | { readonly type: 'error'; readonly error: Error; readonly recoverable: boolean }
+```
+
+**Event categories:**
+
+- **Model lifecycle** -- `model:download:start`, `model:download:progress`, `model:download:complete`, `model:ready`. Use these to build download progress UI.
+- **Generation** -- `generation:start`, `generation:token`, `generation:complete`, `generation:error`. Token events fire for each streamed token.
+- **Retrieval** -- `retrieval:start`, `retrieval:complete`. Fired when the RAG pipeline runs.
+- **Tool calling** -- `tool:call`, `tool:result`. Fired during skill execution.
+- **Errors** -- `error`. The `recoverable` flag indicates whether the runtime can continue operating.
+
+### `ConversationState`
+
+An immutable snapshot of the current conversation.
+
+```typescript
+interface ConversationState {
+  readonly messages: readonly Message[]
+  readonly turn: number
+}
+```
+
+---
+
+## Provider interfaces
+
+These interfaces define the contracts that model, RAG, embedding, skill, and UI providers must implement.
+
+### `ModelProvider`
+
+The model backend. Edgekit ships two implementations: `@edgekit/model-webllm` and `@edgekit/model-chrome`.
+
+```typescript
+interface ModelProvider {
+  readonly id: string
+  init(): Promise<void>
+  generate(messages: readonly Message[], options?: GenerateOptions): AsyncIterable<GenerateChunk>
+  generateStructured<T>(messages: readonly Message[], schema: Record<string, unknown>): Promise<T>
+  capabilities(): ModelCapabilities
+  dispose(): Promise<void>
+}
+```
+
+| Method | Description |
+|---|---|
+| `init()` | Downloads and initializes the model. May take seconds to minutes depending on model size and network. |
+| `generate()` | Streams generation results as an async iterable of `GenerateChunk` values. |
+| `generateStructured()` | Generates a response conforming to a JSON schema. Useful for extracting structured data. |
+| `capabilities()` | Returns the model's capabilities (max tokens, tool support, streaming support). |
+| `dispose()` | Releases GPU memory and cleans up resources. |
+
+### `RAGProvider`
+
+The retrieval backend. Edgekit ships `@edgekit/rag-local` which uses IndexedDB for vector storage and cosine similarity for search.
+
+```typescript
+interface RAGProvider {
+  readonly id: string
+  init(index?: ContentIndex): Promise<void>
+  retrieve(query: string, topK?: number): Promise<readonly Chunk[]>
+  dispose(): Promise<void>
+}
+```
+
+### `EmbeddingProvider`
+
+Produces embedding vectors for text. Used by the RAG provider for query encoding.
+
+```typescript
+interface EmbeddingProvider {
+  readonly id: string
+  init(): Promise<void>
+  encode(text: string): Promise<Float32Array>
+  encodeBatch(texts: readonly string[]): Promise<readonly Float32Array[]>
+  readonly dimensions: number
+  dispose(): Promise<void>
+}
+```
+
+### `Skill`
+
+A skill registers tools that the model can call during generation. Skills are the extension mechanism for edgekit.
+
+```typescript
+interface Skill {
+  readonly name: string
+  readonly description: string
+  readonly tools: readonly Tool[]
+  activate(context: SkillContext): void
+  deactivate?(): void
+  handleToolCall?(name: string, args: Record<string, unknown>): Promise<string>
+}
+```
+
+| Method | Description |
+|---|---|
+| `activate(context)` | Called when the runtime starts. Receives access to the model, RAG provider, and conversation state. |
+| `deactivate()` | Called on `runtime.dispose()`. Clean up any resources. |
+| `handleToolCall(name, args)` | Called when the model invokes one of this skill's tools. Returns a string result that gets fed back into the conversation. |
+
+### `SkillContext`
+
+The context object passed to `Skill.activate()`.
+
+```typescript
+interface SkillContext {
+  readonly model: ModelProvider
+  readonly rag?: RAGProvider
+  readonly conversation: ConversationState
+  emit(event: string, data: unknown): void
+}
+```
+
+### `UIProvider`
+
+A UI provider mounts a chat interface into a DOM container. Edgekit ships `@edgekit/ui-component`, a Lit-based web component.
+
+```typescript
+interface UIProvider {
+  mount(container: HTMLElement, runtime: Runtime): void
+  unmount(): void
+}
+```

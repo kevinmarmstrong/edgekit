@@ -1,0 +1,179 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Installation'
+description: 'Install edgekit packages, check browser requirements, and verify your setup.'
+---
+
+## Package overview
+
+Edgekit is split into focused packages. Install only what you need.
+
+| Package | Purpose | Size (gzipped) |
+|---|---|---|
+| `@edgekit/core` | Runtime orchestrator, event bus, context manager, guardrails | ~5 KB |
+| `@edgekit/model-webllm` | WebGPU inference via MLC WebLLM | ~8 KB (runtime downloads models separately) |
+| `@edgekit/model-chrome` | Chrome Prompt API (window.ai) provider | ~2 KB |
+| `@edgekit/rag-local` | Local RAG with cosine similarity and IndexedDB | ~4 KB |
+| `@edgekit/embeddings` | Browser-side embedding generation via Transformers.js | ~3 KB (runtime downloads model separately) |
+| `@edgekit/ui-component` | `<edge-chat>` Lit web component | ~3 KB |
+| `@edgekit/skills` | Skill/tool-calling extensions (e.g., blog chat) | ~2 KB |
+| `@edgekit/cli` | CLI for building content indexes at deploy time | Dev dependency |
+
+## Quick install
+
+Install all runtime packages at once:
+
+```bash
+# pnpm (recommended)
+pnpm add @edgekit/core @edgekit/model-webllm @edgekit/rag-local @edgekit/ui-component
+
+# npm
+npm install @edgekit/core @edgekit/model-webllm @edgekit/rag-local @edgekit/ui-component
+
+# yarn
+yarn add @edgekit/core @edgekit/model-webllm @edgekit/rag-local @edgekit/ui-component
+```
+
+Add the CLI as a dev dependency for building content indexes:
+
+```bash
+pnpm add -D @edgekit/cli
+```
+
+## Optional packages
+
+**Chrome AI provider** -- use Gemini Nano via the Chrome Prompt API instead of downloading a model:
+
+```bash
+pnpm add @edgekit/model-chrome
+```
+
+**Embeddings** -- generate vector embeddings in the browser for semantic search:
+
+```bash
+pnpm add @edgekit/embeddings
+```
+
+**Skills** -- add tool-calling capabilities to the runtime:
+
+```bash
+pnpm add @edgekit/skills
+```
+
+## Minimal install
+
+If you only need the core runtime and want to bring your own model provider and UI:
+
+```bash
+pnpm add @edgekit/core
+```
+
+The core package exports `createRuntime`, `createEventBus`, `createContextManager`, and `validateInput` along with all TypeScript types. You can implement the `ModelProvider` interface yourself and skip every other package.
+
+## Browser requirements
+
+Edgekit targets modern browsers. The core runtime works everywhere, but model inference requires WebGPU.
+
+| Feature | Minimum browser | Notes |
+|---|---|---|
+| Core runtime | Any modern browser | ES2022 modules required |
+| WebGPU inference | Chrome 113+, Edge 113+, Firefox 127+ | GPU with 4+ GB VRAM recommended |
+| Chrome Prompt API | Chrome 148+ (Canary/Dev) | Gemini Nano, no download needed |
+| Retrieval-only fallback | All browsers including Safari | No WebGPU needed, keyword search |
+| IndexedDB storage | All modern browsers | Used by RAG for index caching |
+| Web Components (UI) | All modern browsers | Lit-based, shadow DOM |
+
+### Checking WebGPU support
+
+```typescript
+async function hasWebGPU(): Promise<boolean> {
+  if (!navigator.gpu) return false
+
+  try {
+    const adapter = await navigator.gpu.requestAdapter()
+    return adapter !== null
+  } catch {
+    return false
+  }
+}
+```
+
+### Checking Chrome AI support
+
+```typescript
+async function hasChromeAI(): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.ai) return false
+
+  try {
+    const capabilities = await window.ai.languageModel.capabilities()
+    return capabilities.available !== 'no'
+  } catch {
+    return false
+  }
+}
+```
+
+## Node.js requirements
+
+The CLI (`@edgekit/cli`) requires **Node.js 22 or later**. It runs at build time only -- the browser packages have no Node.js dependency.
+
+```bash
+node --version  # Must be v22.0.0 or later
+```
+
+## TypeScript setup
+
+All packages ship with TypeScript declarations. No `@types/*` packages are needed. The minimum TypeScript version is 5.0.
+
+If you are using the Chrome AI provider, the `@edgekit/model-chrome` package includes ambient type declarations for `window.ai` so your editor provides autocomplete for the Prompt API.
+
+```typescript
+// Types are exported from @edgekit/core
+import type {
+  RuntimeConfig,
+  ModelProvider,
+  RAGProvider,
+  Runtime,
+  RuntimeEvent,
+  Message,
+  GenerateChunk,
+} from '@edgekit/core'
+```
+
+## Verify your installation
+
+Create a minimal test to confirm everything is wired up:
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ tier: 'tiny' }),
+  downloadPolicy: 'auto',
+  systemPrompt: 'Say hello.',
+})
+
+// Listen for events
+const unsubscribe = runtime.on((event) => {
+  console.log(event.type)
+})
+
+// Initialize the model (triggers download on first run)
+await runtime.initModel()
+
+// Send a test query
+for await (const token of runtime.query('Hi there')) {
+  process.stdout.write(token)
+}
+
+// Clean up
+unsubscribe()
+await runtime.dispose()
+```
+
+## Next steps
+
+- [Getting Started](/docs/getting-started) -- build a working chat widget in 5 minutes
+- [Configuration](/docs/configuration) -- every runtime option explained
+- [WebLLM Provider](/docs/providers/webllm) -- model tiers and performance characteristics

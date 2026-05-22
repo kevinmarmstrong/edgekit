@@ -1,0 +1,184 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'WASM Runtime Provider'
+description: 'Planned WASM-based inference for browsers without WebGPU, including Safari.'
+---
+
+> **Planned** -- The WASM runtime provider is on the roadmap but not yet in development. This page describes the planned design and motivation. Everything here is subject to change.
+
+## The gap
+
+Today, edgekit's inference story has a gap. WebGPU powers the WebLLM provider, and Chrome ships Gemini Nano via the Prompt API. But Safari -- the default browser on every iPhone, iPad, and Mac -- supports neither WebGPU nor `window.ai`. Safari visitors get retrieval-only mode: cited content chunks without AI-generated prose.
+
+The WASM runtime provider will close this gap by running model inference through WebAssembly instead of WebGPU. WASM is supported by every modern browser, including Safari. The tradeoff is performance: CPU-based inference is significantly slower than GPU-based inference, but it is better than no inference at all.
+
+## Planned design
+
+### How it will work
+
+The WASM provider will compile quantized model weights into a WebAssembly module and run inference on the CPU. It will implement the same `ModelProvider` interface as WebLLM and Chrome AI, so switching between them requires no code changes beyond the import.
+
+```typescript
+// Planned API
+import { wasm } from '@edgekit/model-wasm'
+import { createRuntime } from '@edgekit/core'
+
+const runtime = createRuntime({
+  model: wasm({
+    model: 'phi-2-q4',
+    threads: navigator.hardwareConcurrency ?? 4,
+  }),
+})
+```
+
+### Planned WASMConfig
+
+```typescript
+// Planned interface -- subject to change
+interface WASMConfig {
+  readonly model?: string
+  readonly threads?: number
+  readonly simd?: boolean
+  readonly onEvent?: (event: RuntimeEvent) => void
+}
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `model` | `string` | TBD | Quantized model identifier optimized for WASM execution. |
+| `threads` | `number` | `navigator.hardwareConcurrency` | Number of Web Worker threads for parallel inference. |
+| `simd` | `boolean` | Auto-detected | Whether to use WASM SIMD instructions for faster matrix operations. |
+| `onEvent` | `(event: RuntimeEvent) => void` | `undefined` | Event callback for download progress and inference status. |
+
+## Expected performance
+
+WASM inference on the CPU will be substantially slower than WebGPU inference on the GPU. These are rough estimates based on similar WASM ML runtimes:
+
+| Device | Model | Expected tokens/sec | Comparison to WebGPU |
+|---|---|---|---|
+| MacBook Pro M3 | Small (0.5B) | 8-15 | ~3-4x slower |
+| MacBook Pro M3 | Medium (1.5B) | 3-8 | ~5-8x slower |
+| iPhone 15 Pro | Small (0.5B) | 5-10 | N/A (no WebGPU) |
+| Mid-range Android | Small (0.5B) | 2-5 | N/A (no WebGPU) |
+
+The key insight: even 3-5 tokens per second is a usable experience for short answers grounded in retrieved content. Visitors on Safari get real AI-generated responses instead of raw content chunks.
+
+### Performance strategies
+
+Several techniques will be used to maximize WASM inference speed:
+
+- **WASM SIMD** -- Single Instruction Multiple Data extensions accelerate matrix multiplication. Supported in all modern browsers including Safari 16.4+.
+- **Multi-threading** -- Web Workers run inference across multiple CPU cores using `SharedArrayBuffer`. Requires `Cross-Origin-Isolation` headers.
+- **Smaller models** -- The WASM provider will favor models in the 0.5B-1.5B range where CPU inference is practical. Larger models are better served by WebGPU.
+- **Aggressive quantization** -- 4-bit and even 2-bit quantization reduces memory bandwidth requirements, which is often the bottleneck on CPU.
+
+## Planned model selection
+
+The WASM provider will ship its own model ladder optimized for CPU inference. These will be smaller models than the WebGPU tier to keep inference times reasonable.
+
+| Tier | Target model | Parameters | Rationale |
+|---|---|---|---|
+| `compact` | TBD (Qwen2.5-0.5B class) | 0.5B | Fast enough for real-time on most devices |
+| `balanced` | TBD (SmolLM-1.7B class) | 1.5-1.7B | Better quality, acceptable speed on modern hardware |
+
+## Cross-Origin Isolation
+
+Multi-threaded WASM requires `SharedArrayBuffer`, which in turn requires Cross-Origin Isolation headers on your server:
+
+```
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Opener-Policy: same-origin
+```
+
+Without these headers, the WASM provider will fall back to single-threaded execution, which is slower but still functional.
+
+## Planned browser support
+
+| Browser | WASM | SIMD | SharedArrayBuffer | Expected support |
+|---|---|---|---|---|
+| Safari 16.4+ | Yes | Yes | Yes (with headers) | Full |
+| Safari 15-16.3 | Yes | Partial | Limited | Single-threaded only |
+| Chrome 113+ | Yes | Yes | Yes | Full (but WebGPU preferred) |
+| Firefox 127+ | Yes | Yes | Yes | Full (but WebGPU preferred) |
+| Mobile Safari (iOS 16.4+) | Yes | Yes | Yes (with headers) | Full |
+
+## Automatic provider selection
+
+When the WASM provider ships, edgekit will include a helper to automatically select the best available provider for the visitor's browser:
+
+```typescript
+// Planned API
+import { autoProvider } from '@edgekit/core'
+
+const runtime = createRuntime({
+  model: await autoProvider({
+    preferences: ['chrome-ai', 'webllm', 'wasm'],
+    wasmConfig: { model: 'phi-2-q4' },
+    webllmConfig: { tier: 'standard' },
+  }),
+})
+```
+
+The selection logic:
+
+1. **Chrome AI** -- if `window.ai` is available, use it (zero download, instant start)
+2. **WebLLM** -- if WebGPU is available, use GPU inference (best quality and speed)
+3. **WASM** -- if neither is available, use CPU inference (broadest compatibility)
+4. **Retrieval-only** -- if none of the above work, return content chunks without generation
+
+## Implementation timeline
+
+The WASM provider is on the roadmap but does not have a target release date yet. The priorities ahead of it are:
+
+1. Cloud fallback provider (in development)
+2. React adapter
+3. WASM runtime provider
+
+Follow the [GitHub repository](https://github.com/kevinmarmstrong/edgekit) for updates.
+
+## Building your own WASM provider
+
+If you need WASM inference before the official provider ships, you can implement the `ModelProvider` interface using an existing WASM inference library like [llama.cpp WASM](https://github.com/nicepkg/gpt-runner) or [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/).
+
+```typescript
+import type { ModelProvider } from '@edgekit/core'
+
+function myWasmProvider(): ModelProvider {
+  return {
+    id: 'my-wasm',
+
+    async init() {
+      // Load WASM module and model weights
+    },
+
+    async *generate(messages, options) {
+      // Run inference on the CPU via WASM
+      // Yield text chunks as they are produced
+    },
+
+    async generateStructured(messages, schema) {
+      // Generate constrained JSON output
+      throw new Error('Structured generation not yet supported in WASM provider')
+    },
+
+    capabilities() {
+      return {
+        maxTokens: 2048,
+        supportsToolCalling: false,
+        supportsStreaming: true,
+        modelId: 'my-wasm-model',
+      }
+    },
+
+    async dispose() {
+      // Free WASM memory
+    },
+  }
+}
+```
+
+## Next steps
+
+- [WebLLM Provider](/docs/providers/webllm) -- GPU-based inference for WebGPU-capable browsers
+- [Chrome AI Provider](/docs/providers/chrome-ai) -- zero-download inference in Chrome
+- [Cloud Fallback](/docs/providers/cloud) -- server-side inference for unsupported browsers

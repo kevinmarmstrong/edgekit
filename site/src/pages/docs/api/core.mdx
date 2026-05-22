@@ -1,0 +1,253 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Core Runtime API'
+description: 'API reference for createRuntime(), the Runtime interface, and RuntimeConfig.'
+---
+
+The core runtime is the central orchestrator for edgekit. It wires together your model provider, RAG pipeline, skills, and UI into a single query interface.
+
+## `createRuntime(config)`
+
+Creates and returns a `Runtime` instance. This is the main entry point for edgekit.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+
+function createRuntime(config: RuntimeConfig): Runtime
+```
+
+The runtime immediately activates any skills passed in the config, sets the system prompt, and prepares the event bus. No model download happens until the first query (or an explicit `initModel()` call).
+
+### Example
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+import { blogChat } from '@edgekit/skills'
+
+const runtime = createRuntime({
+  model: webllm(),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  skills: [blogChat({ siteName: 'My Blog' })],
+  downloadPolicy: 'prompt',
+  systemPrompt: 'Answer questions using the provided context.',
+  maxToolRounds: 3,
+})
+```
+
+---
+
+## `Runtime` interface
+
+The object returned by `createRuntime()`. All methods are safe to call from any framework.
+
+```typescript
+interface Runtime {
+  readonly config: RuntimeConfig
+  query(input: string): AsyncIterable<string>
+  getConversation(): ConversationState
+  clearConversation(): void
+  initModel(): Promise<void>
+  on(handler: (event: RuntimeEvent) => void): () => void
+  dispose(): Promise<void>
+}
+```
+
+### `runtime.query(input)`
+
+Sends a user message and streams back the assistant response. Each yielded string is a token (or token fragment) suitable for appending to the UI.
+
+```typescript
+query(input: string): AsyncIterable<string>
+```
+
+Under the hood, `query` performs these steps in order:
+
+1. Validates the input against guardrails (max tokens, blocked patterns).
+2. Adds the user message to conversation history.
+3. If a RAG provider is configured, retrieves relevant chunks and emits `retrieval:start` / `retrieval:complete` events.
+4. Ensures the model is initialized (respecting `downloadPolicy`).
+5. Builds the full message array with RAG context injected.
+6. Streams tokens from the model, yielding each one.
+7. If the model returns tool calls, executes them via matching skills and re-generates (up to `maxToolRounds` iterations).
+
+**Progressive enhancement:** if the model is unavailable (download policy set to `never`, or user declined the download), `query` falls back to returning formatted retrieval results. The experience degrades gracefully rather than failing.
+
+```typescript
+for await (const token of runtime.query('How do I configure themes?')) {
+  container.textContent += token
+}
+```
+
+### `runtime.getConversation()`
+
+Returns the current conversation state as an immutable snapshot.
+
+```typescript
+getConversation(): ConversationState
+```
+
+The returned `ConversationState` contains the full message history and the current turn number. See [Types](/docs/api/types) for the full shape.
+
+### `runtime.clearConversation()`
+
+Resets the conversation history. The system prompt (if configured) is preserved. This does not affect the model or RAG provider state.
+
+```typescript
+clearConversation(): void
+```
+
+### `runtime.initModel()`
+
+Explicitly triggers model download and initialization. Use this to pre-warm the model before the first user query, for example in response to a button click.
+
+```typescript
+initModel(): Promise<void>
+```
+
+If the model is already initialized, this resolves immediately. If initialization is already in progress, it returns the existing promise.
+
+```typescript
+downloadButton.addEventListener('click', async () => {
+  downloadButton.disabled = true
+  await runtime.initModel()
+  downloadButton.textContent = 'Model ready'
+})
+```
+
+### `runtime.on(handler)`
+
+Subscribes to runtime events. Returns an unsubscribe function. Every stage of the pipeline emits typed events, making it straightforward to build custom UI, analytics, or debugging tools.
+
+```typescript
+on(handler: (event: RuntimeEvent) => void): () => void
+```
+
+```typescript
+const unsubscribe = runtime.on((event) => {
+  if (event.type === 'model:download:progress') {
+    progressBar.style.width = `${event.progress * 100}%`
+  }
+  if (event.type === 'generation:error') {
+    console.error('Generation failed:', event.error)
+  }
+})
+
+// Later, when cleaning up:
+unsubscribe()
+```
+
+See [RuntimeEvent](/docs/api/types#runtimeevent) for all event types.
+
+### `runtime.dispose()`
+
+Tears down the runtime: deactivates skills, disposes the event bus, and releases the model, RAG, and embedding providers. Call this when the component unmounts or the page unloads.
+
+```typescript
+dispose(): Promise<void>
+```
+
+---
+
+## `RuntimeConfig`
+
+Configuration object passed to `createRuntime()`.
+
+```typescript
+interface RuntimeConfig {
+  readonly model: ModelProvider
+  readonly rag?: RAGProvider
+  readonly embeddings?: EmbeddingProvider
+  readonly skills?: readonly Skill[]
+  readonly ui?: UIProvider
+  readonly downloadPolicy?: DownloadPolicy
+  readonly maxToolRounds?: number
+  readonly systemPrompt?: string
+  readonly guardrails?: GuardrailsConfig
+}
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `model` | `ModelProvider` | required | The model backend. Use `webllm()` or `chromeAI()`. |
+| `rag` | `RAGProvider` | `undefined` | Optional retrieval provider for grounding answers. |
+| `embeddings` | `EmbeddingProvider` | `undefined` | Optional embedding provider for query encoding. |
+| `skills` | `Skill[]` | `[]` | Skills that register tools the model can call. |
+| `ui` | `UIProvider` | `undefined` | Optional UI provider (e.g., the web component). |
+| `downloadPolicy` | `DownloadPolicy` | `'prompt'` | Controls model download behavior: `'auto'`, `'prompt'`, or `'never'`. |
+| `maxToolRounds` | `number` | `3` | Maximum number of tool-call round-trips per query. |
+| `systemPrompt` | `string` | `undefined` | System message prepended to every conversation. |
+| `guardrails` | `GuardrailsConfig` | `undefined` | Input/output limits and content filters. |
+
+---
+
+## `GuardrailsConfig`
+
+Optional safety and resource limits.
+
+```typescript
+interface GuardrailsConfig {
+  readonly maxInputTokens?: number
+  readonly maxOutputTokens?: number
+  readonly maxConversationTurns?: number
+  readonly blockedPatterns?: readonly RegExp[]
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `maxInputTokens` | `number` | Maximum token count for user input. Queries exceeding this emit an error event. |
+| `maxOutputTokens` | `number` | Cap on generated response length. Passed to the model provider. |
+| `maxConversationTurns` | `number` | Maximum conversation turns before the context manager resets. |
+| `blockedPatterns` | `RegExp[]` | Regular expressions matched against user input. Matching queries are rejected. |
+
+---
+
+## Helper exports
+
+The core package also exports these utilities:
+
+### `createEventBus()`
+
+Creates a standalone event bus. Used internally by the runtime, but available if you need a separate event channel.
+
+```typescript
+import { createEventBus } from '@edgekit/core'
+
+const bus = createEventBus()
+const unsub = bus.on((event) => console.log(event))
+bus.emit({ type: 'model:ready' })
+unsub()
+bus.dispose()
+```
+
+### `createContextManager(maxTurns?)`
+
+Creates a conversation context manager with optional turn limits.
+
+```typescript
+import { createContextManager } from '@edgekit/core'
+
+const context = createContextManager(50)
+context.addMessage({ role: 'user', content: 'Hello' })
+const state = context.getState() // { messages: [...], turn: 1 }
+context.clear()
+```
+
+### `validateInput(input, guardrails?)`
+
+Validates user input against guardrail rules. Returns `{ valid: true }` or `{ valid: false, reason: string }`.
+
+```typescript
+import { validateInput } from '@edgekit/core'
+
+const result = validateInput(userInput, {
+  maxInputTokens: 500,
+  blockedPatterns: [/ignore previous instructions/i],
+})
+
+if (!result.valid) {
+  showError(result.reason)
+}
+```

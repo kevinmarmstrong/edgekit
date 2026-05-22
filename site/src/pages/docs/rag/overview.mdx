@@ -1,0 +1,166 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'RAG Overview'
+description: 'How edgekit implements retrieval-augmented generation entirely in the browser'
+---
+
+Retrieval-augmented generation (RAG) lets a language model answer questions using
+your content instead of relying only on its training data. The model retrieves
+relevant passages from a content index, injects them into the prompt, and
+generates a grounded answer with citations.
+
+Most RAG systems depend on server-side infrastructure: vector databases, embedding
+APIs, and orchestration services. edgekit takes a different approach. The entire
+retrieval pipeline runs in the browser. Your content index ships as a static JSON
+file. Embeddings are computed on-device with WebGPU. No API keys, no per-query
+fees, no data leaving the user's machine.
+
+## How the pipeline works
+
+When a user submits a query, edgekit executes these steps in order:
+
+1. **Query encoding** -- The query string is passed to an `EmbeddingProvider` (if
+   configured) to produce a dense vector representation.
+2. **Cosine similarity** -- The query vector is compared against every chunk
+   embedding in the content index using cosine similarity.
+3. **Top-K selection** -- The highest-scoring chunks are selected. The default is
+   5, configurable via the `topK` option.
+4. **Prompt assembly** -- The selected chunks are formatted into a system message
+   with source annotations and prepended to the conversation history.
+5. **Generation** -- The assembled messages are sent to the model provider, which
+   streams a response grounded in the retrieved content.
+
+```typescript
+import { createRuntime } from '@edgekit/core'
+import { localRAG } from '@edgekit/rag-local'
+import { transformersEmbedding } from '@edgekit/embeddings'
+import { webllm } from '@edgekit/model-webllm'
+
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  rag: localRAG({
+    indexUrl: '/content-index.json',
+    topK: 5,
+    embeddings: transformersEmbedding(),
+  }),
+})
+
+// The runtime handles the full pipeline automatically
+for await (const token of runtime.query('How do I configure caching?')) {
+  process.stdout.write(token)
+}
+```
+
+## Keyword fallback
+
+When no embedding provider is configured, edgekit falls back to keyword-based
+retrieval. This mode requires no model download and works immediately.
+
+The keyword search splits the query into individual words (minimum 2 characters)
+and scores each chunk by how many query words appear in its content and title.
+Title matches are weighted 2x higher than body matches. Results are sorted by
+score and the top-K are returned.
+
+```typescript
+// No embeddings -- keyword fallback activates automatically
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  rag: localRAG({
+    indexUrl: '/content-index.json',
+    topK: 3,
+  }),
+})
+```
+
+Keyword search is less precise than vector search but has zero startup cost. It
+works well for documentation sites where queries often contain exact terms from
+the content.
+
+## Content index format
+
+The content index is a JSON file produced by the `@edgekit/cli` build command.
+It contains pre-chunked content with optional embedding vectors:
+
+```typescript
+interface ContentIndex {
+  readonly version: string
+  readonly contentHash: string       // SHA-256 prefix for cache invalidation
+  readonly chunks: readonly IndexedChunk[]
+  readonly metadata: IndexMetadata
+}
+
+interface IndexedChunk {
+  readonly id: string                // e.g. "getting-started.md#2"
+  readonly content: string           // The chunk text
+  readonly embedding: readonly number[]  // Dense vector (empty if no embeddings)
+  readonly metadata: ChunkMetadata
+}
+
+interface ChunkMetadata {
+  readonly source: string            // Relative file path
+  readonly title?: string            // Extracted from frontmatter
+  readonly url?: string              // Optional link to source
+  readonly [key: string]: unknown    // Arbitrary metadata
+}
+```
+
+## Retrieval results
+
+After retrieval, each result includes a relevance `score`. For vector search this
+is the cosine similarity (0 to 1). For keyword search it is the weighted term
+count. The runtime uses these scores internally but also exposes them through
+events:
+
+```typescript
+runtime.on((event) => {
+  if (event.type === 'retrieval:complete') {
+    for (const chunk of event.chunks) {
+      console.log(`[${chunk.score?.toFixed(3)}] ${chunk.metadata.title}`)
+    }
+  }
+})
+```
+
+## Prompt assembly
+
+Retrieved chunks are injected as a system message between any existing system
+messages and the conversation history. Each chunk is annotated with its source:
+
+```
+[Source: getting-started.md]
+To install edgekit, run npm install @edgekit/core...
+
+[Source: configuration.md]
+The edgekit.config.json file controls chunk size...
+```
+
+The model sees these sources and can cite them in its responses. The built-in
+`<edge-chat>` web component renders citations automatically when the RAG provider
+returns chunks.
+
+## Progressive enhancement
+
+RAG integrates with edgekit's progressive enhancement model. If the AI model has
+not been downloaded yet but the content index is available, the runtime can still
+return retrieved passages as a direct answer. Users get useful results immediately
+while the model downloads in the background.
+
+```typescript
+const runtime = createRuntime({
+  model: webllm({ model: 'Llama-3.1-8B-Instruct-q4f16_1-MLC' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  downloadPolicy: 'prompt',  // Ask before downloading the model
+})
+
+// Before model download: returns raw retrieved passages
+// After model download: returns model-generated answers with citations
+for await (const token of runtime.query('What is edgekit?')) {
+  // ...
+}
+```
+
+## Next steps
+
+- [Content Index](/docs/rag/content-index) -- Build and configure your content index
+- [Embeddings](/docs/rag/embeddings) -- Add vector search with Transformers.js
+- [Advanced RAG](/docs/rag/advanced) -- Custom retrieval, hybrid search, metadata filters

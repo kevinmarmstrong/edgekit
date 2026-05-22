@@ -1,0 +1,147 @@
+---
+import Base from '@/layouts/Base.astro'
+const base = import.meta.env.BASE_URL
+
+interface RoadmapItem {
+  title: string
+  description: string
+  status: 'shipped' | 'building' | 'next' | 'planned' | 'exploring'
+  link?: string
+}
+
+const items: RoadmapItem[] = [
+  // Shipped
+  { title: 'Core runtime & orchestrator', description: 'Event bus, context manager, guardrails, streaming generation, tool call dispatch', status: 'shipped' },
+  { title: 'WebLLM provider (WebGPU)', description: 'Quantized inference via WebGPU. Model ladder: Qwen 0.5B, Phi-4-Mini 3.8B, Phi-3.5-Mini', status: 'shipped', link: `${base}docs/providers/webllm` },
+  { title: 'Chrome AI provider', description: 'Gemini Nano via Chrome 148+ Prompt API. Zero download, instant start', status: 'shipped', link: `${base}docs/providers/chrome-ai` },
+  { title: 'RAG pipeline', description: 'IndexedDB vector store, cosine similarity, keyword fallback, hash-based content versioning', status: 'shipped', link: `${base}docs/rag/overview` },
+  { title: 'Content CLI', description: 'Build content index from markdown. Chunk, hash, output static JSON', status: 'shipped', link: `${base}docs/api/cli` },
+  { title: 'Web component UI', description: 'Drop-in <edge-chat> element. Lit-based, ~3KB, themeable, dark mode', status: 'shipped', link: `${base}docs/ui/web-component` },
+  { title: 'Skills & tool calling', description: 'Pluggable skills with typed tool dispatch. Blog chat built-in skill', status: 'shipped', link: `${base}docs/skills/overview` },
+  { title: 'Progressive enhancement', description: 'Automatic fallback: WebGPU → Chrome AI → retrieval-only. Never a blank screen', status: 'shipped', link: `${base}docs/guides/progressive` },
+  { title: 'Download policy', description: 'Configurable: auto, prompt (default), never. Control model download UX', status: 'shipped', link: `${base}docs/guides/download-policy` },
+  { title: 'Event system', description: 'Typed events for every pipeline stage. Custom UI, analytics, debugging', status: 'shipped', link: `${base}docs/guides/events` },
+
+  // Building now
+  { title: 'Edgekit marketing site', description: 'This site. Documentation, demos, blog. Dogfooding edgekit on its own content', status: 'building' },
+
+  // Next
+  { title: 'Cloud fallback provider', description: 'Route to OpenAI/Anthropic/Google when browser can\'t run locally. Configurable per-query', status: 'next', link: `${base}docs/providers/cloud` },
+  { title: 'React adapter', description: 'useEdgekit() hook and <EdgeChat /> component with full TypeScript support', status: 'next', link: `${base}docs/ui/react` },
+  { title: 'Theme playground demo', description: 'Visual theme editor. Adjust colors, fonts, positioning. Copy CSS variables', status: 'next' },
+  { title: 'Model comparison demo', description: 'Run same query against WebLLM, Chrome AI, cloud side-by-side', status: 'next' },
+
+  // Planned
+  { title: 'WASM inference runtime', description: 'WASM-based model execution for browsers without WebGPU (Safari). Lower perf, broader compat', status: 'planned', link: `${base}docs/providers/wasm` },
+  { title: 'Vue & Svelte adapters', description: 'First-class support for Vue and Svelte with framework-native components', status: 'planned' },
+  { title: 'Service Worker / offline mode', description: 'Cache model + content index via Service Worker. Full AI with zero network after first visit', status: 'planned', link: `${base}docs/guides/offline` },
+  { title: 'HNSW indexing', description: 'Approximate nearest neighbor search for large content indexes (10K+ chunks)', status: 'planned' },
+  { title: 'Multi-model routing', description: 'Route queries to different models based on complexity, device capability, or user preference', status: 'planned' },
+  { title: 'Conversation persistence', description: 'Save and restore conversations across page loads. IndexedDB-backed history', status: 'planned' },
+  { title: 'Analytics hooks', description: 'Built-in analytics events: query count, retrieval quality, model performance, user satisfaction', status: 'planned' },
+  { title: 'Content freshness webhooks', description: 'CRON or webhook-triggered content re-indexing. Detect stale answers automatically', status: 'planned' },
+
+  // Exploring
+  { title: 'Image understanding', description: 'Multimodal models that can answer questions about images in your content', status: 'exploring' },
+  { title: 'Voice input/output', description: 'Speech-to-text for queries, text-to-speech for answers. All in-browser via Web Audio API', status: 'exploring' },
+  { title: 'Plugin registry', description: 'Community skills marketplace. Install skills from npm, auto-discover tools', status: 'exploring' },
+  { title: 'AI capsule format', description: 'Portable, signed content+model bundles for air-gapped or embedded deployments', status: 'exploring' },
+  { title: 'Computer use skill', description: 'Let the model interact with page elements. Form filling, navigation, structured data extraction', status: 'exploring' },
+  { title: 'Multi-language support', description: 'Cross-lingual retrieval and generation. Ask in one language, search content in another', status: 'exploring' },
+]
+
+const statusLabels: Record<string, { label: string; class: string }> = {
+  shipped: { label: 'Shipped', class: 'badge-available' },
+  building: { label: 'Building', class: 'badge-building' },
+  next: { label: 'Next', class: 'badge-coming' },
+  planned: { label: 'Planned', class: 'badge-planned' },
+  exploring: { label: 'Exploring', class: 'badge-exploring' },
+}
+---
+<Base title="Roadmap" description="What's shipped, what's next, and where edgekit is headed.">
+  <main class="roadmap-page container">
+    <h1>Roadmap</h1>
+    <p class="page-sub">What's shipped, what's being built, and where we're headed. This is a living document, not a commitment.</p>
+
+    {['shipped', 'building', 'next', 'planned', 'exploring'].map((status) => {
+      const sectionItems = items.filter((i) => i.status === status)
+      const { label } = statusLabels[status]!
+      return (
+        <section class="roadmap-section">
+          <h2>{label} <span class="item-count">({sectionItems.length})</span></h2>
+          <div class="roadmap-list">
+            {sectionItems.map((item) => (
+              <div class="roadmap-item">
+                <div class="roadmap-dot" data-status={status} />
+                <div class="roadmap-content">
+                  <h3>
+                    {item.link ? <a href={item.link}>{item.title}</a> : item.title}
+                  </h3>
+                  <p>{item.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )
+    })}
+
+    <section class="roadmap-cta">
+      <h2>Have a feature request?</h2>
+      <p>Open an issue on GitHub. Community input drives the roadmap.</p>
+      <a href="https://github.com/kevinmarmstrong/edgekit/issues" class="btn btn-outline">Open an Issue</a>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .roadmap-page { padding: var(--size-2xl) var(--size-lg); max-width: 48rem; }
+  .roadmap-page h1 { text-align: center; }
+  .page-sub {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    margin: var(--size-sm) auto var(--size-2xl);
+  }
+  .roadmap-section { margin-bottom: var(--size-2xl); }
+  .roadmap-section h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--size-sm);
+  }
+  .item-count { color: var(--color-text-muted); font-weight: 400; font-size: 0.9rem; }
+  .roadmap-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-xs);
+  }
+  .roadmap-item {
+    display: flex;
+    gap: var(--size-md);
+    padding: var(--size-md) 0;
+  }
+  .roadmap-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 0.4rem;
+  }
+  .roadmap-dot[data-status="shipped"] { background: var(--color-success); }
+  .roadmap-dot[data-status="building"] { background: var(--color-accent); }
+  .roadmap-dot[data-status="next"] { background: var(--color-warning); }
+  .roadmap-dot[data-status="planned"] { background: var(--color-primary); }
+  .roadmap-dot[data-status="exploring"] { background: var(--color-text-muted); }
+  .roadmap-content h3 { font-size: 0.95rem; margin: 0; }
+  .roadmap-content p { color: var(--color-text-muted); font-size: 0.85rem; margin: var(--size-xs) 0 0; }
+  .roadmap-cta {
+    text-align: center;
+    padding: var(--size-xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-alt);
+  }
+  .roadmap-cta h2 { margin-top: 0; }
+  .roadmap-cta p { color: var(--color-text-muted); margin-bottom: var(--size-lg); }
+</style>

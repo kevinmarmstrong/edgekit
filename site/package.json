@@ -1,0 +1,24 @@
+{
+  "name": "@edgekit/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "build:index": "node scripts/build-index.mjs"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^4.3.0",
+    "@edgekit/core": "workspace:*",
+    "@edgekit/model-webllm": "workspace:*",
+    "@edgekit/rag-local": "workspace:*",
+    "@edgekit/ui-component": "workspace:*",
+    "@edgekit/skills": "workspace:*",
+    "astro": "^5.10.0"
+  },
+  "devDependencies": {
+    "@edgekit/cli": "workspace:*"
+  }
+}

@@ -1,0 +1,114 @@
+---
+import Base from '@/layouts/Base.astro'
+const base = import.meta.env.BASE_URL
+
+const posts = [
+  {
+    slug: 'why-browser-ai',
+    title: 'Why Browser AI Changes Everything',
+    description: 'The shift from cloud to edge. WebGPU making real inference possible. Why small models are good enough for bounded domains.',
+    date: 'May 2026',
+  },
+  {
+    slug: 'webgpu-inference',
+    title: 'WebGPU Inference: Running LLMs at 30 tok/s in Chrome',
+    description: 'Technical deep-dive on how WebGPU enables GPU compute in the browser, quantization techniques, and real performance numbers.',
+    date: 'May 2026',
+  },
+  {
+    slug: 'small-models-big-impact',
+    title: 'Small Models, Big Impact',
+    description: 'What 3-4B parameter models can actually do. RAG as the quality multiplier. Bounded domains vs general knowledge.',
+    date: 'May 2026',
+  },
+  {
+    slug: 'zero-cost-ai',
+    title: 'Zero Marginal Cost AI',
+    description: 'The economics of edge vs cloud AI. How edgekit shifts compute cost to the visitor and why this matters for indie devs and small teams.',
+    date: 'May 2026',
+  },
+  {
+    slug: 'privacy-architecture',
+    title: 'Privacy as Architecture, Not Policy',
+    description: 'Why running AI locally is a stronger privacy guarantee than any privacy policy. No server to breach, no data to subpoena.',
+    date: 'May 2026',
+  },
+]
+---
+<Base title="Blog" description="Articles about browser AI, edge inference, and building with edgekit.">
+  <main class="blog-page container">
+    <h1>Blog</h1>
+    <p class="page-sub">Articles about browser AI, edge inference, WebGPU, and building privacy-first applications with edgekit.</p>
+
+    <div class="post-list">
+      {posts.map((post) => (
+        <a href={`${base}blog/${post.slug}`} class="post-card">
+          <div class="post-meta">
+            <span class="post-date">{post.date}</span>
+          </div>
+          <h2>{post.title}</h2>
+          <p>{post.description}</p>
+          <span class="read-more">Read article</span>
+        </a>
+      ))}
+    </div>
+  </main>
+</Base>
+
+<style>
+  .blog-page {
+    padding: var(--size-2xl) var(--size-lg);
+  }
+  .blog-page h1 {
+    margin-bottom: var(--size-sm);
+  }
+  .page-sub {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    max-width: 40rem;
+    margin-bottom: var(--size-2xl);
+  }
+  .post-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-lg);
+    max-width: 48rem;
+  }
+  .post-card {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--size-lg);
+    background: var(--color-surface);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .post-card:hover {
+    border-color: var(--color-primary, #3b82f6);
+  }
+  .post-meta {
+    margin-bottom: var(--size-xs);
+  }
+  .post-date {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .post-card h2 {
+    font-size: 1.2rem;
+    margin: 0 0 var(--size-xs) 0;
+  }
+  .post-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0 0 var(--size-sm) 0;
+    line-height: 1.5;
+  }
+  .read-more {
+    font-size: 0.85rem;
+    color: var(--color-primary, #3b82f6);
+    font-weight: 500;
+  }
+</style>

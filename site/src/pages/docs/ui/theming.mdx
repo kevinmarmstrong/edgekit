@@ -1,0 +1,285 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Theming'
+description: 'Customize the edgekit chat UI with CSS custom properties'
+---
+
+The `<edge-chat>` web component uses CSS custom properties (CSS variables) for
+all visual styling. You can override any property to match your site's design
+without modifying the component source. Every color, spacing value, and border
+radius is configurable.
+
+## Theme modes
+
+The `theme` attribute controls the base color palette:
+
+```html
+<!-- Follow the system preference -->
+<edge-chat theme="auto"></edge-chat>
+
+<!-- Always light -->
+<edge-chat theme="light"></edge-chat>
+
+<!-- Always dark -->
+<edge-chat theme="dark"></edge-chat>
+```
+
+When set to `auto`, the component uses its light theme by default and switches to
+dark when the user's operating system is in dark mode. The `light` and `dark`
+values force a specific mode regardless of system preference.
+
+## CSS custom properties reference
+
+Override these properties on the `edge-chat` element or any ancestor:
+
+### Colors
+
+| Property | Light default | Dark default | Description |
+|----------|--------------|--------------|-------------|
+| `--ec-bg` | `#ffffff` | `#1a1a1a` | Background color |
+| `--ec-fg` | `#111111` | `#e0e0e0` | Text color |
+| `--ec-border` | `#e0e0e0` | `#333333` | Border color |
+| `--ec-accent` | `#0066cc` | `#4da6ff` | Accent color (links, buttons, cursor) |
+| `--ec-user-bg` | `#f0f7ff` | `#1a2a3a` | User message background |
+| `--ec-cite-bg` | `#f8f9fa` | `#222222` | Citation block background |
+| `--ec-error-bg` | `#fff0f0` | `#2a1515` | Error banner background |
+| `--ec-error-fg` | `#cc0000` | `#ff6666` | Error text color |
+
+### Layout
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ec-radius` | `8px` | Border radius for the container and messages |
+
+## Customizing colors
+
+Apply your brand colors by setting custom properties on the element:
+
+```css
+edge-chat {
+  --ec-accent: #7c3aed;
+  --ec-user-bg: #f5f3ff;
+  --ec-bg: #fafafa;
+  --ec-radius: 12px;
+}
+```
+
+For dark mode overrides, target the `theme` attribute:
+
+```css
+edge-chat[theme="dark"] {
+  --ec-bg: #0f0f0f;
+  --ec-fg: #f0f0f0;
+  --ec-accent: #a78bfa;
+  --ec-user-bg: #1e1b2e;
+  --ec-border: #2a2a2a;
+}
+```
+
+When using `theme="auto"`, the component sets dark mode variables internally
+based on `prefers-color-scheme`. To override the auto dark mode, use:
+
+```css
+@media (prefers-color-scheme: dark) {
+  edge-chat {
+    --ec-bg: #0f0f0f;
+    --ec-accent: #a78bfa;
+  }
+}
+```
+
+## Custom fonts
+
+The component defaults to the system font stack
+(`system-ui, -apple-system, sans-serif`). Override the font on the host element:
+
+```css
+edge-chat {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+}
+```
+
+Message labels, citations, and the download bar inherit the base font. You
+cannot target internal elements directly due to Shadow DOM encapsulation, but
+the `font-family` property on the host cascades through the shadow boundary.
+
+## Compact mode
+
+For sidebar or widget layouts, reduce padding and font sizes with a wrapper
+class:
+
+```css
+.compact edge-chat {
+  font-size: 13px;
+  --ec-radius: 6px;
+}
+
+.compact edge-chat {
+  max-height: 400px;
+}
+```
+
+```html
+<div class="compact">
+  <edge-chat theme="auto" placeholder="Quick question?"></edge-chat>
+</div>
+```
+
+## Positioning
+
+The `<edge-chat>` element is a block-level element. It fills the width of its
+container and has a built-in `max-height` of 600px. Control its size and position
+through the container element.
+
+### Fixed bottom-right widget
+
+```css
+.chat-widget {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 380px;
+  height: 500px;
+  z-index: 1000;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  overflow: hidden;
+}
+```
+
+```html
+<div class="chat-widget">
+  <edge-chat theme="auto"></edge-chat>
+</div>
+```
+
+### Full-page chat
+
+```css
+.chat-fullpage {
+  max-width: 48rem;
+  margin: 0 auto;
+  height: calc(100vh - 4rem);
+  padding: 2rem 1rem;
+}
+
+.chat-fullpage edge-chat {
+  height: 100%;
+  max-height: none;
+}
+```
+
+### Sidebar panel
+
+```css
+.chat-sidebar {
+  width: 320px;
+  height: 100vh;
+  border-left: 1px solid #e0e0e0;
+  position: fixed;
+  right: 0;
+  top: 0;
+}
+
+.chat-sidebar edge-chat {
+  height: 100%;
+  max-height: none;
+  --ec-radius: 0;
+}
+```
+
+## Responsive behavior
+
+The component adapts to narrow containers automatically. The input row stacks the
+text field and send button vertically below approximately 280px width. The
+message area scrolls independently with a minimum height of 200px.
+
+For mobile viewports, consider reducing the container width to full-screen:
+
+```css
+@media (max-width: 640px) {
+  .chat-widget {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+}
+```
+
+## Styling the download prompt
+
+The download consent prompt appears when `downloadPolicy` is set to `'prompt'`.
+It includes a primary button ("Download Model") and a secondary button
+("No Thanks"). Both inherit the accent and border colors:
+
+```css
+edge-chat {
+  /* Primary button takes --ec-accent */
+  --ec-accent: #059669;
+
+  /* Secondary button uses --ec-border and --ec-fg */
+  --ec-border: #d1d5db;
+  --ec-fg: #374151;
+}
+```
+
+## Styling citations
+
+Citations appear below assistant messages when the RAG provider returns chunks.
+They use the `--ec-cite-bg` background color and a reduced font size (0.8rem):
+
+```css
+edge-chat {
+  --ec-cite-bg: #eef2ff;
+}
+```
+
+## Example: full custom theme
+
+Here is a complete example that applies a custom green theme:
+
+```css
+edge-chat.forest {
+  font-family: 'IBM Plex Sans', sans-serif;
+  --ec-bg: #f0fdf4;
+  --ec-fg: #14532d;
+  --ec-border: #bbf7d0;
+  --ec-accent: #15803d;
+  --ec-user-bg: #dcfce7;
+  --ec-cite-bg: #f0fdf4;
+  --ec-error-bg: #fef2f2;
+  --ec-error-fg: #dc2626;
+  --ec-radius: 16px;
+}
+```
+
+```html
+<edge-chat class="forest" theme="light" placeholder="Ask about trees..."></edge-chat>
+```
+
+## Programmatic theme switching
+
+You can change the theme at runtime by updating the attribute:
+
+```typescript
+const chat = document.querySelector('edge-chat')!
+
+function setTheme(theme: 'light' | 'dark' | 'auto') {
+  chat.setAttribute('theme', theme)
+}
+
+// Toggle based on a button click
+document.getElementById('theme-toggle')!.addEventListener('click', () => {
+  const current = chat.getAttribute('theme')
+  setTheme(current === 'dark' ? 'light' : 'dark')
+})
+```
+
+## Next steps
+
+- [Web Component](/docs/ui/web-component) -- Element attributes and event handling
+- [Headless Mode](/docs/ui/headless) -- Build a fully custom UI
+- [React Adapter](/docs/ui/react) -- Planned React integration
