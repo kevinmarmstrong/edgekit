@@ -1,6 +1,85 @@
 import { LitElement, html, css, type TemplateResult } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
+import { unsafeHTML } from 'lit/directives/unsafe-html.js'
 import type { Runtime, RuntimeEvent, Chunk } from '@edgekit/core'
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function renderMarkdown(src: string): string {
+  const lines = src.split('\n')
+  const out: string[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    if (line.startsWith('```')) {
+      const codeLines: string[] = []
+      i++
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(escapeHtml(lines[i]))
+        i++
+      }
+      i++
+      out.push(`<pre><code>${codeLines.join('\n')}</code></pre>`)
+      continue
+    }
+
+    if (line.trim() === '') {
+      i++
+      continue
+    }
+
+    const headingMatch = line.match(/^(#{1,4})\s+(.+)$/)
+    if (headingMatch) {
+      const level = headingMatch[1].length
+      out.push(`<h${level}>${inlineFormat(headingMatch[2])}</h${level}>`)
+      i++
+      continue
+    }
+
+    const ulMatch = line.match(/^[-*]\s+(.+)$/)
+    if (ulMatch) {
+      const items: string[] = []
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        items.push(`<li>${inlineFormat(lines[i].replace(/^[-*]\s+/, ''))}</li>`)
+        i++
+      }
+      out.push(`<ul>${items.join('')}</ul>`)
+      continue
+    }
+
+    const olMatch = line.match(/^\d+\.\s+(.+)$/)
+    if (olMatch) {
+      const items: string[] = []
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(`<li>${inlineFormat(lines[i].replace(/^\d+\.\s+/, ''))}</li>`)
+        i++
+      }
+      out.push(`<ol>${items.join('')}</ol>`)
+      continue
+    }
+
+    out.push(`<p>${inlineFormat(line)}</p>`)
+    i++
+  }
+
+  return out.join('')
+}
+
+function inlineFormat(text: string): string {
+  let result = escapeHtml(text)
+  result = result.replace(/`([^`]+)`/g, '<code>$1</code>')
+  result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  return result
+}
 
 interface ChatMessage {
   readonly role: 'user' | 'assistant'
@@ -28,6 +107,7 @@ export class EdgeChat extends LitElement {
   static override styles = css`
     :host {
       display: block;
+      height: 100%;
       font-family: system-ui, -apple-system, sans-serif;
       --ec-bg: #ffffff;
       --ec-fg: #111111;
@@ -59,14 +139,15 @@ export class EdgeChat extends LitElement {
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      max-height: 600px;
+      height: 100%;
+      max-height: inherit;
     }
 
     .messages {
-      flex: 1;
+      flex: 1 1 0;
       overflow-y: auto;
       padding: 1rem;
-      min-height: 200px;
+      min-height: 0;
     }
 
     .message {
@@ -87,6 +168,49 @@ export class EdgeChat extends LitElement {
       letter-spacing: 0.05em;
       color: var(--ec-accent);
       margin-bottom: 0.25rem;
+    }
+
+    .message .content h1,
+    .message .content h2,
+    .message .content h3,
+    .message .content h4 {
+      margin: 0.75rem 0 0.25rem;
+      line-height: 1.3;
+    }
+    .message .content h1 { font-size: 1.15rem; }
+    .message .content h2 { font-size: 1.05rem; }
+    .message .content h3 { font-size: 0.95rem; }
+    .message .content p {
+      margin: 0.4rem 0;
+    }
+    .message .content ul,
+    .message .content ol {
+      margin: 0.4rem 0;
+      padding-left: 1.5rem;
+    }
+    .message .content li {
+      margin-bottom: 0.2rem;
+    }
+    .message .content pre {
+      background: var(--ec-cite-bg);
+      padding: 0.6rem 0.75rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.5rem 0;
+    }
+    .message .content code {
+      background: var(--ec-cite-bg);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-size: 0.88em;
+    }
+    .message .content pre code {
+      background: none;
+      padding: 0;
+    }
+    .message .content strong {
+      font-weight: 600;
     }
 
     .citations {
@@ -333,13 +457,17 @@ export class EdgeChat extends LitElement {
   }
 
   private renderMessage(msg: ChatMessage): TemplateResult {
+    const uniqueCitations = msg.citations
+      ? [...new Map(msg.citations.map((c) => [c.metadata.title ?? c.metadata.source, c])).values()]
+      : []
+
     return html`
       <div class="message ${msg.role}">
         <div class="label">${msg.role === 'user' ? 'You' : 'Assistant'}</div>
-        <div>${msg.content}</div>
-        ${msg.citations && msg.citations.length > 0 ? html`
+        <div class="content">${msg.role === 'assistant' ? unsafeHTML(renderMarkdown(msg.content)) : msg.content}</div>
+        ${uniqueCitations.length > 0 ? html`
           <div class="citations">
-            ${msg.citations.map((c) => html`
+            ${uniqueCitations.map((c) => html`
               <div class="citation">${c.metadata.title ?? c.metadata.source}</div>
             `)}
           </div>
@@ -349,13 +477,17 @@ export class EdgeChat extends LitElement {
   }
 
   private renderStreaming(): TemplateResult {
+    const uniqueCitations = this.pendingCitations.length > 0
+      ? [...new Map(this.pendingCitations.map((c) => [c.metadata.title ?? c.metadata.source, c])).values()]
+      : []
+
     return html`
       <div class="message assistant">
         <div class="label">Assistant</div>
-        <div>${this.streamingText}<span class="cursor"></span></div>
-        ${this.pendingCitations.length > 0 ? html`
+        <div class="content">${unsafeHTML(renderMarkdown(this.streamingText))}<span class="cursor"></span></div>
+        ${uniqueCitations.length > 0 ? html`
           <div class="citations">
-            ${this.pendingCitations.map((c) => html`
+            ${uniqueCitations.map((c) => html`
               <div class="citation">${c.metadata.title ?? c.metadata.source}</div>
             `)}
           </div>

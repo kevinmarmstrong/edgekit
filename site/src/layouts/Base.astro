@@ -63,10 +63,12 @@ const fullTitle = title === 'edgekit' ? title : `${title} | edgekit`
     }
     #edgekit-chat {
       width: 24rem;
-      max-height: 32rem;
+      height: 32rem;
       border-radius: 0.75rem;
       overflow: hidden;
       box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
     }
     @media (max-width: 480px) {
       #edgekit-chat { width: calc(100vw - 2rem); }
