@@ -1,6 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro'
-const base = import.meta.env.BASE_URL
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/')
 ---
 <Base title="Pricing" description="Edgekit is free. Forever. Here's why.">
   <main class="pricing-page container">

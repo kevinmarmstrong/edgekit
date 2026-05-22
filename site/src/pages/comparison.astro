@@ -1,6 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro'
-const base = import.meta.env.BASE_URL
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/')
 ---
 <Base title="Comparison" description="How edgekit compares to cloud AI, chatbot platforms, and other browser AI solutions.">
   <main class="comparison-page container">

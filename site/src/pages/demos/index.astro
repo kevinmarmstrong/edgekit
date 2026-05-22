@@ -1,7 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro'
 import FeatureCard from '@/components/FeatureCard.astro'
-const base = import.meta.env.BASE_URL
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/')
 ---
 <Base title="Live Demos" description="See edgekit in action. Every demo runs entirely in your browser.">
   <main class="demos-page container">
