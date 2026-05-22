@@ -1,8 +1,21 @@
-# edgekit
+<p align="center">
+  <strong>edgekit</strong>
+</p>
 
-AI chat that runs entirely in the browser. No API keys, no cloud costs, no data leaves the device.
+<p align="center">
+  Browser-native AI runtime. Inference, retrieval, and UI — no server required.
+</p>
 
-Small language models (1.5B-7B parameters) run on the visitor's GPU via WebGPU. Pair with retrieval-augmented generation (RAG) to ground answers in your site's content.
+<p align="center">
+  <a href="https://github.com/anthropics/edgekit/actions/workflows/ci.yml"><img src="https://github.com/anthropics/edgekit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://www.npmjs.com/package/@edgekit/core"><img src="https://img.shields.io/npm/v/@edgekit/core?label=%40edgekit%2Fcore" alt="npm" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
+  <a href="https://www.npmjs.com/package/@edgekit/core"><img src="https://img.shields.io/npm/dm/@edgekit/core?label=downloads" alt="Downloads" /></a>
+</p>
+
+---
+
+Embed AI into any website with zero cloud costs. Small language models (1.5B-7B) run on the visitor's GPU via WebGPU. Pair with retrieval-augmented generation to ground answers in your content. Everything runs locally — no API keys, no usage fees, no data leaves the device.
 
 ## Quick Start
 
@@ -21,104 +34,111 @@ Small language models (1.5B-7B parameters) run on the visitor's GPU via WebGPU. 
     rag: localRAG({ indexUrl: '/content-index.json' }),
     ui,
     downloadPolicy: 'prompt',
-    systemPrompt: 'Answer questions about this site using the provided context.',
+    systemPrompt: 'Answer questions using the provided context.',
   })
 
   ui.mount(document.getElementById('chat'), runtime)
 </script>
 ```
 
-That's it. Two imports, one config object, one mount call.
+That's it. One config, one mount call.
 
 ## How It Works
 
-1. **Visitor asks a question** in the chat widget
-2. **RAG retrieves** relevant content chunks from a pre-built index (cosine similarity, runs instantly)
-3. **The model generates** a grounded response, streaming tokens as they're produced
-4. **Everything runs locally** — the model, embeddings, and vector search all execute in the browser
+```
+User Query
+    |
+    v
+[ RAG Retrieval ] --- cosine similarity against pre-built index (< 1ms)
+    |
+    v
+[ Prompt Assembly ] --- system prompt + retrieved context + conversation history
+    |
+    v
+[ Local Inference ] --- WebGPU (WebLLM) or Chrome Prompt API (Gemini Nano)
+    |
+    v
+[ Streaming Response ] --- tokens stream to the UI as they're generated
+```
 
-If the model isn't downloaded yet, the runtime shows retrieved content first (retrieval-only mode) and offers to download the model for smarter answers.
+If the model isn't downloaded yet, edgekit shows retrieved content immediately (retrieval-only mode) and offers to download the model for richer answers.
 
-## Packages
+## Architecture
 
-| Package | Description | Size |
-|---------|-------------|------|
-| `@edgekit/core` | Orchestrator, event bus, context manager, guardrails | ~2 KB |
-| `@edgekit/model-webllm` | WebLLM adapter (WebGPU inference) | ~3 KB |
-| `@edgekit/model-chrome` | Chrome Prompt API adapter (Gemini Nano) | ~2 KB |
-| `@edgekit/rag-local` | IndexedDB vector store + cosine similarity | ~3 KB |
-| `@edgekit/embeddings` | Transformers.js embedding adapter | ~1 KB |
-| `@edgekit/ui-component` | `<edge-chat>` Lit web component | ~3 KB |
-| `@edgekit/skills` | Built-in skills (blog-chat) | ~1 KB |
-| `@edgekit/cli` | Content ingestion CLI | ~1 KB |
+```
+@edgekit/core .............. Orchestrator, event bus, context manager, guardrails
+@edgekit/model-webllm ...... WebLLM adapter — WebGPU inference
+@edgekit/model-chrome ...... Chrome Prompt API — Gemini Nano (zero download)
+@edgekit/rag-local ......... IndexedDB vector store + cosine similarity
+@edgekit/embeddings ........ Transformers.js embedding adapter
+@edgekit/ui-component ...... <edge-chat> Lit web component
+@edgekit/skills ............ Pluggable skills (blog-chat built in)
+@edgekit/cli ............... Content ingestion CLI
+```
+
+Total runtime overhead: **~15 KB gzipped** (excluding model weights).
 
 ## Model Providers
 
 ### WebLLM (WebGPU)
 
-Runs quantized models on the GPU via WebGPU. Requires a one-time model download (~500MB-2GB depending on tier).
+Runs quantized models on the GPU. One-time download, cached by the browser.
 
 ```typescript
 import { webllm } from '@edgekit/model-webllm'
 
-webllm({ tier: 'tiny' })     // Qwen2.5-0.5B (~500MB, fastest)
-webllm({ tier: 'standard' }) // Phi-4-Mini 3.8B (~2GB, best quality/size ratio)
-webllm({ tier: 'high' })     // Phi-3.5-Mini (~2GB, highest quality)
+webllm({ tier: 'tiny' })     // Qwen2.5-0.5B — ~500MB, fastest
+webllm({ tier: 'standard' }) // Phi-4-Mini 3.8B — ~2GB, best quality/size
+webllm({ tier: 'high' })     // Phi-3.5-Mini — ~2GB, highest quality
 ```
 
 ### Chrome Prompt API
 
-Zero-download inference using Chrome's built-in Gemini Nano (Chrome 148+).
+Zero-download inference via Chrome's built-in Gemini Nano (Chrome 148+).
 
 ```typescript
 import { chromeAI } from '@edgekit/model-chrome'
 
-chromeAI() // Uses window.ai, no download needed
+chromeAI() // Uses window.ai — no download, instant start
 ```
 
 ## Download Policy
 
-Control when/whether the model downloads:
+Control when the model downloads:
 
-- `'auto'` — Download immediately on first query (pre-authorized by app)
-- `'prompt'` — Ask the user before downloading (default)
-- `'never'` — Retrieval-only mode, no model download
+| Policy | Behavior |
+|--------|----------|
+| `'auto'` | Download immediately on first query |
+| `'prompt'` | Ask the user first (default) |
+| `'never'` | Retrieval-only, no model download |
 
 ```typescript
-createRuntime({
-  model: webllm(),
-  downloadPolicy: 'prompt',
-})
+createRuntime({ model: webllm(), downloadPolicy: 'prompt' })
 ```
 
 ## Content Index
 
-Build a content index from your site's markdown/HTML:
+Build an index from your site's content:
 
 ```bash
-npx @edgekit/cli init    # Creates config
-npx @edgekit/cli build   # Markdown -> chunks -> JSON index
+npx @edgekit/cli init    # Create config
+npx @edgekit/cli build   # Markdown -> chunks -> embeddings -> JSON
 ```
 
-The CLI outputs a `content-index.json` that ships as a static file with your site. The browser loads it, stores chunks in IndexedDB, and uses hash-based versioning to detect updates.
+Ships as a static `content-index.json`. The browser loads it into IndexedDB and uses hash-based versioning to detect updates automatically.
 
 ## Events
 
-Subscribe to runtime events for custom UI or analytics:
+Every stage of the pipeline emits typed events:
 
 ```typescript
 runtime.on((event) => {
   switch (event.type) {
-    case 'model:download:start':
-    case 'model:download:progress': // event.progress: 0-1
-    case 'model:download:complete':
-    case 'retrieval:start':
+    case 'model:download:progress': // event.progress (0-1)
     case 'retrieval:complete':       // event.chunks
-    case 'generation:start':
-    case 'generation:token':         // event.token
-    case 'generation:complete':      // event.text
-    case 'tool:call':
-    case 'tool:result':
+    case 'generation:token':         // event.token (streaming)
+    case 'generation:complete':      // event.text (full response)
+    case 'tool:call':                // event.toolCall
     case 'error':                    // event.error, event.recoverable
   }
 })
@@ -126,36 +146,45 @@ runtime.on((event) => {
 
 ## Browser Support
 
-| Browser | WebGPU | Chrome AI | Status |
-|---------|--------|-----------|--------|
+| Browser | WebGPU | Chrome AI | Fallback |
+|---------|--------|-----------|----------|
 | Chrome 113+ | Yes | Yes (148+) | Full support |
 | Edge 113+ | Yes | No | WebGPU only |
 | Firefox 127+ | Yes | No | WebGPU only |
-| Safari | No | No | Retrieval-only fallback |
+| Safari | No | No | Retrieval-only |
 
-## Development
+When WebGPU isn't available, edgekit falls back to retrieval-only mode — visitors still get cited answers from your content, just without generative AI.
 
-```bash
-pnpm install
-pnpm build
-pnpm test
-pnpm typecheck
+## Performance
 
-# Run the demo
-cd examples/blog-chat
-pnpm dev
-```
-
-## Performance (Phi-4-Mini 3.8B, M-series Mac)
+Measured with Phi-4-Mini 3.8B (q4f16) on an M-series Mac:
 
 | Metric | Value |
 |--------|-------|
 | Cold start (first download) | ~80s |
 | Warm cache load | ~5s |
 | Time to first token | ~460ms |
-| Tokens/second | 29-34 |
-| Retrieval latency | <1ms |
+| Tokens/sec | 29-34 |
+| Retrieval latency | < 1ms |
+
+## Development
+
+```bash
+pnpm install       # Install dependencies
+pnpm build         # Build all packages
+pnpm test          # Run tests (50 tests, < 1s)
+pnpm typecheck     # TypeScript strict mode
+pnpm lint          # ESLint
+
+cd examples/blog-chat && pnpm dev   # Run the demo
+```
+
+Requires Node 22+ and pnpm 10+.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, project structure, and guidelines.
 
 ## License
 
-MIT
+[MIT](LICENSE)
