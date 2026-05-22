@@ -14,6 +14,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
   const downloadPolicy = config.downloadPolicy ?? 'prompt'
 
   let initPromise: Promise<boolean> | null = null
+  const ragReady = config.rag ? config.rag.init() : Promise.resolve()
 
   if (config.systemPrompt) {
     context.addMessage({ role: 'system', content: config.systemPrompt })
@@ -80,6 +81,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
 
     let retrievedChunks: readonly Chunk[] = []
     if (config.rag) {
+      await ragReady
       bus.emit({ type: 'retrieval:start', query: input })
       retrievedChunks = await config.rag.retrieve(input)
       bus.emit({ type: 'retrieval:complete', chunks: retrievedChunks })
