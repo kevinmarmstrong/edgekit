@@ -9,7 +9,7 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: [/^@browser-chat-runtime\//],
+      external: [/^@browser-chat-runtime\//, /^lit/],
     },
   },
 })

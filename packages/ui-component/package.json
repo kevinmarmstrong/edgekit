@@ -16,7 +16,9 @@
   },
   "dependencies": {
     "@browser-chat-runtime/core": "workspace:*",
-    "lit": "^3.2.0"
+    "lit": "^3.3.3"
   },
-  "files": ["dist"]
+  "files": [
+    "dist"
+  ]
 }

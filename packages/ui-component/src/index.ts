@@ -6,16 +6,31 @@ export interface WebComponentConfig {
 }
 
 export function webComponent(config: WebComponentConfig = {}): UIProvider {
-  void config
+  let element: HTMLElement | null = null
 
   return {
-    mount(_container: HTMLElement, _runtime: Runtime) {
-      // TODO: Register <edge-chat> custom element via Lit
-      throw new Error('Not implemented — Phase 3')
+    mount(container: HTMLElement, runtime: Runtime) {
+      import('./edge-chat.js')
+
+      const el = document.createElement('edge-chat')
+      el.setAttribute('theme', config.theme ?? 'auto')
+      if (config.placeholder) {
+        el.setAttribute('placeholder', config.placeholder)
+      }
+
+      ;(el as unknown as { runtime: Runtime }).runtime = runtime
+
+      container.appendChild(el)
+      element = el
     },
 
     unmount() {
-      // TODO: Remove custom element
+      if (element) {
+        element.remove()
+        element = null
+      }
     },
   }
 }
+
+export { EdgeChat } from './edge-chat.js'

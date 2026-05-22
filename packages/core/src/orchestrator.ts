@@ -1,4 +1,4 @@
-import type { Message, Chunk, RuntimeEvent } from './types.js'
+import type { Message, Chunk, RuntimeEvent, ToolCall } from './types.js'
 import type { Skill, RuntimeConfig, Runtime } from './providers.js'
 import { createEventBus, type EventBus } from './event-bus.js'
 import { createContextManager, type ContextManager } from './context-manager.js'
@@ -11,6 +11,10 @@ export function createRuntime(config: RuntimeConfig): Runtime {
   )
   const skills: readonly Skill[] = config.skills ?? []
   const maxToolRounds = config.maxToolRounds ?? 3
+  const downloadPolicy = config.downloadPolicy ?? 'prompt'
+
+  let modelReady = false
+  let modelInitializing = false
 
   if (config.systemPrompt) {
     context.addMessage({ role: 'system', content: config.systemPrompt })
@@ -23,6 +27,51 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       conversation: context.getState(),
       emit: (_event, data) => bus.emit(data as RuntimeEvent),
     })
+  }
+
+  async function ensureModel(): Promise<boolean> {
+    if (modelReady) return true
+    if (modelInitializing) return false
+
+    if (downloadPolicy === 'never') {
+      return false
+    }
+
+    if (downloadPolicy === 'prompt') {
+      bus.emit({
+        type: 'error',
+        error: new Error('Model download requires user permission'),
+        recoverable: true,
+      })
+      return false
+    }
+
+    modelInitializing = true
+    try {
+      await config.model.init()
+      modelReady = true
+      modelInitializing = false
+      return true
+    } catch (e) {
+      modelInitializing = false
+      bus.emit({
+        type: 'error',
+        error: e instanceof Error ? e : new Error(String(e)),
+        recoverable: false,
+      })
+      return false
+    }
+  }
+
+  async function initModel(): Promise<void> {
+    if (modelReady || modelInitializing) return
+    modelInitializing = true
+    try {
+      await config.model.init()
+      modelReady = true
+    } finally {
+      modelInitializing = false
+    }
   }
 
   async function* query(input: string): AsyncIterable<string> {
@@ -41,10 +90,19 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       bus.emit({ type: 'retrieval:complete', chunks: retrievedChunks })
     }
 
-    const messages = buildMessages(context.getState().messages, retrievedChunks)
+    const ready = await ensureModel()
+    if (!ready) {
+      if (retrievedChunks.length > 0) {
+        const fallback = formatRetrievalOnly(retrievedChunks)
+        context.addMessage({ role: 'assistant', content: fallback })
+        bus.emit({ type: 'generation:complete', text: fallback })
+        yield fallback
+      }
+      return
+    }
 
+    const messages = buildMessages(context.getState().messages, retrievedChunks)
     const tools = skills.flatMap((s) => s.tools)
-    let fullResponse = ''
 
     for (let round = 0; round <= maxToolRounds; round++) {
       bus.emit({ type: 'generation:start' })
@@ -57,30 +115,34 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       let roundText = ''
       for await (const token of stream) {
         roundText += token
-        fullResponse += token
         bus.emit({ type: 'generation:token', token })
         yield token
       }
 
-      const toolCalls = parseToolCalls(roundText)
-      if (toolCalls.length === 0) break
+      const toolCalls = extractToolCalls(roundText)
+      if (toolCalls.length === 0) {
+        context.addMessage({ role: 'assistant', content: roundText })
+        bus.emit({ type: 'generation:complete', text: roundText })
+        break
+      }
+
+      messages.push({ role: 'assistant', content: roundText, toolCalls })
 
       for (const tc of toolCalls) {
         bus.emit({ type: 'tool:call', toolCall: tc })
-        const handler = skills.find((s) => s.handleToolCall && s.tools.some((t) => t.name === tc.name))
+        const handler = skills.find(
+          (s) => s.handleToolCall && s.tools.some((t) => t.name === tc.name),
+        )
         if (handler?.handleToolCall) {
-          const result = await handler.handleToolCall(tc.name, JSON.parse(tc.arguments) as Record<string, unknown>)
-          bus.emit({ type: 'tool:result', toolCallId: tc.id, result })
-          messages.push(
-            { role: 'assistant', content: '', toolCalls: [tc] },
-            { role: 'tool', content: result, toolCallId: tc.id },
+          const result = await handler.handleToolCall(
+            tc.name,
+            JSON.parse(tc.arguments) as Record<string, unknown>,
           )
+          bus.emit({ type: 'tool:result', toolCallId: tc.id, result })
+          messages.push({ role: 'tool', content: result, toolCallId: tc.id })
         }
       }
     }
-
-    context.addMessage({ role: 'assistant', content: fullResponse })
-    bus.emit({ type: 'generation:complete', text: fullResponse })
   }
 
   return {
@@ -89,6 +151,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
     getConversation: () => context.getState(),
     clearConversation: () => context.clear(),
     on: (handler) => bus.on(handler),
+    initModel,
     dispose: async () => {
       for (const skill of skills) skill.deactivate?.()
       bus.dispose()
@@ -96,7 +159,7 @@ export function createRuntime(config: RuntimeConfig): Runtime {
       await config.rag?.dispose()
       await config.embeddings?.dispose()
     },
-  }
+  } as Runtime & { initModel: () => Promise<void> }
 }
 
 function buildMessages(
@@ -131,10 +194,18 @@ function partition<T>(
   return [yes, no]
 }
 
-function parseToolCalls(text: string): Array<{ id: string; name: string; arguments: string }> {
-  // Tool calls come structured from the model's generate() via the provider.
-  // This is a placeholder — real parsing happens in the model provider layer
-  // when it returns structured tool call messages.
-  void text
+function formatRetrievalOnly(chunks: readonly Chunk[]): string {
+  const sources = chunks
+    .map((c) => `**${c.metadata.title ?? c.metadata.source}**: ${c.content}`)
+    .join('\n\n')
+  return `Here's what I found (model not yet available):\n\n${sources}`
+}
+
+function extractToolCalls(_text: string): ToolCall[] {
+  // Tool calls come via the model provider's structured output.
+  // In WebLLM, they arrive as part of the chat completion response.
+  // This function is a placeholder — real tool call extraction happens
+  // in the model provider layer. The orchestrator receives them through
+  // the generate() stream's final message metadata.
   return []
 }
