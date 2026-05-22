@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/anthropics/edgekit/actions/workflows/ci.yml"><img src="https://github.com/anthropics/edgekit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/kevinmarmstrong/edgekit/actions/workflows/ci.yml"><img src="https://github.com/kevinmarmstrong/edgekit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://www.npmjs.com/package/@edgekit/core"><img src="https://img.shields.io/npm/v/@edgekit/core?label=%40edgekit%2Fcore" alt="npm" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>
   <a href="https://www.npmjs.com/package/@edgekit/core"><img src="https://img.shields.io/npm/dm/@edgekit/core?label=downloads" alt="Downloads" /></a>
