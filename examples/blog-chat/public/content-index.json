@@ -1,0 +1,57 @@
+{
+  "version": "1",
+  "contentHash": "demo-v0.1.0-abcdef",
+  "metadata": {
+    "createdAt": "2026-05-22T00:00:00Z",
+    "embeddingModel": "none",
+    "dimensions": 0,
+    "totalChunks": 5
+  },
+  "chunks": [
+    {
+      "id": "about-1",
+      "content": "Kevin is a software engineer who builds tools for developers. He's passionate about browser-native AI and making powerful technology accessible without cloud dependencies.",
+      "embedding": [],
+      "metadata": {
+        "source": "about.md",
+        "title": "About Kevin"
+      }
+    },
+    {
+      "id": "post-1",
+      "content": "Browser-native AI is the idea that small language models (1-7B parameters) can run directly in the browser using WebGPU. This eliminates cloud API costs and keeps user data completely private. The tradeoff is model capability — these models work best for bounded-knowledge domains like documentation, FAQs, and site-specific content.",
+      "embedding": [],
+      "metadata": {
+        "source": "posts/browser-native-ai.md",
+        "title": "Why Browser-Native AI Matters"
+      }
+    },
+    {
+      "id": "post-2",
+      "content": "WebGPU is the successor to WebGL for GPU computing in browsers. It provides low-level access to the GPU that enables running neural networks at near-native speed. Chrome, Edge, and Firefox all support WebGPU. Safari support is in development.",
+      "embedding": [],
+      "metadata": {
+        "source": "posts/webgpu-primer.md",
+        "title": "A Primer on WebGPU"
+      }
+    },
+    {
+      "id": "post-3",
+      "content": "Retrieval-Augmented Generation (RAG) grounds language model responses in specific content. For browser-native AI, we pre-compute embeddings at build time and ship them as a static JSON file. At query time, we compute the query embedding in the browser and find the most similar chunks using cosine similarity.",
+      "embedding": [],
+      "metadata": {
+        "source": "posts/browser-rag.md",
+        "title": "RAG in the Browser"
+      }
+    },
+    {
+      "id": "post-4",
+      "content": "The cost of AI APIs is a real barrier for small sites and indie developers. Usage-based pricing means you can't predict costs, and a viral post could blow your budget overnight. Browser-native inference flips this: the compute cost is zero because it runs on the visitor's device.",
+      "embedding": [],
+      "metadata": {
+        "source": "posts/cost-of-ai.md",
+        "title": "The Cost Problem with AI APIs"
+      }
+    }
+  ]
+}

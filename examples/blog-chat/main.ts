@@ -1,20 +1,39 @@
 import { createRuntime } from '@browser-chat-runtime/core'
 import { webllm } from '@browser-chat-runtime/model-webllm'
-import { localRAG } from '@browser-chat-runtime/rag-local'
+import { localRAG, loadAndInitRAG } from '@browser-chat-runtime/rag-local'
+import { webComponent } from '@browser-chat-runtime/ui-component'
 import { blogChat } from '@browser-chat-runtime/skills'
 
+const rag = localRAG({ topK: 3 })
+
+const ui = webComponent({
+  theme: 'auto',
+  placeholder: 'Ask a question about the blog...',
+})
+
 const runtime = createRuntime({
-  model: webllm(),
-  rag: localRAG({ indexUrl: './content-index.json' }),
+  model: webllm({ tier: 'standard' }),
+  rag,
   skills: [blogChat({ siteName: "Kevin's Blog" })],
+  ui,
   downloadPolicy: 'prompt',
-  systemPrompt: 'You are a helpful assistant that answers questions about this blog.',
+  systemPrompt:
+    'You are a helpful assistant that answers questions about this blog. ' +
+    'Use the provided context to give accurate, concise answers. ' +
+    'Cite sources when possible.',
 })
 
-runtime.on((event) => {
-  if (event.type === 'generation:token') {
-    // TODO: Wire to UI component
+async function init() {
+  const container = document.getElementById('chat-container')
+  if (!container) return
+
+  try {
+    await loadAndInitRAG(rag, './content-index.json')
+  } catch (e) {
+    console.warn('Failed to load content index:', e)
   }
-})
 
-void runtime
+  ui.mount(container, runtime)
+}
+
+void init()
