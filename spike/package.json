@@ -1,0 +1,13 @@
+{
+  "name": "@browser-chat-runtime/spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.83"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "version": "0.1.0",
+  "contentHash": "spike-test-001",
+  "metadata": {
+    "createdAt": "2026-05-22T00:00:00Z",
+    "embeddingModel": "precomputed",
+    "dimensions": 4,
+    "totalChunks": 10
+  },
+  "chunks": [
+    {
+      "id": "chunk-1",
+      "content": "WebGPU is a modern graphics and compute API that enables high-performance GPU programming in the browser. It provides access to GPU hardware for both rendering and general-purpose computation. WebGPU is supported in Chrome 113+, Firefox 147, and Safari on iOS 26.",
+      "embedding": [0.8, 0.2, 0.1, 0.3],
+      "metadata": { "source": "webgpu-intro.md", "title": "Introduction to WebGPU" }
+    },
+    {
+      "id": "chunk-2",
+      "content": "Running AI models directly in the browser eliminates cloud API costs entirely. Small quantized models (1.5B-7B parameters) can handle bounded-knowledge domains like blog Q&A, documentation search, and product support without sending data to external servers.",
+      "embedding": [0.7, 0.6, 0.2, 0.1],
+      "metadata": { "source": "browser-ai.md", "title": "Browser-Native AI" }
+    },
+    {
+      "id": "chunk-3",
+      "content": "Retrieval-Augmented Generation (RAG) combines search with generation. First, relevant content chunks are retrieved using vector similarity. Then, these chunks are injected into the model's context as grounding information, producing more accurate and cited responses.",
+      "embedding": [0.3, 0.8, 0.5, 0.2],
+      "metadata": { "source": "rag-explained.md", "title": "How RAG Works" }
+    },
+    {
+      "id": "chunk-4",
+      "content": "WebLLM is an open-source library that brings large language models to the browser via WebGPU. It supports models like Llama, Phi, Qwen, and SmolLM. On an M3 Max, Llama 3.1 8B runs at approximately 41 tokens per second.",
+      "embedding": [0.9, 0.3, 0.1, 0.4],
+      "metadata": { "source": "webllm-overview.md", "title": "WebLLM Overview" }
+    },
+    {
+      "id": "chunk-5",
+      "content": "The cost anxiety problem: developers avoid adding AI features because usage-based pricing is unpredictable. A viral blog post could cost thousands in API fees overnight. Browser-native inference makes the cost exactly zero per query because computation happens on the visitor's device.",
+      "embedding": [0.5, 0.7, 0.3, 0.1],
+      "metadata": { "source": "cost-problem.md", "title": "The Cost Problem" }
+    },
+    {
+      "id": "chunk-6",
+      "content": "Phi-4-Mini is a 3.8B parameter model from Microsoft that excels at reasoning tasks. When quantized to q4f16, it requires approximately 2GB of VRAM. It supports native tool calling and structured output generation.",
+      "embedding": [0.6, 0.4, 0.3, 0.5],
+      "metadata": { "source": "model-ladder.md", "title": "Model Recommendations" }
+    },
+    {
+      "id": "chunk-7",
+      "content": "Content indexing works by splitting documents into chunks, generating embeddings for each chunk, and storing them in a vector index. At query time, the user's question is also embedded, and cosine similarity finds the most relevant chunks.",
+      "embedding": [0.2, 0.9, 0.4, 0.1],
+      "metadata": { "source": "indexing-pipeline.md", "title": "Content Indexing Pipeline" }
+    },
+    {
+      "id": "chunk-8",
+      "content": "The web component approach allows embedding the chat interface with just two lines of HTML: a script tag to load the runtime and a custom element tag. This works in any framework or plain HTML page without build tool requirements.",
+      "embedding": [0.4, 0.2, 0.8, 0.3],
+      "metadata": { "source": "embedding-guide.md", "title": "Two-Line Embed" }
+    },
+    {
+      "id": "chunk-9",
+      "content": "Progressive model download UX is critical for user experience. The first visit requires downloading the model (1-3GB). Show a progress bar with ETA, offer retrieval-only answers while downloading, and cache the model in IndexedDB for instant subsequent visits.",
+      "embedding": [0.3, 0.5, 0.7, 0.6],
+      "metadata": { "source": "download-ux.md", "title": "Download Experience" }
+    },
+    {
+      "id": "chunk-10",
+      "content": "Tool calling enables the model to invoke functions during generation. For example, a blog chat skill can call a search tool to find relevant posts, then synthesize the results into a coherent answer. SmolLM3 and Qwen3.5 support native tool calling at 3-4B parameters.",
+      "embedding": [0.7, 0.3, 0.6, 0.2],
+      "metadata": { "source": "tool-calling.md", "title": "Tool Calling on Small Models" }
+    }
+  ]
+}

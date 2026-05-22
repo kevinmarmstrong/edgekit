@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>browser-chat-runtime — Spike</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 2rem; background: #fafafa; color: #111; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    #metrics { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; }
+    #status { padding: 0.5rem 0; color: #666; font-size: 0.9rem; }
+    #progress-container { display: none; margin: 0.5rem 0; }
+    #progress { width: 100%; height: 6px; border-radius: 3px; }
+    #chat { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+    #messages { min-height: 200px; max-height: 400px; overflow-y: auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; }
+    .message { margin-bottom: 0.75rem; line-height: 1.5; }
+    .message.user { color: #0066cc; }
+    .message.assistant { color: #333; }
+    .message .label { font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+    #input-row { display: flex; gap: 0.5rem; }
+    #input { flex: 1; padding: 0.6rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+    #send { padding: 0.6rem 1.2rem; background: #0066cc; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+    #send:disabled { background: #999; cursor: not-allowed; }
+    .citations { margin-top: 0.5rem; padding: 0.5rem; background: #f0f7ff; border-radius: 4px; font-size: 0.8rem; color: #555; }
+    .citation { margin-bottom: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>browser-chat-runtime spike</h1>
+  <p class="subtitle">One page. One model. One index. Measuring what matters.</p>
+
+  <div id="metrics">Loading...</div>
+  <div id="status">Initializing...</div>
+  <div id="progress-container">
+    <progress id="progress" value="0" max="100"></progress>
+  </div>
+
+  <div id="chat">
+    <div id="messages"></div>
+    <div id="input-row">
+      <input id="input" type="text" placeholder="Ask a question about the content..." disabled />
+      <button id="send" disabled>Send</button>
+    </div>
+  </div>
+
+  <script type="module" src="./spike.ts"></script>
+</body>
+</html>
