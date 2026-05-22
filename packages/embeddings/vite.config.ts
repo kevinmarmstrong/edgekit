@@ -9,7 +9,7 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: [/^@browser-chat-runtime\//, /^@xenova\//],
+      external: [/^@edgekit\//, /^@xenova\//],
     },
   },
 })

@@ -1,6 +1,6 @@
-import type { ContentIndex } from '@browser-chat-runtime/core'
+import type { ContentIndex } from '@edgekit/core'
 
-const IDB_NAME = 'browser-chat-runtime'
+const IDB_NAME = 'edgekit'
 const IDB_STORE = 'content-index'
 const IDB_KEY = 'current'
 

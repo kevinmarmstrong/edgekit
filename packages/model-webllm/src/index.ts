@@ -5,7 +5,7 @@ import type {
   Message,
   RuntimeEvent,
   ToolCall,
-} from '@browser-chat-runtime/core'
+} from '@edgekit/core'
 import {
   CreateMLCEngine,
   type MLCEngineInterface,

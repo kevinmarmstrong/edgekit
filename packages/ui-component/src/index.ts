@@ -1,4 +1,4 @@
-import type { UIProvider, Runtime } from '@browser-chat-runtime/core'
+import type { UIProvider, Runtime } from '@edgekit/core'
 
 export interface WebComponentConfig {
   readonly theme?: 'light' | 'dark' | 'auto'

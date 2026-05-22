@@ -1,6 +1,6 @@
 import { LitElement, html, css, type TemplateResult } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
-import type { Runtime, RuntimeEvent, Chunk } from '@browser-chat-runtime/core'
+import type { Runtime, RuntimeEvent, Chunk } from '@edgekit/core'
 
 interface ChatMessage {
   readonly role: 'user' | 'assistant'

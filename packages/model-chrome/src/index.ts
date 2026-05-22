@@ -3,7 +3,7 @@ import type {
   ModelCapabilities,
   GenerateOptions,
   Message,
-} from '@browser-chat-runtime/core'
+} from '@edgekit/core'
 import type { LanguageModelSession } from './types.js'
 
 export interface ChromeAIConfig {

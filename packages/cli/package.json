@@ -1,9 +1,9 @@
 {
-  "name": "@browser-chat-runtime/cli",
+  "name": "@edgekit/cli",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "browser-chat-runtime": "./dist/cli.js"
+    "edgekit": "./dist/cli.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@browser-chat-runtime/core": "workspace:*"
+    "@edgekit/core": "workspace:*"
   },
   "files": ["dist"]
 }

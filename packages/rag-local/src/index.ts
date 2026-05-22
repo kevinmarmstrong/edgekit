@@ -4,7 +4,7 @@ import type {
   ContentIndex,
   IndexedChunk,
   EmbeddingProvider,
-} from '@browser-chat-runtime/core'
+} from '@edgekit/core'
 import { topKByCosine } from './cosine.js'
 import { fetchContentIndex, getStoredHash, storeIndex, needsReload } from './index-loader.js'
 

@@ -1,4 +1,4 @@
-# browser-chat-runtime
+# edgekit
 
 AI chat that runs entirely in the browser. No API keys, no cloud costs, no data leaves the device.
 
@@ -9,10 +9,10 @@ Small language models (1.5B-7B parameters) run on the visitor's GPU via WebGPU. 
 ```html
 <div id="chat"></div>
 <script type="module">
-  import { createRuntime } from '@browser-chat-runtime/core'
-  import { webllm } from '@browser-chat-runtime/model-webllm'
-  import { localRAG } from '@browser-chat-runtime/rag-local'
-  import { webComponent } from '@browser-chat-runtime/ui-component'
+  import { createRuntime } from '@edgekit/core'
+  import { webllm } from '@edgekit/model-webllm'
+  import { localRAG } from '@edgekit/rag-local'
+  import { webComponent } from '@edgekit/ui-component'
 
   const ui = webComponent({ theme: 'auto' })
 
@@ -43,14 +43,14 @@ If the model isn't downloaded yet, the runtime shows retrieved content first (re
 
 | Package | Description | Size |
 |---------|-------------|------|
-| `@browser-chat-runtime/core` | Orchestrator, event bus, context manager, guardrails | ~2 KB |
-| `@browser-chat-runtime/model-webllm` | WebLLM adapter (WebGPU inference) | ~3 KB |
-| `@browser-chat-runtime/model-chrome` | Chrome Prompt API adapter (Gemini Nano) | ~2 KB |
-| `@browser-chat-runtime/rag-local` | IndexedDB vector store + cosine similarity | ~3 KB |
-| `@browser-chat-runtime/embeddings` | Transformers.js embedding adapter | ~1 KB |
-| `@browser-chat-runtime/ui-component` | `<edge-chat>` Lit web component | ~3 KB |
-| `@browser-chat-runtime/skills` | Built-in skills (blog-chat) | ~1 KB |
-| `@browser-chat-runtime/cli` | Content ingestion CLI | ~1 KB |
+| `@edgekit/core` | Orchestrator, event bus, context manager, guardrails | ~2 KB |
+| `@edgekit/model-webllm` | WebLLM adapter (WebGPU inference) | ~3 KB |
+| `@edgekit/model-chrome` | Chrome Prompt API adapter (Gemini Nano) | ~2 KB |
+| `@edgekit/rag-local` | IndexedDB vector store + cosine similarity | ~3 KB |
+| `@edgekit/embeddings` | Transformers.js embedding adapter | ~1 KB |
+| `@edgekit/ui-component` | `<edge-chat>` Lit web component | ~3 KB |
+| `@edgekit/skills` | Built-in skills (blog-chat) | ~1 KB |
+| `@edgekit/cli` | Content ingestion CLI | ~1 KB |
 
 ## Model Providers
 
@@ -59,7 +59,7 @@ If the model isn't downloaded yet, the runtime shows retrieved content first (re
 Runs quantized models on the GPU via WebGPU. Requires a one-time model download (~500MB-2GB depending on tier).
 
 ```typescript
-import { webllm } from '@browser-chat-runtime/model-webllm'
+import { webllm } from '@edgekit/model-webllm'
 
 webllm({ tier: 'tiny' })     // Qwen2.5-0.5B (~500MB, fastest)
 webllm({ tier: 'standard' }) // Phi-4-Mini 3.8B (~2GB, best quality/size ratio)
@@ -71,7 +71,7 @@ webllm({ tier: 'high' })     // Phi-3.5-Mini (~2GB, highest quality)
 Zero-download inference using Chrome's built-in Gemini Nano (Chrome 148+).
 
 ```typescript
-import { chromeAI } from '@browser-chat-runtime/model-chrome'
+import { chromeAI } from '@edgekit/model-chrome'
 
 chromeAI() // Uses window.ai, no download needed
 ```
@@ -96,8 +96,8 @@ createRuntime({
 Build a content index from your site's markdown/HTML:
 
 ```bash
-npx @browser-chat-runtime/cli init    # Creates config
-npx @browser-chat-runtime/cli build   # Markdown -> chunks -> JSON index
+npx @edgekit/cli init    # Creates config
+npx @edgekit/cli build   # Markdown -> chunks -> JSON index
 ```
 
 The CLI outputs a `content-index.json` that ships as a static file with your site. The browser loads it, stores chunks in IndexedDB, and uses hash-based versioning to detect updates.

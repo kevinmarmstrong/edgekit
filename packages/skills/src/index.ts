@@ -1,4 +1,4 @@
-import type { Skill, SkillContext, Tool } from '@browser-chat-runtime/core'
+import type { Skill, SkillContext, Tool } from '@edgekit/core'
 
 export interface BlogChatConfig {
   readonly siteName?: string

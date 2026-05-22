@@ -1,4 +1,4 @@
-import type { EmbeddingProvider } from '@browser-chat-runtime/core'
+import type { EmbeddingProvider } from '@edgekit/core'
 
 export interface TransformersEmbeddingConfig {
   readonly model?: string

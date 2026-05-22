@@ -32,25 +32,25 @@ importers:
 
   examples/blog-chat:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@browser-chat-runtime/model-webllm':
+      '@edgekit/model-webllm':
         specifier: workspace:*
         version: link:../../packages/model-webllm
-      '@browser-chat-runtime/rag-local':
+      '@edgekit/rag-local':
         specifier: workspace:*
         version: link:../../packages/rag-local
-      '@browser-chat-runtime/skills':
+      '@edgekit/skills':
         specifier: workspace:*
         version: link:../../packages/skills
-      '@browser-chat-runtime/ui-component':
+      '@edgekit/ui-component':
         specifier: workspace:*
         version: link:../../packages/ui-component
 
   packages/cli:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
 
@@ -58,19 +58,19 @@ importers:
 
   packages/embeddings:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
 
   packages/model-chrome:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
 
   packages/model-webllm:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
       '@mlc-ai/web-llm':
@@ -79,19 +79,19 @@ importers:
 
   packages/rag-local:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
 
   packages/skills:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
 
   packages/ui-component:
     dependencies:
-      '@browser-chat-runtime/core':
+      '@edgekit/core':
         specifier: workspace:*
         version: link:../core
       lit:

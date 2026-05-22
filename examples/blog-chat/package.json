@@ -1,5 +1,5 @@
 {
-  "name": "@browser-chat-runtime/example-blog-chat",
+  "name": "@edgekit/example-blog-chat",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,10 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@browser-chat-runtime/core": "workspace:*",
-    "@browser-chat-runtime/model-webllm": "workspace:*",
-    "@browser-chat-runtime/rag-local": "workspace:*",
-    "@browser-chat-runtime/ui-component": "workspace:*",
-    "@browser-chat-runtime/skills": "workspace:*"
+    "@edgekit/core": "workspace:*",
+    "@edgekit/model-webllm": "workspace:*",
+    "@edgekit/rag-local": "workspace:*",
+    "@edgekit/ui-component": "workspace:*",
+    "@edgekit/skills": "workspace:*"
   }
 }

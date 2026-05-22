@@ -1,8 +1,8 @@
-import { createRuntime } from '@browser-chat-runtime/core'
-import { webllm } from '@browser-chat-runtime/model-webllm'
-import { localRAG, loadAndInitRAG } from '@browser-chat-runtime/rag-local'
-import { webComponent } from '@browser-chat-runtime/ui-component'
-import { blogChat } from '@browser-chat-runtime/skills'
+import { createRuntime } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG, loadAndInitRAG } from '@edgekit/rag-local'
+import { webComponent } from '@edgekit/ui-component'
+import { blogChat } from '@edgekit/skills'
 
 const rag = localRAG({ topK: 3 })
 

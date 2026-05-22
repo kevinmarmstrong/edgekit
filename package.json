@@ -1,5 +1,5 @@
 {
-  "name": "browser-chat-runtime",
+  "name": "edgekit",
   "private": true,
   "version": "0.1.0",
   "description": "Browser-native AI runtime: chat, RAG, tool use via WebGPU inference",

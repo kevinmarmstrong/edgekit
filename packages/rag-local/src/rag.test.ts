@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { localRAG } from './index.js'
-import type { ContentIndex } from '@browser-chat-runtime/core'
+import type { ContentIndex } from '@edgekit/core'
 
 const testIndex: ContentIndex = {
   version: '0.1.0',
