@@ -15,7 +15,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@browser-chat-runtime/core": "workspace:*"
+    "@browser-chat-runtime/core": "workspace:*",
+    "@mlc-ai/web-llm": "^0.2.83"
   },
-  "files": ["dist"]
+  "files": [
+    "dist"
+  ]
 }
