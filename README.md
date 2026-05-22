@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  Browser-native AI runtime. Inference, retrieval, and UI — no server required.
+  Add AI to any website. Runs entirely in the visitor's browser.
 </p>
 
 <p align="center">
@@ -15,7 +15,29 @@
 
 ---
 
-Embed AI into any website with zero cloud costs. Small language models (1.5B-7B) run on the visitor's GPU via WebGPU. Pair with retrieval-augmented generation to ground answers in your content. Everything runs locally — no API keys, no usage fees, no data leaves the device.
+## The Problem
+
+You want to add AI to your website, but:
+
+- **Cloud AI APIs charge per token.** A viral blog post could cost you hundreds overnight. You can't predict usage, so you can't predict cost.
+- **Your users' data leaves their device.** Every question goes to someone else's server. For docs, support, and knowledge bases, that's a privacy problem you don't need.
+- **You're coupling to a vendor.** API changes, rate limits, outages... you inherit all of it.
+
+## The Solution
+
+Edgekit runs AI directly in the browser. The model, the retrieval engine, and the vector search all execute on the visitor's GPU via WebGPU. No server, no API key, no usage fees, no data leaving the device.
+
+Small language models (1.5B-7B parameters) are good enough for bounded-knowledge domains: documentation sites, product FAQs, help centers, blog archives, internal wikis. You pre-build a content index at deploy time, ship it as a static JSON file, and edgekit grounds every answer in your actual content using retrieval-augmented generation (RAG).
+
+The result: an AI assistant for your site that costs nothing to run, scales to infinite users, and keeps their data completely private.
+
+## Who Is This For
+
+- **Documentation sites** that want an "Ask AI" feature without paying per-query
+- **Indie developers and small teams** who can't afford usage-based AI pricing
+- **Privacy-conscious products** where user data can't leave the browser
+- **Blogs and content sites** that want to let readers ask questions about their archive
+- **Internal tools** where you can't send company data to a third-party API
 
 ## Quick Start
 
@@ -41,95 +63,93 @@ Embed AI into any website with zero cloud costs. Small language models (1.5B-7B)
 </script>
 ```
 
-That's it. One config, one mount call.
+One config object, one mount call. The runtime handles model loading, content retrieval, prompt assembly, streaming generation, and the chat UI.
 
 ## How It Works
 
 ```
-User Query
-    |
-    v
-[ RAG Retrieval ] --- cosine similarity against pre-built index (< 1ms)
-    |
-    v
-[ Prompt Assembly ] --- system prompt + retrieved context + conversation history
-    |
-    v
-[ Local Inference ] --- WebGPU (WebLLM) or Chrome Prompt API (Gemini Nano)
-    |
-    v
-[ Streaming Response ] --- tokens stream to the UI as they're generated
+Visitor asks a question
+         |
+         v
+  [ Content Retrieval ]  -- cosine similarity against your pre-built index (< 1ms)
+         |
+         v
+  [ Prompt Assembly ]    -- system prompt + matched content + conversation history
+         |
+         v
+  [ Browser Inference ]  -- WebGPU model or Chrome's built-in Gemini Nano
+         |
+         v
+  [ Streaming Response ] -- tokens appear in the chat UI as they're generated
 ```
 
-If the model isn't downloaded yet, edgekit shows retrieved content immediately (retrieval-only mode) and offers to download the model for richer answers.
+**Progressive enhancement built in.** If the visitor's browser doesn't support WebGPU, or they decline the model download, edgekit falls back to retrieval-only mode. They still get cited answers pulled from your content, just without the generative layer. No blank screen, no error.
 
-## Architecture
+## What's Inside
+
+Edgekit is a modular runtime, not a monolith. Use what you need:
 
 ```
 @edgekit/core .............. Orchestrator, event bus, context manager, guardrails
-@edgekit/model-webllm ...... WebLLM adapter — WebGPU inference
-@edgekit/model-chrome ...... Chrome Prompt API — Gemini Nano (zero download)
-@edgekit/rag-local ......... IndexedDB vector store + cosine similarity
-@edgekit/embeddings ........ Transformers.js embedding adapter
-@edgekit/ui-component ...... <edge-chat> Lit web component
-@edgekit/skills ............ Pluggable skills (blog-chat built in)
-@edgekit/cli ............... Content ingestion CLI
+@edgekit/model-webllm ...... WebGPU inference via WebLLM (Phi-4-Mini, Qwen, etc.)
+@edgekit/model-chrome ...... Chrome's built-in Gemini Nano (zero download)
+@edgekit/rag-local ......... Vector search in IndexedDB + cosine similarity
+@edgekit/embeddings ........ Browser-side embeddings via Transformers.js
+@edgekit/ui-component ...... Drop-in <edge-chat> web component (Lit, ~3KB)
+@edgekit/skills ............ Pluggable skills with tool calling
+@edgekit/cli ............... CLI to build your content index from markdown/HTML
 ```
 
-Total runtime overhead: **~15 KB gzipped** (excluding model weights).
+Total runtime: **~15 KB gzipped** (excluding model weights). Swap providers, bring your own UI, or use the built-in web component.
 
 ## Model Providers
 
 ### WebLLM (WebGPU)
 
-Runs quantized models on the GPU. One-time download, cached by the browser.
+Quantized models run on the visitor's GPU. Downloaded once, cached by the browser.
 
 ```typescript
 import { webllm } from '@edgekit/model-webllm'
 
-webllm({ tier: 'tiny' })     // Qwen2.5-0.5B — ~500MB, fastest
-webllm({ tier: 'standard' }) // Phi-4-Mini 3.8B — ~2GB, best quality/size
+webllm({ tier: 'tiny' })     // Qwen2.5-0.5B — ~500MB download, fastest start
+webllm({ tier: 'standard' }) // Phi-4-Mini 3.8B — ~2GB, best quality per byte
 webllm({ tier: 'high' })     // Phi-3.5-Mini — ~2GB, highest quality
 ```
 
 ### Chrome Prompt API
 
-Zero-download inference via Chrome's built-in Gemini Nano (Chrome 148+).
+Chrome 148+ includes Gemini Nano. Zero download, instant start.
 
 ```typescript
 import { chromeAI } from '@edgekit/model-chrome'
 
-chromeAI() // Uses window.ai — no download, instant start
+chromeAI() // Uses window.ai — already on the device
 ```
 
 ## Download Policy
 
-Control when the model downloads:
+You control whether and when the model downloads:
 
-| Policy | Behavior |
-|--------|----------|
-| `'auto'` | Download immediately on first query |
-| `'prompt'` | Ask the user first (default) |
-| `'never'` | Retrieval-only, no model download |
+| Policy | What happens | Best for |
+|--------|-------------|----------|
+| `'auto'` | Downloads on first query, no prompt | Apps where users expect AI |
+| `'prompt'` | Asks the visitor first (default) | Websites, blogs, docs |
+| `'never'` | Retrieval-only, no model at all | Maximum privacy, lowest friction |
 
-```typescript
-createRuntime({ model: webllm(), downloadPolicy: 'prompt' })
-```
+## Building Your Content Index
 
-## Content Index
-
-Build an index from your site's content:
+Edgekit answers questions about *your* content. You build the index at deploy time:
 
 ```bash
-npx @edgekit/cli init    # Create config
-npx @edgekit/cli build   # Markdown -> chunks -> embeddings -> JSON
+npx @edgekit/cli init    # Creates config file
+npx @edgekit/cli build   # Markdown -> chunks -> embeddings -> content-index.json
 ```
 
-Ships as a static `content-index.json`. The browser loads it into IndexedDB and uses hash-based versioning to detect updates automatically.
+The output is a static JSON file that ships with your site. The browser loads it into IndexedDB and uses hash-based versioning to detect updates. Redeploy your site, and visitors automatically get the fresh index.
 
 ## Events
 
-Every stage of the pipeline emits typed events:
+Every stage of the pipeline emits typed events. Use them for custom UI, analytics, or debugging:
 
 ```typescript
 runtime.on((event) => {
@@ -146,44 +166,46 @@ runtime.on((event) => {
 
 ## Browser Support
 
-| Browser | WebGPU | Chrome AI | Fallback |
-|---------|--------|-----------|----------|
-| Chrome 113+ | Yes | Yes (148+) | Full support |
-| Edge 113+ | Yes | No | WebGPU only |
-| Firefox 127+ | Yes | No | WebGPU only |
-| Safari | No | No | Retrieval-only |
+| Browser | WebGPU | Chrome AI | What works |
+|---------|--------|-----------|------------|
+| Chrome 113+ | Yes | Yes (148+) | Full: inference + retrieval |
+| Edge 113+ | Yes | No | Full: WebGPU inference + retrieval |
+| Firefox 127+ | Yes | No | Full: WebGPU inference + retrieval |
+| Safari | No | No | Retrieval-only (cited answers, no generation) |
 
-When WebGPU isn't available, edgekit falls back to retrieval-only mode — visitors still get cited answers from your content, just without generative AI.
+Edgekit never shows a blank screen. Browsers without WebGPU get retrieval-only mode automatically.
 
 ## Performance
 
-Measured with Phi-4-Mini 3.8B (q4f16) on an M-series Mac:
+Measured with Phi-4-Mini 3.8B (q4f16) on M-series Mac:
 
-| Metric | Value |
-|--------|-------|
-| Cold start (first download) | ~80s |
-| Warm cache load | ~5s |
-| Time to first token | ~460ms |
-| Tokens/sec | 29-34 |
-| Retrieval latency | < 1ms |
+| Metric | Value | Note |
+|--------|-------|------|
+| First visit (model download) | ~80s | One-time, cached after |
+| Return visit (warm cache) | ~5s | Model loads from browser cache |
+| Time to first token | ~460ms | After model is loaded |
+| Generation speed | 29-34 tok/s | Conversational speed |
+| Content retrieval | < 1ms | Cosine similarity over IndexedDB |
+
+After the first visit, the AI loads in ~5 seconds and generates at conversational speed. Retrieval is always instant.
 
 ## Development
 
 ```bash
 pnpm install       # Install dependencies
-pnpm build         # Build all packages
-pnpm test          # Run tests (50 tests, < 1s)
+pnpm build         # Build all 8 packages
+pnpm test          # 50 tests, runs in < 1s
 pnpm typecheck     # TypeScript strict mode
 pnpm lint          # ESLint
 
-cd examples/blog-chat && pnpm dev   # Run the demo
+cd examples/blog-chat && pnpm dev   # Run the demo locally
 ```
 
 Requires Node 22+ and pnpm 10+.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, project structure, and guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, project structure, and PR guidelines.
 
 ## License
 
