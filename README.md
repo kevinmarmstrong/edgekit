@@ -39,6 +39,22 @@ The result: an AI assistant for your site that costs nothing to run, scales to i
 - **Blogs and content sites** that want to let readers ask questions about their archive
 - **Internal tools** where you can't send company data to a third-party API
 
+## Principles
+
+**Push everything to the edge.** The server is a liability. Every request you route through a backend is a cost you pay, a failure mode you own, and a privacy promise you have to keep. Edgekit moves inference, retrieval, and vector search to the visitor's device. Your server serves static files. That's it.
+
+**Thin runtime, fat browser.** The runtime library is ~15 KB. The real work happens on the visitor's GPU, in their IndexedDB, inside their browser's cache. Edgekit is a thin orchestration layer that wires together capabilities the browser already has. The heaviest thing you ship is the model weights, and the browser caches those after the first visit.
+
+**Modular by default.** Every piece is a separate package with a clean interface. Swap the model provider, bring your own UI, skip the embeddings layer, use retrieval without generation. The runtime doesn't care what's plugged in, it just calls `generate()`, `retrieve()`, and `mount()`. If you only need vector search, install `@edgekit/rag-local` and nothing else.
+
+**Progressive enhancement, not graceful degradation.** Start with what works everywhere (retrieval), then layer on capabilities as the browser supports them. No WebGPU? Visitors still get cited answers from your content. Model not downloaded yet? Show the retrieved context first, offer the model as an upgrade. The experience gets better, but it never breaks.
+
+**Zero marginal cost.** The economics are the point. Cloud AI charges you per token. Edgekit charges you nothing, because the compute runs on hardware someone else already paid for. Your millionth user costs the same as your first: zero. This isn't a technical detail... it's the entire reason this project exists.
+
+**Privacy as architecture, not policy.** Data doesn't leave the device. Not because of a privacy policy. Not because of encryption. Because the code literally runs locally and makes no network requests after the initial page load. There is no server to send data to. That's a stronger guarantee than any policy can make.
+
+**Grounded answers only.** Edgekit is not a general-purpose chatbot. It answers questions about *your* content using retrieval-augmented generation. Every response is grounded in chunks you indexed at build time. This is a feature, not a limitation... it means the model can't hallucinate about topics outside your content, and users can verify answers against cited sources.
+
 ## Quick Start
 
 ```html
