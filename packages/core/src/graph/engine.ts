@@ -1,4 +1,4 @@
-import type { AgentState, StepTrace } from './state.js'
+import type { AgentState, ApprovalResult, StepTrace } from './state.js'
 import type { NodeContext } from './node.js'
 import type {
   GraphDefinition,
@@ -11,6 +11,7 @@ import { createEventEmitter } from '../events/emitter.js'
 
 export interface GraphRunner {
   run(input: string, options?: RunOptions): Promise<AgentState>
+  resume(checkpointId: string, approval: ApprovalResult, options?: RunOptions): Promise<AgentState>
   on(handler: (event: AgentEvent) => void): () => void
   dispose(): void
 }
@@ -223,8 +224,59 @@ export function createGraphEngine(
     }
   }
 
+  async function resume(
+    _checkpointId: string,
+    approval: ApprovalResult,
+    options?: RunOptions,
+  ): Promise<AgentState> {
+    const signal = options?.signal ?? new AbortController().signal
+
+    // Apply the approval to state and clear the HITL flag
+    let state = updateState(currentState, {
+      awaitingApproval: false,
+      approvalRequest: undefined,
+      metadata: { ...currentState.metadata, lastApproval: approval },
+    })
+
+    emit({ type: 'run:started', timestamp: Date.now(), runId: state.runId })
+
+    // Find next node after the hitl node
+    let nodeId = findNextNode(definition, 'hitl', state)
+    let iterations = 0
+
+    try {
+      while (nodeId && iterations < context.config.maxIterations) {
+        if (signal.aborted) {
+          emit({ type: 'run:finished', timestamp: Date.now(), runId: state.runId, status: 'cancelled' })
+          currentState = state
+          return state
+        }
+        state = await executeNode(nodeId, state, signal)
+        iterations++
+        nodeId = findNextNode(definition, state.currentNode, state)
+      }
+
+      emit({ type: 'run:finished', timestamp: Date.now(), runId: state.runId, status: 'completed' })
+      currentState = state
+      return state
+    } catch (err) {
+      const isAbort =
+        err instanceof DOMException && (err as DOMException).name === 'AbortError'
+      emit({
+        type: 'run:finished',
+        timestamp: Date.now(),
+        runId: state.runId,
+        status: isAbort ? 'cancelled' : 'failed',
+        error: isAbort ? undefined : (err instanceof Error ? err.message : String(err)),
+      })
+      currentState = state
+      throw err
+    }
+  }
+
   return {
     run,
+    resume,
     on: (handler: (event: AgentEvent) => void) => emitter.on(handler),
     dispose(): void {
       unsubContext()

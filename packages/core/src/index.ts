@@ -21,6 +21,15 @@ export {
   createHitlNode,
   createRouteNode,
   createEscalateNode,
+  type SkillRoute,
+  type RouteNodeConfig,
+  type HitlNodeConfig,
+  type EscalateNodeConfig,
+  type InputGuardrailNodeConfig,
+  type ActNodeConfig,
+  type ThinkNodeConfig,
+  type RespondNodeConfig,
+  type RetrieveNodeConfig,
 } from './nodes/index.js'
 
 // v1 types (unchanged)

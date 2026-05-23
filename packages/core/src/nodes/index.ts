@@ -3,7 +3,11 @@ export {
   type InputGuardrailNodeConfig,
 } from './input-guardrail.js'
 
-export { createRouteNode, type RouteNodeConfig } from './route.js'
+export {
+  createRouteNode,
+  type RouteNodeConfig,
+  type SkillRoute,
+} from './route.js'
 
 export {
   createRetrieveNode,

@@ -1,9 +1,9 @@
 /**
  * v2 Graph-backed orchestrator with v1-compatible createRuntime() API.
  *
- * This module constructs a 3-node graph (retrieve → think → respond)
- * from a v1 RuntimeConfig, then exposes the same Runtime interface
- * that the existing UI component and demo site expect.
+ * This module constructs an 8-node graph from a v1 RuntimeConfig:
+ *   input_guardrail → route → retrieve → think → act/respond
+ *   with conditional edges for ReAct loop, HITL, and cloud escalation.
  *
  * The v1 query() async generator is bridged by subscribing to
  * TextMessageContent events from the graph engine and yielding
@@ -19,10 +19,13 @@ import { createInitialState, updateState, type AgentState } from './graph/state.
 import type { GraphDefinition, GraphEdge } from './graph/types.js'
 import type { NodeContext } from './graph/node.js'
 import { createInputGuardrailNode } from './nodes/input-guardrail.js'
+import { createRouteNode, type SkillRoute } from './nodes/route.js'
 import { createRetrieveNode } from './nodes/retrieve.js'
 import { createThinkNode } from './nodes/think.js'
 import { createActNode } from './nodes/act.js'
+import { createHitlNode } from './nodes/hitl.js'
 import { createRespondNode } from './nodes/respond.js'
+import { createEscalateNode } from './nodes/escalate.js'
 import { validateInput } from './guardrails.js'
 
 // ---------------------------------------------------------------------------
@@ -53,7 +56,7 @@ function adaptEventToLegacy(event: AgentEvent, pendingChunks: readonly Chunk[]):
 }
 
 // ---------------------------------------------------------------------------
-// Build a 3-node graph from v1 RuntimeConfig
+// Build 8-node graph from v1 RuntimeConfig
 // ---------------------------------------------------------------------------
 
 function buildGraphFromConfig(config: RuntimeConfig): {
@@ -72,6 +75,13 @@ function buildGraphFromConfig(config: RuntimeConfig): {
     }
   }
 
+  // Build skill routes from v1 skills for the route node
+  const skillRoutes: readonly SkillRoute[] = (config.skills ?? []).map((s) => ({
+    name: s.tools[0]?.name ?? 'unknown',
+    description: s.tools.map((t) => t.description ?? t.name).join(', '),
+    keywords: s.tools.map((t) => t.name),
+  }))
+
   const inputGuardrailNode = createInputGuardrailNode({
     blockedPatterns: config.guardrails?.blockedPatterns
       ? [...config.guardrails.blockedPatterns]
@@ -79,6 +89,10 @@ function buildGraphFromConfig(config: RuntimeConfig): {
     maxInputLength: config.guardrails?.maxInputTokens
       ? config.guardrails.maxInputTokens * 4 // rough char estimate
       : undefined,
+  })
+
+  const routeNode = createRouteNode({
+    skills: skillRoutes.length > 0 ? skillRoutes : undefined,
   })
 
   const retrieveNode = createRetrieveNode()
@@ -90,17 +104,20 @@ function buildGraphFromConfig(config: RuntimeConfig): {
   })
 
   const actNode = createActNode({ toolHandlers })
-
+  const hitlNode = createHitlNode()
   const respondNode = createRespondNode({
     blockedPatterns: config.guardrails?.blockedPatterns
       ? [...config.guardrails.blockedPatterns]
       : undefined,
   })
+  const escalateNode = createEscalateNode()
 
   const hasTools = Object.keys(toolHandlers).length > 0
 
   const edges: readonly GraphEdge[] = [
-    ['input_guardrail', 'retrieve'],
+    // Pipeline: input_guardrail → route → retrieve → think
+    ['input_guardrail', 'route'],
+    ['route', 'retrieve'],
     ['retrieve', 'think'],
     // ReAct loop: think → act (if tool calls) or think → respond (if no tool calls)
     ...(hasTools
@@ -110,15 +127,23 @@ function buildGraphFromConfig(config: RuntimeConfig): {
           ['act', 'think'] as const, // ReAct: act → think again
         ]
       : [['think', 'respond'] as const]),
+    // HITL: respond → hitl (if approval requested)
+    ['respond', 'hitl', { condition: (state: AgentState) => state.awaitingApproval }] as const,
+    // Escalation edges (from think when confidence is low)
+    ['think', 'escalate', { condition: (state: AgentState) => state.routingConfidence > 0 && state.routingConfidence < 0.3 && state.pendingToolCalls.length === 0 }] as const,
+    ['escalate', 'respond'] as const,
   ]
 
   const definition: GraphDefinition = {
     nodes: {
       input_guardrail: inputGuardrailNode,
+      route: routeNode,
       retrieve: retrieveNode,
       think: thinkNode,
       act: actNode,
+      hitl: hitlNode,
       respond: respondNode,
+      escalate: escalateNode,
     },
     edges,
     entryNode: 'input_guardrail',
@@ -133,7 +158,7 @@ function buildGraphFromConfig(config: RuntimeConfig): {
     rag: config.rag,
     config: {
       systemPrompt: config.systemPrompt,
-      maxIterations: (config.maxToolRounds ?? 3) + 3, // tool rounds + base nodes
+      maxIterations: (config.maxToolRounds ?? 3) * 2 + 8, // tool rounds × 2 (think+act) + 8 base nodes
       tracing: true,
       downloadPolicy: config.downloadPolicy ?? 'prompt',
     },
