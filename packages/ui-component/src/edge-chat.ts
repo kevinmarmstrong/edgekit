@@ -17,13 +17,13 @@ function renderMarkdown(src: string): string {
   let i = 0
 
   while (i < lines.length) {
-    const line = lines[i]
+    const line = lines[i]!
 
     if (line.startsWith('```')) {
       const codeLines: string[] = []
       i++
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(escapeHtml(lines[i]))
+      while (i < lines.length && !lines[i]!.startsWith('```')) {
+        codeLines.push(escapeHtml(lines[i]!))
         i++
       }
       i++
@@ -38,8 +38,8 @@ function renderMarkdown(src: string): string {
 
     const headingMatch = line.match(/^(#{1,4})\s+(.+)$/)
     if (headingMatch) {
-      const level = headingMatch[1].length
-      out.push(`<h${level}>${inlineFormat(headingMatch[2])}</h${level}>`)
+      const level = headingMatch[1]!.length
+      out.push(`<h${level}>${inlineFormat(headingMatch[2]!)}</h${level}>`)
       i++
       continue
     }
@@ -47,8 +47,8 @@ function renderMarkdown(src: string): string {
     const ulMatch = line.match(/^[-*]\s+(.+)$/)
     if (ulMatch) {
       const items: string[] = []
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(`<li>${inlineFormat(lines[i].replace(/^[-*]\s+/, ''))}</li>`)
+      while (i < lines.length && /^[-*]\s+/.test(lines[i]!)) {
+        items.push(`<li>${inlineFormat(lines[i]!.replace(/^[-*]\s+/, ''))}</li>`)
         i++
       }
       out.push(`<ul>${items.join('')}</ul>`)
@@ -58,8 +58,8 @@ function renderMarkdown(src: string): string {
     const olMatch = line.match(/^\d+\.\s+(.+)$/)
     if (olMatch) {
       const items: string[] = []
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(`<li>${inlineFormat(lines[i].replace(/^\d+\.\s+/, ''))}</li>`)
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i]!)) {
+        items.push(`<li>${inlineFormat(lines[i]!.replace(/^\d+\.\s+/, ''))}</li>`)
         i++
       }
       out.push(`<ol>${items.join('')}</ol>`)
