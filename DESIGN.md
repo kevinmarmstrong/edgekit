@@ -581,3 +581,51 @@ If yes to any: use it. Write the integration code. Test it works.
 - More than 100 lines for any single concern -> STOP, you're probably reimplementing something
 
 **Test by using the product.** After every significant change, open the demo in a browser and try it. Not a unit test. The real thing.
+
+### Reference implementation
+
+The spike at `spike/src/main.ts` is working, validated code that demonstrates every core pattern:
+- Package imports and browser capability detection
+- Chrome AI `NotAllowedError` handling and fallback to WebLLM
+- `generateText` with `stopWhen` tool loops
+- `streamText` with streaming
+- `needsApproval` for HITL
+- Mock product data and tool definitions with Zod schemas
+
+Use it as your reference. Don't guess at APIs — copy the patterns that work.
+
+### Chrome AI gotcha (critical)
+
+`doesBrowserSupportBrowserAI()` returning `true` does NOT mean the model is ready. Gemini Nano may be in "downloading"/"downloadable" state and throws `NotAllowedError: Requires a user gesture when availability is "downloading" or "downloadable"`. You MUST catch this and fall back to WebLLM. See spike code for the exact pattern.
+
+### Setup instructions
+
+```bash
+# Clone and install
+git clone https://github.com/kevinmarmstrong/edgekit-v3.git
+cd edgekit-v3
+
+# Monorepo setup
+pnpm init   # if no root package.json yet
+# Add pnpm-workspace.yaml:
+# packages:
+#   - 'packages/*'
+#   - 'examples/*'
+
+# Per-package setup
+cd packages/core && pnpm init && pnpm add ai @browser-ai/core @browser-ai/web-llm zod
+cd packages/ui && pnpm init && pnpm add lit
+cd packages/cli && pnpm init  # CLI dependencies TBD
+
+# Dev dependencies (root)
+pnpm add -Dw typescript vite vitest @playwright/test
+```
+
+### WebLLM model IDs (MLC format)
+
+These are valid as of May 2026. Verify against WebLLM's model registry if building later:
+- Tiny: `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` (~300MB, tested in spike)
+- Standard: `Phi-4-mini-instruct-q4f16_1-MLC` (~2GB) or `SmolLM2-1.7B-Instruct-q4f16_1-MLC` (~1GB)
+- High: `Qwen2.5-3B-Instruct-q4f16_1-MLC` (~1.8GB)
+
+The 0.5B model calls tools but has limited parameter decomposition. Use 1.7B+ for reliable tool calling in production.
