@@ -1,0 +1,168 @@
+:root {
+  color: #15201d;
+  background: #edf4f1;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  gap: 28px;
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.storefront {
+  display: grid;
+  gap: 28px;
+  align-content: start;
+}
+
+.masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+  gap: 28px;
+  align-items: end;
+  padding: 32px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #dce7e2;
+}
+
+.brand {
+  margin: 0 0 14px;
+  color: #177e58;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+h1 {
+  max-width: 780px;
+  margin: 0;
+  color: #13231e;
+  font-size: clamp(36px, 6vw, 72px);
+  line-height: 0.95;
+}
+
+.lede {
+  margin: 0;
+  color: #5f6f69;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.product-card {
+  display: grid;
+  gap: 18px;
+  min-height: 280px;
+  padding: 18px;
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.product-art {
+  display: grid;
+  place-items: center;
+  min-height: 100px;
+  border-radius: 8px;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 30% 35%, #9df1c9 0, transparent 24%),
+    linear-gradient(135deg, #153e31, #25a36e);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.product-card h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.product-card p {
+  margin: 0;
+  color: #60716b;
+  font-size: 14px;
+}
+
+dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #5f6f69;
+  font-size: 13px;
+}
+
+dt {
+  font-weight: 700;
+}
+
+dd {
+  margin: 0;
+  color: #17261f;
+  text-align: right;
+}
+
+.agent-panel {
+  position: sticky;
+  top: 32px;
+  display: grid;
+  gap: 14px;
+  align-self: start;
+}
+
+.cart {
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.cart-title {
+  margin-bottom: 6px;
+  color: #5f6f69;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#cart-state {
+  font-size: 14px;
+}
+
+@media (max-width: 920px) {
+  .page,
+  .masthead {
+    grid-template-columns: 1fr;
+  }
+
+  .page {
+    padding: 18px;
+  }
+
+  .agent-panel {
+    position: static;
+  }
+}

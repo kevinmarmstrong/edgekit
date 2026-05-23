@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>edgekit ecommerce demo</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="page">
+      <section class="storefront">
+        <header class="masthead">
+          <div>
+            <p class="brand">Northstar Running Co.</p>
+            <h1>Find the right shoe without opening a filter drawer.</h1>
+          </div>
+          <p class="lede">
+            This storefront exposes existing product and cart functions as agent tools. The sidecar
+            runs in the browser and asks before it changes cart state.
+          </p>
+        </header>
+
+        <section class="catalog" aria-label="Product catalog" id="catalog"></section>
+      </section>
+
+      <aside class="agent-panel">
+        <edge-chat
+          system-prompt="You are a concise shopping assistant. Always search products before recommending. Ask for approval before adding anything to cart."
+          placeholder="Try: find running shoes under $100 in size 10"
+        ></edge-chat>
+        <section class="cart" aria-live="polite">
+          <div class="cart-title">Cart</div>
+          <div id="cart-state">No items yet</div>
+        </section>
+      </aside>
+    </main>
+  </body>
+</html>

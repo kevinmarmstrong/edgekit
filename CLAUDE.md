@@ -41,7 +41,7 @@ edgekit sidecar (web component)
 
 ### Import pattern
 ```typescript
-import { generateText, streamText, tool } from 'ai'
+import { generateText, streamText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 ```
 
@@ -49,25 +49,24 @@ import { z } from 'zod'
 ```typescript
 const { browserAI, doesBrowserSupportBrowserAI } = await import('@browser-ai/core')
 const supported = doesBrowserSupportBrowserAI() // true = API exists, NOT "model ready"
-const model = browserAI('language-model')
+const model = browserAI('text')
 ```
 
 ### @browser-ai/web-llm (WebGPU)
 ```typescript
 const { createWebLLM, doesBrowserSupportWebLLM } = await import('@browser-ai/web-llm')
 const supported = doesBrowserSupportWebLLM() // true = WebGPU available
-const provider = createWebLLM({
-  model: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
-  onProgress: (progress) => { /* download progress */ },
+const provider = createWebLLM()
+const model = provider('Qwen2.5-0.5B-Instruct-q4f16_1-MLC', {
+  initProgressCallback: (progress) => { /* download progress */ },
 })
-const model = provider('Qwen2.5-0.5B-Instruct-q4f16_1-MLC')
 ```
 
 ### Tool definition (re-exports from AI SDK)
 ```typescript
 const searchProducts = tool({
   description: 'Search the product catalog',
-  parameters: z.object({ query: z.string(), maxPrice: z.number().optional() }),
+  inputSchema: z.object({ query: z.string(), maxPrice: z.number().optional() }),
   execute: async ({ query, maxPrice }) => { /* ... */ },
   needsApproval: false,
 })
@@ -80,11 +79,7 @@ const result = await generateText({
   system: 'You are a shopping assistant.',
   prompt: userMessage,
   tools: { searchProducts, addToCart },
-  stopWhen: (event) => {
-    if (event.steps.length > 0 && event.finishReason === 'stop') return true
-    if (event.steps.length >= 5) return true // safety limit
-    return false
-  },
+  stopWhen: stepCountIs(5),
 })
 // result.steps contains each step (tool calls + responses)
 // result.text contains the final text response
@@ -97,11 +92,7 @@ const result = streamText({
   system: 'You are a shopping assistant.',
   prompt: userMessage,
   tools: { searchProducts },
-  stopWhen: (event) => {
-    if (event.steps.length > 0 && event.finishReason === 'stop') return true
-    if (event.steps.length >= 3) return true
-    return false
-  },
+  stopWhen: stepCountIs(3),
 })
 for await (const chunk of result.textStream) {
   // render chunk

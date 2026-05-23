@@ -85,7 +85,7 @@ edgekit adopts the core design patterns from [Microsoft Magentic-UI](https://git
 ```typescript
 const planTool = tool({
   description: 'Create a step-by-step plan before taking action',
-  parameters: z.object({
+  inputSchema: z.object({
     steps: z.array(z.object({
       title: z.string(),
       action: z.string(),
@@ -146,8 +146,7 @@ const result = await generateText({
   tools: { /* ... */ },
   stopWhen: (event) => {
     // event.steps contains all previous steps — use for progress tracking
-    if (event.steps.length >= totalSteps) return true
-    return event.finishReason === 'stop'
+    return event.steps.length >= totalSteps
   },
 })
 ```
@@ -312,13 +311,13 @@ The cascade is implemented using AI SDK's provider abstraction — each provider
 A developer retrofits their existing app by describing their endpoints as tools:
 
 ```typescript
-import { createAgent } from 'edgekit'
+import { createAgent } from '@kevinmarmstrong/edgekit'
 
 const agent = createAgent({
   tools: {
     searchProducts: {
       description: 'Search the product catalog',
-      parameters: z.object({
+      inputSchema: z.object({
         query: z.string(),
         maxPrice: z.number().optional(),
         size: z.string().optional(),
@@ -331,7 +330,7 @@ const agent = createAgent({
     },
     addToCart: {
       description: 'Add a product to the shopping cart',
-      parameters: z.object({ productId: z.string(), quantity: z.number() }),
+      inputSchema: z.object({ productId: z.string(), quantity: z.number() }),
       execute: async ({ productId, quantity }) => {
         await fetch('/api/cart', { method: 'POST', body: JSON.stringify({ productId, quantity }) })
         return { success: true }
@@ -583,7 +582,7 @@ edgekit should feel like a toolkit of composable pieces, not a framework that im
 
 ```html
 <script type="module">
-  import { createAgent, mountChat } from 'edgekit'
+  import { createAgent, mountChat } from '@kevinmarmstrong/edgekit'
 
   const agent = createAgent({
     tools: { /* ... */ },
@@ -601,7 +600,7 @@ When `model` is omitted, edgekit uses the default cascade: Chrome AI -> WebLLM -
 The cascade is an array of providers, tried in order. The developer controls what's in it:
 
 ```typescript
-import { createAgent, chromeAI, webLLM } from 'edgekit'
+import { createAgent, chromeAI, webLLM } from '@kevinmarmstrong/edgekit'
 
 // Default cascade (same as omitting `model`)
 const agent = createAgent({
@@ -686,17 +685,19 @@ const agent = createAgent({
 ### Web Component (configurable via attributes + JS)
 
 ```html
-<script type="module" src="https://unpkg.com/edgekit"></script>
 <edge-chat
   system-prompt="You are a helpful shopping assistant."
   download-policy="prompt"
 ></edge-chat>
-<script>
+<script type="module">
+  import '@kevinmarmstrong/edgekit-ui'
+  import { chromeAI, webLLM } from '@kevinmarmstrong/edgekit'
+
   const chat = document.querySelector('edge-chat')
 
   // Custom model cascade via JS
   chat.configure({
-    model: [edgekit.chromeAI(), edgekit.webLLM()],
+    model: [chromeAI(), webLLM()],
     onModelStatus: ({ status, defaultMessage }) => {
       if (status === 'error') return null // hide errors
       return defaultMessage
@@ -711,12 +712,12 @@ const agent = createAgent({
 ### Tool Registration
 
 ```typescript
-import { tool } from 'edgekit'  // re-export from AI SDK
+import { tool } from '@kevinmarmstrong/edgekit'  // re-export from AI SDK
 import { z } from 'zod'
 
 const searchProducts = tool({
   description: 'Search the product catalog by query, price range, and size',
-  parameters: z.object({
+  inputSchema: z.object({
     query: z.string().describe('Search terms'),
     maxPrice: z.number().optional().describe('Maximum price in dollars'),
     size: z.string().optional().describe('Product size'),
@@ -733,7 +734,7 @@ const searchProducts = tool({
 
 const addToCart = tool({
   description: 'Add a product to the shopping cart',
-  parameters: z.object({
+  inputSchema: z.object({
     productId: z.string(),
     quantity: z.number().default(1),
   }),
@@ -766,7 +767,7 @@ const addToCart = tool({
 ### The embed is trivial
 - Two lines of HTML to add to any existing site
 - No build step required for basic usage
-- `npm install edgekit` for advanced usage
+- `npm install @kevinmarmstrong/edgekit @kevinmarmstrong/edgekit-ui` for advanced usage
 
 ### The progressive cascade works
 - Chrome 148+: Gemini Nano responds instantly, no download

@@ -1,0 +1,52 @@
+{
+  "name": "@kevinmarmstrong/edgekit",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser-native agent runtime core.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevinmarmstrong/edgekit-v3.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "browser-ai",
+    "webllm",
+    "vercel-ai-sdk",
+    "web-component"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "^3.0.10",
+    "@browser-ai/core": "^2.1.12",
+    "@browser-ai/web-llm": "^2.1.7",
+    "ai": "^6.0.191",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  }
+}

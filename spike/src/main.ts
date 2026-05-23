@@ -12,7 +12,7 @@
  * 5. Streaming works via streamText
  */
 
-import { generateText, streamText, tool } from 'ai'
+import { generateText, streamText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 
 // -- UI helpers --
@@ -50,7 +50,7 @@ const cart: { productId: string; quantity: number }[] = []
 
 const searchProducts = tool({
   description: 'Search the product catalog by query, price range, and size',
-  parameters: z.object({
+  inputSchema: z.object({
     query: z.string().describe('Search terms'),
     maxPrice: z.number().optional().describe('Maximum price in dollars'),
     size: z.string().optional().describe('Product size'),
@@ -70,7 +70,7 @@ const searchProducts = tool({
 
 const addToCart = tool({
   description: 'Add a product to the shopping cart',
-  parameters: z.object({
+  inputSchema: z.object({
     productId: z.string().describe('Product ID to add'),
     quantity: z.number().default(1).describe('Quantity'),
   }),
@@ -125,12 +125,7 @@ async function testGenerateText(model: any) {
       system: 'You are a shopping assistant. Use the searchProducts tool to find products. Always search before answering.',
       prompt: 'Find me running shoes under $100 in size 10',
       tools: { searchProducts, addToCart },
-      stopWhen: (event) => {
-        // Stop after tools have run and we have a text response
-        if (event.steps.length > 0 && event.finishReason === 'stop') return true
-        if (event.steps.length >= 5) return true // safety limit
-        return false
-      },
+      stopWhen: stepCountIs(5),
     })
 
     log(`generateText completed:`)
@@ -158,11 +153,7 @@ async function testStreamText(model: any) {
       system: 'You are a shopping assistant. Use the searchProducts tool to find products.',
       prompt: 'What running shoes do you have?',
       tools: { searchProducts },
-      stopWhen: (event) => {
-        if (event.steps.length > 0 && event.finishReason === 'stop') return true
-        if (event.steps.length >= 3) return true
-        return false
-      },
+      stopWhen: stepCountIs(3),
     })
 
     let chunks = 0
@@ -190,20 +181,10 @@ async function testNeedsApproval(model: any) {
       system: 'You are a shopping assistant. When asked to add to cart, use the addToCart tool.',
       prompt: 'Add product 1 to my cart',
       tools: { searchProducts, addToCart },
-      stopWhen: (event) => {
-        // Check if any tool call needs approval
-        const pendingApproval = event.steps.some(s =>
-          s.toolCalls.some((tc: any) => tc.state === 'approval-requested')
-        )
-        if (pendingApproval) return true
-        if (event.steps.length >= 3) return true
-        return false
-      },
+      stopWhen: stepCountIs(3),
     })
 
-    const approvalRequested = result.steps.some(s =>
-      s.toolCalls.some((tc: any) => tc.needsApproval)
-    )
+    const approvalRequested = result.content.some(part => part.type === 'tool-approval-request')
 
     log(`needsApproval result: steps=${result.steps.length}, approvalRequested=${approvalRequested}`)
 
@@ -239,12 +220,12 @@ async function main() {
     try {
       // Check if the model is actually ready (not just "supported")
       // Chrome AI gates behind user gesture when status is "downloading"/"downloadable"
-      const testModel = browserAI('language-model')
+      const testModel = browserAI('text')
       // Try a minimal generation to verify it's actually usable
       const testResult = await generateText({
         model: testModel,
         prompt: 'Say hi',
-        maxTokens: 5,
+        maxOutputTokens: 5,
       })
       model = testModel
       modelName = 'Chrome AI (Gemini Nano)'
@@ -266,15 +247,15 @@ async function main() {
   if (!model && webGPUSupported && createWebLLM) {
     log('\n--- Using WebLLM (WebGPU) ---')
     try {
-      const provider = createWebLLM({
-        model: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
-        onProgress: (progress) => {
+      const modelId = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC'
+      const provider = createWebLLM()
+      model = provider(modelId, {
+        initProgressCallback: (progress) => {
           if (progress.progress !== undefined) {
             log(`  Download: ${(progress.progress * 100).toFixed(1)}%`)
           }
         },
       })
-      model = provider('Qwen2.5-0.5B-Instruct-q4f16_1-MLC')
       modelName = 'WebLLM (Qwen2.5-0.5B)'
       status(`Model: ${modelName} (will download on first use)`, 'info')
     } catch (e) {
@@ -322,11 +303,7 @@ async function main() {
         system: 'You are a helpful shopping assistant. Use searchProducts to find products and addToCart to add them. Always search before recommending.',
         prompt: query,
         tools: { searchProducts, addToCart },
-        stopWhen: (event) => {
-          if (event.steps.length > 0 && event.finishReason === 'stop') return true
-          if (event.steps.length >= 5) return true
-          return false
-        },
+        stopWhen: stepCountIs(5),
       })
 
       for await (const chunk of result.textStream) {

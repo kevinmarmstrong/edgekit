@@ -1,0 +1,30 @@
+{
+  "name": "edgekit-v3",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-native agent runtime for adding AI sidecars to web apps.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.8.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevinmarmstrong/edgekit-v3.git"
+  },
+  "scripts": {
+    "build": "pnpm --filter @kevinmarmstrong/edgekit build && pnpm --filter @kevinmarmstrong/edgekit-ui build && pnpm --filter @edgekit/ecommerce-demo build && pnpm --filter @edgekit/site build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "dev:ecommerce": "pnpm --filter @edgekit/ecommerce-demo dev",
+    "dev:site": "pnpm --filter @edgekit/site dev",
+    "spike:typecheck": "pnpm --dir spike run typecheck",
+    "spike:build": "pnpm --dir spike run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.14",
+    "vitest": "^4.0.18"
+  }
+}
