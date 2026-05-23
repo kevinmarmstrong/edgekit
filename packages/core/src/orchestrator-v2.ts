@@ -18,8 +18,10 @@ import { createGraphEngine } from './graph/engine.js'
 import { createInitialState, updateState, type AgentState } from './graph/state.js'
 import type { GraphDefinition, GraphEdge } from './graph/types.js'
 import type { NodeContext } from './graph/node.js'
+import { createInputGuardrailNode } from './nodes/input-guardrail.js'
 import { createRetrieveNode } from './nodes/retrieve.js'
 import { createThinkNode } from './nodes/think.js'
+import { createActNode } from './nodes/act.js'
 import { createRespondNode } from './nodes/respond.js'
 import { validateInput } from './guardrails.js'
 
@@ -59,31 +61,67 @@ function buildGraphFromConfig(config: RuntimeConfig): {
   readonly nodeContext: NodeContext
   readonly emitter: EventEmitter
 } {
+  // Build tool handler map from v1 skills
+  const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<string>> = {}
+  for (const skill of config.skills ?? []) {
+    if (skill.handleToolCall) {
+      for (const tool of skill.tools) {
+        const handler = skill.handleToolCall.bind(skill)
+        toolHandlers[tool.name] = (args) => handler(tool.name, args)
+      }
+    }
+  }
+
+  const inputGuardrailNode = createInputGuardrailNode({
+    blockedPatterns: config.guardrails?.blockedPatterns
+      ? [...config.guardrails.blockedPatterns]
+      : undefined,
+    maxInputLength: config.guardrails?.maxInputTokens
+      ? config.guardrails.maxInputTokens * 4 // rough char estimate
+      : undefined,
+  })
+
   const retrieveNode = createRetrieveNode()
+
   const thinkNode = createThinkNode({
     model: config.model,
     systemPrompt: config.systemPrompt,
     maxTokens: config.guardrails?.maxOutputTokens,
   })
+
+  const actNode = createActNode({ toolHandlers })
+
   const respondNode = createRespondNode({
     blockedPatterns: config.guardrails?.blockedPatterns
       ? [...config.guardrails.blockedPatterns]
       : undefined,
   })
 
+  const hasTools = Object.keys(toolHandlers).length > 0
+
   const edges: readonly GraphEdge[] = [
+    ['input_guardrail', 'retrieve'],
     ['retrieve', 'think'],
-    ['think', 'respond'],
+    // ReAct loop: think → act (if tool calls) or think → respond (if no tool calls)
+    ...(hasTools
+      ? [
+          ['think', 'act', { condition: (state: AgentState) => state.pendingToolCalls.length > 0 }] as const,
+          ['think', 'respond', { condition: (state: AgentState) => state.pendingToolCalls.length === 0 }] as const,
+          ['act', 'think'] as const, // ReAct: act → think again
+        ]
+      : [['think', 'respond'] as const]),
   ]
 
   const definition: GraphDefinition = {
     nodes: {
+      input_guardrail: inputGuardrailNode,
       retrieve: retrieveNode,
       think: thinkNode,
+      act: actNode,
       respond: respondNode,
     },
     edges,
-    entryNode: 'retrieve',
+    entryNode: 'input_guardrail',
   }
 
   const emitter = createEventEmitter()
@@ -217,9 +255,12 @@ export function createRuntimeV2(config: RuntimeConfig): Runtime {
         if (config.rag) {
           const retrieveOnly = createGraphEngine(
             {
-              nodes: { retrieve: definition.nodes.retrieve! },
-              edges: [],
-              entryNode: 'retrieve',
+              nodes: {
+                input_guardrail: definition.nodes.input_guardrail!,
+                retrieve: definition.nodes.retrieve!,
+              },
+              edges: [['input_guardrail', 'retrieve']],
+              entryNode: 'input_guardrail',
             },
             nodeContext,
             graphState,
