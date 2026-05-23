@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createEscalateNode, type EscalateNodeConfig } from './escalate.js'
+import { createEscalateNode } from './escalate.js'
 import { createInitialState, updateState } from '../graph/state.js'
 import type { AgentState } from '../graph/state.js'
 import type { NodeContext, AgentConfig } from '../graph/node.js'
-import type { AgentEvent, EscalationEvent } from '../events/types.js'
+import type { EscalationEvent } from '../events/types.js'
 
 // ---------------------------------------------------------------------------
 // Helpers

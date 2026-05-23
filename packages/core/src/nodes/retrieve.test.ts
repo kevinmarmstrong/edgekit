@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createRetrieveNode, type RetrieveNodeConfig } from './retrieve.js'
 import { createInitialState, updateState, type AgentState } from '../graph/state.js'
 import { createEventEmitter } from '../events/emitter.js'

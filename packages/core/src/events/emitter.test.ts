@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { createEventEmitter } from './emitter.js'
 import type { AgentEvent } from './types.js'
 
-function makeEvent(type: string): AgentEvent {
+function makeEvent(_type: string): AgentEvent {
   return { type: 'run:started', timestamp: Date.now(), runId: 'r1' } as AgentEvent
 }
 

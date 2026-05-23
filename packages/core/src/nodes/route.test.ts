@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   createRouteNode,
-  type RouteNodeConfig,
   type SkillRoute,
 } from './route.js'
 import { createInitialState, updateState } from '../graph/state.js'

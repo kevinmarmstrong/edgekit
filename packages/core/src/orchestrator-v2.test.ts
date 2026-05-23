@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createRuntimeV2 } from './orchestrator-v2.js'
-import type { ModelProvider, RAGProvider, RuntimeConfig, Runtime } from './providers.js'
+import type { ModelProvider, RAGProvider, RuntimeConfig } from './providers.js'
 import type { RuntimeEvent, GenerateChunk, Chunk } from './types.js'
 
 // ---------------------------------------------------------------------------
@@ -90,7 +90,7 @@ describe('createRuntimeV2', () => {
 
     runtime.on((evt) => events.push(evt))
 
-    const tokens = await collectTokens(runtime.query('Hi'))
+    await collectTokens(runtime.query('Hi'))
 
     // Wait a tick for events to flush
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -114,7 +114,7 @@ describe('createRuntimeV2', () => {
 
     runtime.on((evt) => events.push(evt))
 
-    const tokens = await collectTokens(runtime.query('What is this?'))
+    await collectTokens(runtime.query('What is this?'))
 
     // Wait a tick for events to flush
     await new Promise((resolve) => setTimeout(resolve, 100))
