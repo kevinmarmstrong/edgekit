@@ -70,7 +70,7 @@ export function webllm(config: WebLLMConfig = {}): ModelProvider {
         max_tokens: options?.maxTokens ?? 1024,
         temperature: options?.temperature ?? 0.7,
         stop: options?.stopSequences as string[] | undefined,
-        tools: options?.tools?.map((t) => ({
+        tools: options?.tools?.map((t: { name: string; description?: string; parameters?: Record<string, unknown> }) => ({
           type: 'function' as const,
           function: {
             name: t.name,

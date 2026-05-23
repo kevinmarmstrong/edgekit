@@ -96,6 +96,6 @@ describe('localRAG', () => {
 
     const results = await rag.retrieve('AI')
     expect(results.length).toBeGreaterThan(0)
-    expect(results.some((r) => r.content.includes('AI'))).toBe(true)
+    expect(results.some((r: { content: string }) => r.content.includes('AI'))).toBe(true)
   })
 })
