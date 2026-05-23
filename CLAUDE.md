@@ -12,6 +12,7 @@ Read `DESIGN.md` first — it is the source of truth. Everything in this file su
 2. **Three packages, not nine.** `packages/core`, `packages/ui`, `packages/cli`. That's it.
 3. **Test the product.** Open the demo in a real browser and try it. Unit tests are secondary to "does a user get a good result?"
 4. **The agent does things, not just answers questions.** Tool calling is the core value, not RAG Q&A.
+5. **Modular and configurable.** Every layer is a default, not a mandate. The model cascade is an array the developer controls. Notifications are callbacks the developer can override or suppress. No hardcoded UX — sensible defaults with full escape hatches.
 
 ## Architecture
 

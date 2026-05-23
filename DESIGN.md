@@ -299,6 +299,10 @@ Step 4: Search-only fallback
 
 The cascade is implemented using AI SDK's provider abstraction — each provider (Chrome AI, WebLLM, server) implements the same model interface. The cascade logic is in `packages/core` and is ~50-80 lines.
 
+**The cascade is a default, not a mandate.** The developer passes `model: [chromeAI(), webLLM()]` as an array — they control the order, which providers to include, and which to skip. `model` omitted = default cascade. See the API Surface section for full configuration examples.
+
+**Notifications are callbacks, not hardcoded UI.** The developer controls every user-facing message via `onModelStatus`, `onDownloadPrompt`, and `onNoModel` callbacks. Return a custom string, or `null` to suppress. edgekit provides sensible defaults for all of them.
+
 ### The Retrofit Pattern
 
 A developer retrofits their existing app by describing their endpoints as tools:
@@ -515,16 +519,27 @@ A test suite passes when: **a real user can open the demo, interact with the age
 
 ---
 
+## Design Principle: Modular and Configurable
+
+Every layer of edgekit is a default, not a mandate. The developer can:
+- Use the default cascade or build their own
+- Swap any model provider (Chrome AI, WebLLM, server, or their own)
+- Control all user-facing notifications, prompts, and error messages
+- Opt out of any layer they don't need
+
+edgekit should feel like a toolkit of composable pieces, not a framework that imposes opinions.
+
+---
+
 ## API Surface (target)
 
-### Embed in HTML
+### Simplest embed (uses all defaults)
 
 ```html
 <script type="module">
   import { createAgent, mountChat } from 'edgekit'
 
   const agent = createAgent({
-    model: 'auto', // Chrome AI -> WebLLM -> server fallback
     tools: { /* ... */ },
     systemPrompt: 'You are a helpful shopping assistant.',
   })
@@ -533,23 +548,124 @@ A test suite passes when: **a real user can open the demo, interact with the age
 </script>
 ```
 
-### Or as a Web Component
+When `model` is omitted, edgekit uses the default cascade: Chrome AI -> WebLLM -> search-only.
+
+### Custom model cascade
+
+The cascade is an array of providers, tried in order. The developer controls what's in it:
+
+```typescript
+import { createAgent, chromeAI, webLLM } from 'edgekit'
+
+// Default cascade (same as omitting `model`)
+const agent = createAgent({
+  model: [chromeAI(), webLLM()],
+  tools: { /* ... */ },
+})
+
+// WebLLM only — skip Chrome AI entirely
+const agent = createAgent({
+  model: [webLLM({ model: 'Phi-4-mini-instruct-q4f16_1-MLC' })],
+  tools: { /* ... */ },
+})
+
+// Chrome AI only — no downloads, graceful fallback if unavailable
+const agent = createAgent({
+  model: [chromeAI()],
+  tools: { /* ... */ },
+})
+
+// Server provider — no browser AI at all
+import { openai } from '@ai-sdk/openai'
+const agent = createAgent({
+  model: [openai('gpt-4o-mini')],
+  tools: { /* ... */ },
+})
+
+// Mix browser + server — try local first, cloud fallback
+const agent = createAgent({
+  model: [chromeAI(), webLLM(), openai('gpt-4o-mini')],
+  tools: { /* ... */ },
+})
+```
+
+### Download policy and notification control
+
+```typescript
+const agent = createAgent({
+  model: [chromeAI(), webLLM()],
+  downloadPolicy: 'prompt', // 'auto' | 'prompt' | 'never'
+
+  // All user-facing messages are callbacks the developer can override
+  onModelStatus: ({ provider, status, progress, defaultMessage }) => {
+    // provider: 'chrome-ai' | 'webllm' | 'server' | string
+    // status: 'checking' | 'downloading' | 'ready' | 'unavailable' | 'error'
+    // progress: number (0-1) when downloading
+    // defaultMessage: string — edgekit's default human-readable text
+    //
+    // Return a string to show custom text, or null to show nothing (silent)
+    if (status === 'downloading') return `Loading AI... ${Math.round(progress * 100)}%`
+    if (status === 'unavailable') return null // silently skip, don't tell the user
+    return defaultMessage // use edgekit's default for everything else
+  },
+
+  // Custom download prompt — replaces edgekit's default prompt UI
+  onDownloadPrompt: async ({ provider, modelSize, defaultMessage }) => {
+    // Return true to proceed with download, false to skip this provider
+    // If omitted, edgekit shows its built-in prompt UI
+    return confirm(`Download ${modelSize} AI model for smarter answers?`)
+  },
+
+  // Custom fallback message when no model is available
+  onNoModel: ({ availableTools, defaultMessage }) => {
+    // Return string to display, or null to hide the widget entirely
+    return 'AI is not available in this browser. Basic search is still active.'
+  },
+
+  tools: { /* ... */ },
+})
+```
+
+### Fully silent cascade (no notifications)
+
+```typescript
+const agent = createAgent({
+  model: [chromeAI(), webLLM()],
+  downloadPolicy: 'auto',
+  onModelStatus: () => null,  // suppress all status messages
+  tools: { /* ... */ },
+})
+```
+
+### Web Component (configurable via attributes + JS)
 
 ```html
 <script type="module" src="https://unpkg.com/edgekit"></script>
 <edge-chat
   system-prompt="You are a helpful shopping assistant."
-  model="auto"
+  download-policy="prompt"
 ></edge-chat>
 <script>
-  document.querySelector('edge-chat').registerTools({ /* ... */ })
+  const chat = document.querySelector('edge-chat')
+
+  // Custom model cascade via JS
+  chat.configure({
+    model: [edgekit.chromeAI(), edgekit.webLLM()],
+    onModelStatus: ({ status, defaultMessage }) => {
+      if (status === 'error') return null // hide errors
+      return defaultMessage
+    },
+  })
+
+  // Register tools
+  chat.registerTools({ /* ... */ })
 </script>
 ```
 
 ### Tool Registration
 
 ```typescript
-import { tool } from 'edgekit'
+import { tool } from 'edgekit'  // re-export from AI SDK
 import { z } from 'zod'
 
 const searchProducts = tool({
