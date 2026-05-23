@@ -107,15 +107,32 @@ for await (const chunk of result.textStream) {
 }
 ```
 
-## Chrome AI NotAllowedError (critical spike finding)
+## Progressive Model Cascade (decision tree)
 
-`doesBrowserSupportBrowserAI()` returning `true` ONLY means the API exists in the browser. The Gemini Nano model may be in "downloading" or "downloadable" state. When it is, any attempt to create a session throws:
+This is NOT a simple fallback list. Each step has distinct UX. See DESIGN.md for the full tree.
 
 ```
-NotAllowedError: Requires a user gesture when availability is "downloading" or "downloadable".
+1. Chrome AI ready? → Use instantly (zero download)
+2. Chrome AI available but downloading? → Based on downloadPolicy: auto-wait / prompt user / skip
+3. WebGPU available? → Based on downloadPolicy: auto-download WebLLM / prompt user / skip
+4. Server provider configured? → Use cloud API (optional, developer-configured)
+5. Nothing? → Search-only tools + graceful human-readable error message
 ```
 
-**Handle this in the progressive cascade**: try Chrome AI, catch NotAllowedError, fall back to WebLLM. See `spike/src/main.ts` lines 237-263 for the working pattern.
+**downloadPolicy values:**
+- `'auto'` — developer pre-authorized downloads (during app onboarding). No user prompt.
+- `'prompt'` (default) — ask user before any download. Non-technical language.
+- `'never'` — no downloads. Server provider or search-only.
+
+**Chrome AI user gesture requirement:** `'downloadable'` state requires a button click to start. Design UI so the user's first chat message or an "Enable AI" button provides the gesture. NEVER show `NotAllowedError` to users.
+
+## Chrome AI Availability States
+
+- `'readily'` = model cached and ready (instant, no prompt needed)
+- `'downloading'` = download in progress (show progress, wait)
+- `'downloadable'` = available but not started (needs user gesture to begin)
+
+`doesBrowserSupportBrowserAI()` returning `true` only means the API exists. You MUST check availability state. See `spike/src/main.ts` for the working pattern.
 
 ## WebLLM Model IDs
 

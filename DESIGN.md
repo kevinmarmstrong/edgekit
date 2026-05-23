@@ -231,14 +231,73 @@ Three packages. Not nine.
 
 ### Progressive Model Cascade
 
+The cascade is a decision tree, not a simple list. Each step has distinct UX depending on browser capabilities and `downloadPolicy`.
+
 ```
-1. Chrome AI (Gemini Nano)     — zero download, built into Chrome 148+
-2. WebLLM (Qwen3/Phi-4)       — downloads model, requires WebGPU
-3. Server provider (optional)  — cloud fallback for unsupported browsers
-4. Retrieval-only              — keyword search, no model, last resort
+Step 1: Chrome AI (Gemini Nano)
+  |
+  +-- API exists? (doesBrowserSupportBrowserAI())
+       |
+       +-- YES: Model ready? (availability === 'readily')
+       |    |
+       |    +-- YES → Use Chrome AI. Zero download, instant. DONE.
+       |    |
+       |    +-- NO → Model is 'downloading' or 'downloadable'
+       |         |
+       |         +-- downloadPolicy: 'auto'   → Show progress, wait for Chrome to finish download
+       |         +-- downloadPolicy: 'prompt'  → Ask user: "Enable Chrome AI? (built-in, no extra download)"
+       |         |    +-- User accepts  → Trigger download via user gesture, show progress
+       |         |    +-- User declines → Fall to Step 2
+       |         +-- downloadPolicy: 'never'   → Fall to Step 2
+       |
+       +-- NO: Chrome AI not available → Fall to Step 2
+
+Step 2: WebLLM ("edgekit model")
+  |
+  +-- WebGPU available? (doesBrowserSupportWebLLM())
+       |
+       +-- YES:
+       |    +-- downloadPolicy: 'auto'   → Download model (~1-2GB), show progress bar with ETA
+       |    +-- downloadPolicy: 'prompt'  → Ask user: "Download AI model for smarter answers? (~X MB)"
+       |    |    +-- User accepts  → Download, show progress
+       |    |    +-- User declines → Fall to Step 3
+       |    +-- downloadPolicy: 'never'   → Fall to Step 3
+       |
+       +-- NO: WebGPU not available → Fall to Step 3
+
+Step 3: Server provider (optional — only if developer configured one)
+  |
+  +-- Developer provided a server model? (e.g., OpenAI, Anthropic API key)
+       |
+       +-- YES → Use server provider. Full agent capability, but costs money.
+       +-- NO  → Fall to Step 4
+
+Step 4: Search-only fallback
+  |
+  +-- Developer registered any tools?
+       |
+       +-- YES → Run tools without AI reasoning (direct keyword search, etc.)
+       |         Show: "Running in basic mode — AI model not available in this browser"
+       |
+       +-- NO  → Graceful error
+                  Show: "This feature requires a modern browser with AI support.
+                         Try Chrome 148+ for the best experience."
+                  DO NOT show a broken widget or empty chat. Show a clear, helpful message.
 ```
 
-The cascade is implemented using AI SDK's provider abstraction, not a custom wrapper. Each provider implements the same interface. The runtime tries them in order.
+**Key UX principles:**
+- The user should NEVER see a technical error (NotAllowedError, WebGPU failure, etc.). Every failure maps to a human-readable message with a next step.
+- `downloadPolicy: 'auto'` means the developer has pre-authorized downloads during app onboarding — no user prompt needed.
+- `downloadPolicy: 'prompt'` (default) means ask the user before any download. The prompt should be non-technical and explain the benefit.
+- `downloadPolicy: 'never'` means the developer wants no model downloads — search/tools only, or server provider.
+- Chrome AI's user gesture requirement means the download prompt MUST be triggered by a click, not on page load. Design the UI so the user's first chat message or an explicit "Enable AI" button provides the gesture.
+
+**Chrome AI "downloading" vs "downloadable":**
+- `'readily'` = model is cached and ready (instant, no prompt needed)
+- `'downloading'` = model download is in progress (show progress, wait)
+- `'downloadable'` = model available but not yet downloaded (needs user gesture to start)
+
+The cascade is implemented using AI SDK's provider abstraction — each provider (Chrome AI, WebLLM, server) implements the same model interface. The cascade logic is in `packages/core` and is ~50-80 lines.
 
 ### The Retrofit Pattern
 
