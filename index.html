@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="edgekit is a browser-native agent runtime for adding AI sidecars to existing web apps."
+    />
+    <title>edgekit · browser-native agent runtime</title>
+    <script type="module" crossorigin src="/edgekit/assets/index-Bb9KOBlD.js"></script>
+    <link rel="stylesheet" crossorigin href="/edgekit/assets/index-O5ixGWtZ.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="edgekit home">
+        <span class="brand-mark">ek</span>
+        <span>edgekit</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#qa">Q&A</a>
+        <a href="#demos">Demos</a>
+        <a href="#docs">Docs</a>
+        <a href="https://github.com/kevinmarmstrong/edgekit">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <h1>Browser-native agents for apps that already exist.</h1>
+          <p>
+            edgekit lets developers drop an AI sidecar into a web app, register existing API
+            endpoints as tools, and run the agent locally through Chrome AI or WebLLM.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#qa">Ask the docs</a>
+            <a class="button secondary" href="#ecommerce">Open ecommerce demo</a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-label="edgekit architecture diagram">
+          <div class="browser-frame">
+            <div class="browser-bar"><span></span><span></span><span></span></div>
+            <div class="frame-body">
+              <div class="app-pane">
+                <div class="pane-title">Existing app</div>
+                <div class="mock-card large"></div>
+                <div class="mock-row"></div>
+                <div class="mock-row short"></div>
+              </div>
+              <div class="agent-pane">
+                <div class="pane-title">edgekit sidecar</div>
+                <div class="bubble user">find running shoes under $100</div>
+                <div class="tool-pill">searchProducts()</div>
+                <div class="bubble assistant">3 matching products found</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="proof-grid" aria-label="edgekit principles">
+        <article>
+          <strong>Zero backend by default</strong>
+          <span>Runs with browser-local models when available.</span>
+        </article>
+        <article>
+          <strong>Real tool calling</strong>
+          <span>Uses Vercel AI SDK tools instead of custom orchestration.</span>
+        </article>
+        <article>
+          <strong>Retrofit friendly</strong>
+          <span>Register existing endpoints; the app architecture stays intact.</span>
+        </article>
+      </section>
+
+      <section class="split-section" id="qa">
+        <div>
+          <p class="section-label">Project Q&A</p>
+          <h2>Ask edgekit about its own design.</h2>
+          <p>
+            This demo registers a project documentation search tool with edgekit. Browsers with
+            Chrome AI or WebGPU can answer using local model calls; unsupported browsers fail
+            gracefully and keep the docs searchable below.
+          </p>
+          <div class="quick-search">
+            <label for="doc-search">Basic docs search</label>
+            <div class="search-row">
+              <input id="doc-search" placeholder="Try: model cascade or HITL" />
+              <button id="doc-search-button">Search</button>
+            </div>
+            <div id="doc-results" class="doc-results" aria-live="polite"></div>
+          </div>
+        </div>
+        <edge-chat
+          id="docs-chat"
+          system-prompt="You answer questions about the edgekit project. Always call searchDocs before answering. Cite the matching section titles in concise language."
+          placeholder="Ask: how does the model cascade work?"
+        ></edge-chat>
+      </section>
+
+      <section class="docs-section" id="docs">
+        <div class="section-heading">
+          <p class="section-label">Docs</p>
+          <h2>What ships in the open source repo.</h2>
+        </div>
+        <div class="doc-card-grid" id="doc-card-grid"></div>
+      </section>
+
+      <section class="demos-section" id="demos">
+        <div class="section-heading">
+          <p class="section-label">Demos</p>
+          <h2>One runtime, multiple app surfaces.</h2>
+        </div>
+        <div class="demo-grid">
+          <a class="demo-card active" href="#ecommerce">
+            <span>Ecommerce assistant</span>
+            <strong>Product search and guarded add-to-cart</strong>
+          </a>
+          <article class="demo-card">
+            <span>Docs Q&A</span>
+            <strong>Project knowledge as a registered search tool</strong>
+          </article>
+          <article class="demo-card muted">
+            <span>Coming next</span>
+            <strong>More demos can mount into this same gallery</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="ecommerce-demo" id="ecommerce">
+        <div class="section-heading">
+          <p class="section-label">Live demo</p>
+          <h2>Ecommerce retrofit demo.</h2>
+          <p>
+            The storefront exposes `searchProducts` and `addToCart` tools. edgekit handles the
+            sidecar UI, local model cascade, and graceful fallback.
+          </p>
+        </div>
+        <div class="commerce-layout">
+          <section class="catalog" aria-label="Product catalog" id="catalog"></section>
+          <aside class="commerce-agent">
+            <edge-chat
+              id="commerce-chat"
+              system-prompt="You are a concise shopping assistant. Always search products before recommending. Ask for approval before adding anything to cart."
+              placeholder="Try: find running shoes under $100 in size 10"
+            ></edge-chat>
+            <section class="cart" aria-live="polite">
+              <div class="cart-title">Cart</div>
+              <div id="cart-state">No items yet</div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>MIT licensed.</span>
+      <a href="https://github.com/kevinmarmstrong/edgekit">GitHub</a>
+      <a href="#top">Back to top</a>
+    </footer>
+  </body>
+</html>
