@@ -521,11 +521,27 @@ A test suite passes when: **a real user can open the demo, interact with the age
 
 ## Design Principle: Modular and Configurable
 
-Every layer of edgekit is a default, not a mandate. The developer can:
-- Use the default cascade or build their own
-- Swap any model provider (Chrome AI, WebLLM, server, or their own)
-- Control all user-facing notifications, prompts, and error messages
-- Opt out of any layer they don't need
+**Why this matters:** The browser AI landscape moves fast. Chrome AI shipped May 2026. WebLLM's model format changes every few months. New inference runtimes (ONNX Web, MediaPipe) appear constantly. The model that's best today will be superseded in 3 months. If edgekit is tightly coupled to any of these, it breaks every time the landscape shifts — and we have to rewrite instead of swap.
+
+**The rule:** Every dependency is behind an interface. Swapping a provider, a UI framework, or a model runtime is changing one import — not rewriting the core.
+
+Concretely:
+- **Model providers are pluggable.** `chromeAI()` and `webLLM()` are thin wrappers that return an AI SDK `LanguageModel`. If a new runtime appears (e.g., ONNX Web Runtime, a future `window.ai` v2), adding support means writing one new wrapper — nothing else changes.
+- **The model cascade is an array.** The developer controls the order, which providers to include, and which to skip. edgekit doesn't hardcode Chrome AI -> WebLLM. That's the *default*, which the developer overrides with a different array.
+- **UI is a separate package.** `packages/ui` depends on `packages/core` but core has zero knowledge of UI. If Lit gets superseded or the developer wants React, they write their own UI against the same core API.
+- **Notifications are callbacks.** Every user-facing message (download prompts, status updates, error messages) is a callback the developer overrides. edgekit provides defaults but never forces specific UX.
+- **Tools are AI SDK tools.** edgekit re-exports `tool()` from the AI SDK. If a developer already has AI SDK tools, they work unchanged. No edgekit-specific tool format to learn or migrate away from.
+
+**What "modular" means in practice:**
+
+| If this changes... | The developer (or we) swap... | Nothing else touches... |
+|--------------------|-----------------------------|------------------------|
+| Chrome AI API changes | `chromeAI()` wrapper (~50 lines) | Core, UI, tools, cascade logic |
+| WebLLM model format changes | Model ID string in config | Core, UI, tools, everything |
+| Better inference runtime appears | Add new provider wrapper, add to cascade array | Core, UI, tools, existing providers |
+| Lit gets superseded | `packages/ui` internals | Core, tools, provider wrappers |
+| Vercel AI SDK releases breaking change | Provider wrappers + core (~200 lines) | UI, tools (schema stays same) |
+| Developer wants server-only, no browser AI | `model: [openai('gpt-4o')]` | Nothing — just config |
 
 edgekit should feel like a toolkit of composable pieces, not a framework that imposes opinions.
 
