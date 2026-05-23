@@ -1,0 +1,86 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Events (AG-UI)'
+description: 'The AG-UI compatible event protocol used by edgekit v2'
+---
+
+Edgekit v2 uses the AG-UI (Agent-User Interaction) event protocol for structured communication between the agent graph and the UI layer. Events are emitted at every stage of processing and can be used for real-time UI updates, analytics, and debugging.
+
+## Event Categories
+
+### AG-UI Standard Events
+
+These events follow the AG-UI protocol specification:
+
+| Event | When |
+|-------|------|
+| `run:started` | Graph execution begins |
+| `run:finished` | Graph execution completes |
+| `run:error` | Unrecoverable error during execution |
+| `text:start` | Model starts generating text |
+| `text:content` | A text token is generated |
+| `text:end` | Model finishes generating text |
+| `tool:start` | A tool call begins execution |
+| `tool:end` | A tool call completes |
+| `state:snapshot` | Full agent state snapshot (for debugging) |
+| `state:delta` | Incremental state change |
+| `custom` | Application-specific events |
+| `step:started` | A graph node begins execution |
+
+### Edgekit Extension Events
+
+These events are specific to edgekit:
+
+| Event | When |
+|-------|------|
+| `edgekit:retrieval:start` | RAG retrieval begins |
+| `edgekit:retrieval:complete` | RAG retrieval finishes with chunks |
+| `edgekit:model:download:start` | Model download begins |
+| `edgekit:model:download:progress` | Model download progress update |
+| `edgekit:model:download:complete` | Model download finishes |
+| `edgekit:hitl:request` | Human approval requested |
+| `edgekit:hitl:response` | Human approval received |
+| `edgekit:escalation` | Inference mode changed (local/cloud) |
+
+## Subscribing to Events
+
+```typescript
+const agent = defineAgent({ name: 'my-agent', description: '...' })
+
+const unsubscribe = agent.on((event) => {
+  switch (event.type) {
+    case 'text:content':
+      appendToUI(event.content)
+      break
+    case 'edgekit:retrieval:complete':
+      showSources(event.chunks)
+      break
+    case 'edgekit:model:download:progress':
+      updateProgressBar(event.progress)
+      break
+  }
+})
+
+// Stop listening
+unsubscribe()
+```
+
+## Legacy Event Compatibility
+
+For v1 code, edgekit automatically maps v2 events to legacy `RuntimeEvent` types:
+
+| v2 Event | v1 Event |
+|----------|----------|
+| `text:start` | `generation:start` |
+| `text:content` | `generation:token` |
+| `text:end` | `generation:complete` |
+| `edgekit:retrieval:start` | `retrieval:start` |
+| `edgekit:retrieval:complete` | `retrieval:complete` |
+| `edgekit:model:download:*` | `model:download:*` |
+
+Code using the v1 `runtime.on()` API continues to work without changes.
+
+## Next Steps
+
+- [Graph Orchestrator](/docs/architecture/graph) -- The graph that emits these events
+- [Events Guide](/docs/guides/events) -- Practical patterns for event handling

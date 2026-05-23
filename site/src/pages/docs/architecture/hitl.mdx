@@ -1,0 +1,80 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'HITL Checkpoints'
+description: 'Human-in-the-loop approval patterns for edgekit agents'
+---
+
+Human-in-the-loop (HITL) checkpoints let you pause agent execution and require human approval before proceeding. This is essential for high-stakes actions like sending emails, making purchases, or modifying data.
+
+## How It Works
+
+1. A node sets `awaitingApproval: true` on the state
+2. The graph engine reaches the `hitl` node
+3. The hitl node emits an `edgekit:hitl:request` event with a checkpoint ID
+4. Execution pauses until `resume()` is called with approval or rejection
+5. The graph continues or halts based on the approval result
+
+## Setting Up HITL
+
+When building a skill that requires approval, set the approval flag in your tool handler:
+
+```typescript
+import { defineAgent } from '@edgekit/core'
+
+const agent = defineAgent({
+  name: 'email-agent',
+  description: 'Agent that sends emails with approval',
+  tools: [
+    {
+      name: 'send_email',
+      description: 'Send an email to a recipient',
+      parameters: {
+        type: 'object',
+        properties: {
+          to: { type: 'string' },
+          subject: { type: 'string' },
+          body: { type: 'string' },
+        },
+        required: ['to', 'subject', 'body'],
+      },
+    },
+  ],
+})
+```
+
+## Listening for Approval Requests
+
+Subscribe to HITL events to show approval UI:
+
+```typescript
+agent.on((event) => {
+  if (event.type === 'edgekit:hitl:request') {
+    const { checkpointId, description } = event
+    showApprovalDialog(checkpointId, description)
+  }
+})
+```
+
+## Timeout and Abort
+
+The HITL node supports timeouts and abort signals:
+
+```typescript
+import { createHitlNode } from '@edgekit/core'
+
+const hitl = createHitlNode({
+  timeout: 60000, // Auto-reject after 60 seconds
+})
+```
+
+If the timeout expires before approval, the request is treated as rejected and the graph halts.
+
+## Error Policy
+
+The HITL node uses `halt` error policy by default. If something goes wrong during the approval flow, the entire graph stops rather than proceeding without approval.
+
+## Next Steps
+
+- [Graph Orchestrator](/docs/architecture/graph) -- The full graph architecture
+- [Events (AG-UI)](/docs/architecture/events) -- All available events
+- [Custom Skills](/docs/skills/custom) -- Building skills that need approval

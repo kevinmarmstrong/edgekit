@@ -1,0 +1,177 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'defineAgent() API'
+description: 'Build custom agents declaratively with defineAgent()'
+---
+
+The `defineAgent()` function is the primary v2 API for building custom agents. It accepts a declarative definition and returns a fully configured agent with query, conversation management, and event streaming.
+
+## Quick Start
+
+```typescript
+import { defineAgent } from '@edgekit/core'
+import { webllm } from '@edgekit/model-webllm'
+import { localRAG } from '@edgekit/rag-local'
+
+const agent = defineAgent({
+  name: 'docs-assistant',
+  description: 'Answers questions about documentation',
+  model: webllm({ tier: 'standard' }),
+  rag: localRAG({ indexUrl: '/content-index.json' }),
+  systemPrompt: 'You are a documentation assistant. Answer using the provided context.',
+})
+
+// Use the agent
+for await (const token of agent.query('How do I install edgekit?')) {
+  process.stdout.write(token)
+}
+```
+
+## Agent Definition
+
+The `AgentDefinition` interface accepts these fields:
+
+```typescript
+interface AgentDefinition {
+  // Required
+  name: string
+  description: string
+
+  // Model & RAG
+  model?: ModelProvider
+  rag?: RAGProvider
+
+  // Behavior
+  systemPrompt?: string
+  tools?: readonly Tool[]
+  downloadPolicy?: DownloadPolicy
+  guardrails?: GuardrailsConfig
+  maxToolRounds?: number
+
+  // Advanced: custom graph
+  nodes?: Record<string, GraphNode>
+  edges?: readonly GraphEdge[]
+  entryNode?: string
+
+  // Events
+  onEvent?: (event: AgentEvent) => void
+
+  // Metadata
+  version?: string
+}
+```
+
+## Agent Interface
+
+The returned `Agent` object provides:
+
+```typescript
+interface Agent {
+  readonly name: string
+  readonly description: string
+  readonly version: string
+
+  query(input: string): AsyncIterable<string>
+  getConversation(): ConversationState
+  clearConversation(): void
+  on(handler: (event: AgentEvent) => void): () => void
+  initModel(): Promise<void>
+  dispose(): Promise<void>
+}
+```
+
+## Custom Nodes
+
+Override any node in the default graph by passing a `nodes` map. Your custom node will replace the default at that position:
+
+```typescript
+import { defineAgent, createThinkNode } from '@edgekit/core'
+
+const agent = defineAgent({
+  name: 'custom-agent',
+  description: 'Agent with a custom think node',
+  nodes: {
+    // Override the think node with custom config
+    think: createThinkNode({
+      model: myModel,
+      systemPrompt: 'You are a pirate. Answer in pirate speak.',
+      maxTokens: 512,
+    }),
+  },
+})
+```
+
+## Custom Edges
+
+Define custom flow control by providing your own edge definitions:
+
+```typescript
+const agent = defineAgent({
+  name: 'simple-agent',
+  description: 'Minimal retrieve-and-respond pipeline',
+  edges: [
+    ['input_guardrail', 'retrieve'],
+    ['retrieve', 'think'],
+    ['think', 'respond'],
+  ],
+  entryNode: 'input_guardrail',
+})
+```
+
+## Event Handling
+
+Subscribe to agent events for UI updates, analytics, or debugging:
+
+```typescript
+const agent = defineAgent({
+  name: 'my-agent',
+  description: 'Agent with event handling',
+  onEvent: (event) => {
+    switch (event.type) {
+      case 'generation:start':
+        showSpinner()
+        break
+      case 'generation:token':
+        appendToken(event.token)
+        break
+      case 'generation:complete':
+        hideSpinner()
+        break
+      case 'retrieval:complete':
+        showSources(event.chunks)
+        break
+    }
+  },
+})
+
+// Or subscribe after creation
+const unsub = agent.on((event) => console.log(event.type))
+// Later: unsub()
+```
+
+## Composing Agents
+
+Since `defineAgent()` returns a plain object, agents are easy to compose:
+
+```typescript
+function createDocAgent(indexUrl: string) {
+  return defineAgent({
+    name: 'docs',
+    description: 'Documentation Q&A',
+    model: webllm({ tier: 'standard' }),
+    rag: localRAG({ indexUrl }),
+    systemPrompt: 'Answer from documentation. Cite sources.',
+    downloadPolicy: 'prompt',
+  })
+}
+
+// Deploy on different pages with different content
+const blogAgent = createDocAgent('/blog-index.json')
+const apiAgent = createDocAgent('/api-index.json')
+```
+
+## Next Steps
+
+- [Graph Orchestrator](/docs/architecture/graph) -- How the underlying graph works
+- [Nodes & Edges](/docs/architecture/nodes) -- All available nodes
+- [Custom Skills](/docs/skills/custom) -- Add tool calling to your agent

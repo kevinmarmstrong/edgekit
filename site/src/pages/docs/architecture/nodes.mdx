@@ -1,0 +1,152 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Nodes & Edges'
+description: 'Reference for all graph nodes and edge types in edgekit v2'
+---
+
+Every node in the graph implements the `GraphNode` interface: it receives immutable state, processes it, and returns new state. Nodes are created with factory functions that accept configuration.
+
+## Node Factories
+
+### createInputGuardrailNode
+
+Validates user input before processing. Blocks banned patterns and enforces length limits.
+
+```typescript
+import { createInputGuardrailNode } from '@edgekit/core'
+
+const node = createInputGuardrailNode({
+  blockedPatterns: ['ignore previous', 'system prompt'],
+  maxInputLength: 2000,
+})
+```
+
+### createRouteNode
+
+Matches the user query to registered skills using keyword scoring. Sets `selectedSkill` and `routingConfidence` on the state.
+
+```typescript
+import { createRouteNode } from '@edgekit/core'
+
+const node = createRouteNode({
+  skills: [
+    { name: 'weather', description: 'Weather forecasts', keywords: ['weather', 'forecast'] },
+    { name: 'calendar', description: 'Calendar management', keywords: ['meeting', 'schedule'] },
+  ],
+  confidenceThreshold: 0.3,
+  defaultSkill: 'general',
+})
+```
+
+### createRetrieveNode
+
+Runs RAG retrieval against the configured provider. Extracts the query from the last user message and stores retrieved chunks in state.
+
+```typescript
+import { createRetrieveNode } from '@edgekit/core'
+
+const node = createRetrieveNode() // Uses RAG provider from NodeContext
+```
+
+### createThinkNode
+
+Calls the language model to generate a response. Handles streaming, tool call detection, and token assembly.
+
+```typescript
+import { createThinkNode } from '@edgekit/core'
+
+const node = createThinkNode({
+  model: myModel,
+  systemPrompt: 'You are a helpful assistant.',
+  maxTokens: 1024,
+})
+```
+
+### createActNode
+
+Executes pending tool calls by dispatching to registered tool handlers. Returns results in the state for the next think iteration.
+
+```typescript
+import { createActNode } from '@edgekit/core'
+
+const node = createActNode({
+  toolHandlers: {
+    get_weather: async (args) => JSON.stringify({ temp: 72 }),
+  },
+})
+```
+
+### createHitlNode
+
+Pauses graph execution for human approval. Emits a checkpoint event and waits for `resume()` to be called.
+
+```typescript
+import { createHitlNode } from '@edgekit/core'
+
+const node = createHitlNode({
+  timeout: 30000, // 30 second timeout
+})
+```
+
+### createRespondNode
+
+Validates the final output against guardrail patterns and prepares the response message.
+
+```typescript
+import { createRespondNode } from '@edgekit/core'
+
+const node = createRespondNode({
+  blockedPatterns: ['confidential', 'internal only'],
+})
+```
+
+### createEscalateNode
+
+Routes to cloud inference when local model confidence is below threshold.
+
+```typescript
+import { createEscalateNode } from '@edgekit/core'
+
+const node = createEscalateNode({
+  confidenceThreshold: 0.3,
+  cloudModelId: 'gpt-4o-mini',
+  allowCloudEscalation: true,
+})
+```
+
+## Edge Types
+
+Edges connect nodes and can be unconditional or conditional:
+
+```typescript
+// Unconditional: always traverse
+['nodeA', 'nodeB']
+
+// Conditional: traverse only when condition returns true
+['nodeA', 'nodeB', { condition: (state) => state.someField === true }]
+```
+
+When multiple conditional edges leave a node, the first one whose condition returns `true` is followed. If no condition matches, the node is treated as a terminal.
+
+## Error Policies
+
+Each node can define how errors are handled:
+
+```typescript
+interface NodeErrorPolicy {
+  onError: 'retry' | 'skip' | 'halt' | 'fallback'
+  maxRetries?: number
+  fallbackNode?: string
+  retryDelay?: number
+}
+```
+
+- **retry**: Re-execute the node up to `maxRetries` times
+- **skip**: Skip the node and continue to the next
+- **halt**: Stop the entire graph execution
+- **fallback**: Jump to `fallbackNode` instead
+
+## Next Steps
+
+- [Graph Orchestrator](/docs/architecture/graph) -- How the graph engine works
+- [HITL Checkpoints](/docs/architecture/hitl) -- Human approval patterns

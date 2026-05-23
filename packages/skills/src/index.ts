@@ -1,5 +1,7 @@
 import type { Skill, SkillContext, Tool } from '@edgekit/core'
 
+export { docsAgent, type DocsAgentConfig } from './docs-agent.js'
+
 export interface BlogChatConfig {
   readonly siteName?: string
 }

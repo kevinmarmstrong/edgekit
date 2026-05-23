@@ -1,0 +1,116 @@
+---
+layout: '@/layouts/Docs.astro'
+title: 'Graph Orchestrator'
+description: 'The v2 graph-based orchestrator that powers edgekit agents'
+---
+
+Edgekit v2 replaces the linear pipeline with an **8-node directed graph**. Every query flows through a configurable graph of processing nodes, enabling tool-calling loops, human-in-the-loop checkpoints, and dynamic routing.
+
+## The Default Graph
+
+```
+input_guardrail → route → retrieve → think → respond
+                                        ↓ (tool calls)
+                                       act → think (ReAct loop)
+                                        
+respond → hitl (if approval needed)
+think → escalate (if low confidence) → respond
+```
+
+Each node receives the immutable `AgentState`, processes it, and returns a new state. The graph engine handles node sequencing, conditional edges, and iteration limits.
+
+## Nodes
+
+| Node | Purpose |
+|------|---------|
+| `input_guardrail` | Validates user input against blocked patterns and length limits |
+| `route` | Matches the query to a registered skill using keyword scoring |
+| `retrieve` | Runs RAG retrieval to find relevant content chunks |
+| `think` | Calls the language model to generate a response or tool calls |
+| `act` | Executes tool calls and feeds results back to the think node |
+| `hitl` | Pauses execution for human approval before proceeding |
+| `respond` | Validates the output and prepares the final response |
+| `escalate` | Routes to cloud inference when local confidence is low |
+
+## Conditional Edges
+
+Edges between nodes can have conditions. The graph engine evaluates conditions against the current state to determine the next node:
+
+```typescript
+// ReAct loop: think calls tools, act executes them, think again
+['think', 'act', { condition: (state) => state.pendingToolCalls.length > 0 }]
+['think', 'respond', { condition: (state) => state.pendingToolCalls.length === 0 }]
+['act', 'think'] // Always loop back
+
+// HITL: pause for approval when requested
+['respond', 'hitl', { condition: (state) => state.awaitingApproval }]
+
+// Escalation: route to cloud when confidence is low
+['think', 'escalate', { condition: (state) => state.routingConfidence < 0.3 }]
+```
+
+## AgentState
+
+The graph operates on an immutable state object that flows through every node:
+
+```typescript
+interface AgentState {
+  readonly runId: string
+  readonly messages: readonly Message[]
+  readonly turn: number
+  readonly currentNode: string
+  readonly pendingToolCalls: readonly ToolCall[]
+  readonly toolResults: readonly ToolResult[]
+  readonly retrievedChunks: readonly Chunk[]
+  readonly awaitingApproval: boolean
+  readonly selectedSkill?: string
+  readonly routingConfidence: number
+  readonly inferenceMode: 'local' | 'cloud' | 'hybrid'
+  readonly downloadPolicy: DownloadPolicy
+  // ... plus trace, validation, and metadata fields
+}
+```
+
+State is never mutated. Each node returns a new state via the `updateState()` helper, which uses structural sharing for efficiency.
+
+## Using the Graph Directly
+
+For advanced use cases, you can build a custom graph with `createGraphEngine`:
+
+```typescript
+import {
+  createGraphEngine,
+  createInitialState,
+  createRetrieveNode,
+  createThinkNode,
+  createRespondNode,
+} from '@edgekit/core'
+
+const definition = {
+  nodes: {
+    retrieve: createRetrieveNode(),
+    think: createThinkNode({ model, systemPrompt: 'Be concise.' }),
+    respond: createRespondNode(),
+  },
+  edges: [
+    ['retrieve', 'think'],
+    ['think', 'respond'],
+  ],
+  entryNode: 'retrieve',
+}
+
+const state = createInitialState({
+  runId: crypto.randomUUID(),
+  modelId: model.id,
+  downloadPolicy: 'auto',
+})
+
+const engine = createGraphEngine(definition, nodeContext, state)
+const finalState = await engine.run('What is edgekit?')
+```
+
+## Next Steps
+
+- [defineAgent() API](/docs/architecture/define-agent) -- Declarative agent builder
+- [Nodes & Edges](/docs/architecture/nodes) -- Detailed node reference
+- [HITL Checkpoints](/docs/architecture/hitl) -- Human-in-the-loop patterns

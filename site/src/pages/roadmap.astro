@@ -22,6 +22,13 @@ const items: RoadmapItem[] = [
   { title: 'Download policy', description: 'Configurable: auto, prompt (default), never. Control model download UX', status: 'shipped', link: `${base}docs/guides/download-policy` },
   { title: 'Event system', description: 'Typed events for every pipeline stage. Custom UI, analytics, debugging', status: 'shipped', link: `${base}docs/guides/events` },
 
+  { title: 'v2 Graph Orchestrator', description: '8-node directed graph: input guardrail, route, retrieve, think, act, HITL, respond, escalate. ReAct tool-calling loop', status: 'shipped', link: `${base}docs/architecture/graph` },
+  { title: 'defineAgent() API', description: 'Declarative agent builder. Custom nodes, edges, tools, and system prompts. Composable agent definitions', status: 'shipped', link: `${base}docs/architecture/define-agent` },
+  { title: 'HITL Checkpoints', description: 'Human-in-the-loop approval with Promise-based suspension, timeout, and abort signal', status: 'shipped', link: `${base}docs/architecture/hitl` },
+  { title: 'Skill Routing', description: 'Keyword-based routing with confidence scoring. Configurable thresholds and default skill fallback', status: 'shipped', link: `${base}docs/architecture/nodes` },
+  { title: 'Cloud Escalation', description: 'Automatic escalation to cloud inference when local model confidence is low', status: 'shipped', link: `${base}docs/architecture/nodes` },
+  { title: 'AG-UI Event Protocol', description: '12 AG-UI standard events + 8 edgekit extensions. Full backward compatibility with v1 events', status: 'shipped', link: `${base}docs/architecture/events` },
+
   // Building now
   { title: 'Edgekit marketing site', description: 'This site. Documentation, demos, blog. Dogfooding edgekit on its own content', status: 'building' },
 

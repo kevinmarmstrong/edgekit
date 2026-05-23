@@ -1,6 +1,10 @@
 // v2: graph-backed orchestrator (default)
 export { createRuntimeV2 as createRuntime } from './orchestrator-v2.js'
 
+// v2: declarative agent builder
+export { defineAgent } from './agent.js'
+export type { AgentDefinition, Agent } from './agent.js'
+
 // v1: legacy linear orchestrator (available for migration)
 export { createRuntime as createRuntimeV1 } from './orchestrator.js'
 
