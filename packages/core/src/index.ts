@@ -1,4 +1,5 @@
 import { streamText as aiStreamText, stepCountIs, tool } from 'ai'
+import type { ModelMessage } from 'ai'
 import type { LanguageModelV3 } from '@ai-sdk/provider'
 
 export { stepCountIs, tool }
@@ -77,6 +78,7 @@ export interface CreateAgentOptions {
 
 export interface EdgeAgent {
   send(input: string): AsyncGenerator<AgentEvent>
+  respondToApproval(approvalId: string, approved: boolean, reason?: string): AsyncGenerator<AgentEvent>
   reset(): void
 }
 
@@ -140,7 +142,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
   const maxSteps = options.maxSteps ?? 5
   const streamText = options.streamText ?? aiStreamText
   const providers = options.model ?? [chromeAI(), webLLM()]
-  const messages: unknown[] = []
+  const messages: ModelMessage[] = []
+  let lastUserInput = ''
 
   const emitStatus = (event: ModelStatusEvent): ModelStatusEvent => {
     const custom = options.onModelStatus?.(event)
@@ -154,89 +157,108 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     return false
   }
 
+  const run = async function* (): AsyncGenerator<AgentEvent> {
+    const statusEvents: ModelStatusEvent[] = []
+    const drainStatus = function* () {
+      while (statusEvents.length > 0) {
+        yield { type: 'status', event: statusEvents.shift()! } satisfies AgentEvent
+      }
+    }
+
+    const resolved = await resolveModel(providers, {
+      downloadPolicy,
+      timeoutMs: options.modelResolveTimeoutMs ?? 3_000,
+      emitStatus: event => {
+        const displayEvent = emitStatus(event)
+        statusEvents.push(displayEvent)
+      },
+      requestDownload,
+    })
+    yield* drainStatus()
+
+    if (!resolved) {
+      const defaultMessage = 'AI is not available in this browser.'
+      const message = options.onNoModel?.({
+        availableTools: Object.keys(options.tools),
+        input: lastUserInput,
+        message: defaultMessage,
+      }) ?? defaultMessage
+      yield { type: 'no-model', message }
+      return
+    }
+
+    let text = ''
+    const result = (streamText as never as (options: Record<string, unknown>) => ReturnType<StreamTextFn>)({
+      model: resolved.model,
+      system: options.systemPrompt,
+      messages: [...messages],
+      tools: options.tools,
+      stopWhen: stepCountIs(maxSteps),
+    })
+
+    for await (const part of result.fullStream as AsyncIterable<Record<string, unknown>>) {
+      yield* drainStatus()
+      switch (part.type) {
+        case 'text-delta': {
+          const delta = String(part.text ?? part.delta ?? '')
+          text += delta
+          yield { type: 'text-delta', text: delta }
+          break
+        }
+        case 'tool-call':
+          yield {
+            type: 'tool-call',
+            toolName: String(part.toolName),
+            toolCallId: String(part.toolCallId),
+            input: part.input,
+          }
+          break
+        case 'tool-result':
+          yield {
+            type: 'tool-result',
+            toolName: String(part.toolName),
+            toolCallId: String(part.toolCallId),
+            output: part.output,
+          }
+          break
+        case 'tool-approval-request':
+          yield {
+            type: 'approval-request',
+            approvalId: String(part.approvalId),
+            toolCall: part.toolCall,
+          }
+          break
+        case 'error':
+          yield { type: 'error', error: part.error }
+          break
+      }
+    }
+    yield* drainStatus()
+
+    const response = await result.response
+    messages.push(...response.messages)
+    yield { type: 'done', text }
+  }
+
   return {
     async *send(input: string): AsyncGenerator<AgentEvent> {
+      lastUserInput = input
       messages.push({ role: 'user', content: input })
-      const statusEvents: ModelStatusEvent[] = []
-      const drainStatus = function* () {
-        while (statusEvents.length > 0) {
-          yield { type: 'status', event: statusEvents.shift()! } satisfies AgentEvent
-        }
-      }
-
-      const resolved = await resolveModel(providers, {
-        downloadPolicy,
-        timeoutMs: options.modelResolveTimeoutMs ?? 3_000,
-        emitStatus: event => {
-          const displayEvent = emitStatus(event)
-          statusEvents.push(displayEvent)
-        },
-        requestDownload,
+      yield* run()
+    },
+    async *respondToApproval(approvalId: string, approved: boolean, reason?: string): AsyncGenerator<AgentEvent> {
+      messages.push({
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-approval-response',
+            approvalId,
+            approved,
+            reason,
+          },
+        ],
       })
-      yield* drainStatus()
-
-      if (!resolved) {
-        const defaultMessage = 'AI is not available in this browser.'
-        const message = options.onNoModel?.({
-          availableTools: Object.keys(options.tools),
-          input,
-          message: defaultMessage,
-        }) ?? defaultMessage
-        yield { type: 'no-model', message }
-        return
-      }
-
-      let text = ''
-      const result = (streamText as never as (options: Record<string, unknown>) => ReturnType<StreamTextFn>)({
-        model: resolved.model,
-        system: options.systemPrompt,
-        messages: [...messages],
-        tools: options.tools,
-        stopWhen: stepCountIs(maxSteps),
-      })
-
-      for await (const part of result.fullStream as AsyncIterable<Record<string, unknown>>) {
-        yield* drainStatus()
-        switch (part.type) {
-          case 'text-delta': {
-            const delta = String(part.text ?? part.delta ?? '')
-            text += delta
-            yield { type: 'text-delta', text: delta }
-            break
-          }
-          case 'tool-call':
-            yield {
-              type: 'tool-call',
-              toolName: String(part.toolName),
-              toolCallId: String(part.toolCallId),
-              input: part.input,
-            }
-            break
-          case 'tool-result':
-            yield {
-              type: 'tool-result',
-              toolName: String(part.toolName),
-              toolCallId: String(part.toolCallId),
-              output: part.output,
-            }
-            break
-          case 'tool-approval-request':
-            yield {
-              type: 'approval-request',
-              approvalId: String(part.approvalId),
-              toolCall: part.toolCall,
-            }
-            break
-          case 'error':
-            yield { type: 'error', error: part.error }
-            break
-        }
-      }
-      yield* drainStatus()
-
-      const response = await result.response
-      messages.push(...response.messages)
-      yield { type: 'done', text }
+      yield* run()
     },
     reset() {
       messages.length = 0

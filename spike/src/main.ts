@@ -1,5 +1,5 @@
 /**
- * edgekit v3 spike
+ * edgekit spike
  *
  * Validates: Can we run Vercel AI SDK's generateText with tool calling
  * entirely in the browser using @browser-ai providers?
@@ -204,7 +204,7 @@ async function testNeedsApproval(model: any) {
 // -- Main --
 
 async function main() {
-  log('=== edgekit v3 spike ===\n')
+  log('=== edgekit spike ===\n')
   log('Validating: Vercel AI SDK + @browser-ai in browser\n')
 
   // Test 1 & 2: Imports

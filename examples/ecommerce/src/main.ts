@@ -1,5 +1,5 @@
 import '@kevinmarmstrong/edgekit-ui'
-import { tool } from '@kevinmarmstrong/edgekit'
+import { chromeAI, tool } from '@kevinmarmstrong/edgekit'
 import { z } from 'zod'
 import './styles.css'
 
@@ -106,6 +106,11 @@ const chat = document.querySelector('edge-chat')
 
 renderCatalog()
 renderCart()
+chat?.configure({
+  model: [chromeAI()],
+  downloadPolicy: 'never',
+  onNoModel: ({ input }) => answerFromCatalog(input),
+})
 chat?.registerTools({ searchProducts, addToCart })
 
 function renderCatalog() {
@@ -128,6 +133,33 @@ function renderCatalog() {
       `,
     )
     .join('')
+}
+
+function answerFromCatalog(input: string) {
+  const maxPrice = input.match(/under\s+\$?(\d+)/i)?.[1]
+  const requestedSize = input.match(/size\s+([\d.]+)/i)?.[1]
+  const normalizedInput = input.toLowerCase()
+  const results = products.filter(product => {
+    const matchesQuery =
+      normalizedInput.includes('shoe') ||
+      normalizedInput.includes('running') ||
+      product.name.toLowerCase().includes(normalizedInput)
+    const matchesPrice = maxPrice == null || product.price <= Number(maxPrice)
+    const matchesSize = requestedSize == null || product.sizes.includes(requestedSize)
+    return matchesQuery && matchesPrice && matchesSize
+  })
+
+  if (results.length === 0) {
+    return 'Local browser AI is unavailable here, and basic catalog mode did not find matching products.'
+  }
+
+  return [
+    'Local browser AI is unavailable here, so edgekit answered through basic catalog mode.',
+    '',
+    ...results.map(product => `${product.name} - $${product.price.toFixed(2)} - ${product.support}`),
+    '',
+    'Enable Chrome AI for tool-calling recommendations and guarded add-to-cart actions.',
+  ].join('\n')
 }
 
 function renderCart() {

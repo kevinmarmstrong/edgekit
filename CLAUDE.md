@@ -1,4 +1,4 @@
-# edgekit v3
+# edgekit
 
 ## What this is
 

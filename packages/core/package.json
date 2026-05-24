@@ -10,7 +10,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/kevinmarmstrong/edgekit-v3.git",
+    "url": "https://github.com/kevinmarmstrong/edgekit.git",
     "directory": "packages/core"
   },
   "keywords": [

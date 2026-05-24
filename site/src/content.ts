@@ -39,7 +39,13 @@ export const docChunks: DocChunk[] = [
     title: 'Packages',
     tags: ['repo', 'packages'],
     body:
-      'The repo contains @kevinmarmstrong/edgekit for core runtime, @kevinmarmstrong/edgekit-ui for the Lit web component, a spike harness, ecommerce demo, and this GitHub Pages site.',
+      'The repo contains @kevinmarmstrong/edgekit for core runtime, @kevinmarmstrong/edgekit-ui for the Lit web component, @kevinmarmstrong/edgekit-cli for docs indexing, a spike harness, ecommerce demo, and this GitHub Pages site.',
+  },
+  {
+    title: 'Deployment',
+    tags: ['pages', 'webllm', 'headers'],
+    body:
+      'GitHub Pages hosts the public docs and Chrome AI/basic-mode demos. Full WebLLM production verification needs a host that can set COOP and COEP cross-origin isolation headers, such as Cloudflare Pages or Vercel.',
   },
   {
     title: 'Testing',

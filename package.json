@@ -1,5 +1,5 @@
 {
-  "name": "edgekit-v3",
+  "name": "edgekit",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,10 +8,10 @@
   "packageManager": "pnpm@10.8.1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kevinmarmstrong/edgekit-v3.git"
+    "url": "https://github.com/kevinmarmstrong/edgekit.git"
   },
   "scripts": {
-    "build": "pnpm --filter @kevinmarmstrong/edgekit build && pnpm --filter @kevinmarmstrong/edgekit-ui build && pnpm --filter @edgekit/ecommerce-demo build && pnpm --filter @edgekit/site build",
+    "build": "pnpm --filter @kevinmarmstrong/edgekit build && pnpm --filter @kevinmarmstrong/edgekit-ui build && pnpm --filter @kevinmarmstrong/edgekit-cli build && pnpm --filter @edgekit/ecommerce-demo build && pnpm --filter @edgekit/site build",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
+    "@types/node": "^25.9.1",
     "jsdom": "^28.1.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.14",

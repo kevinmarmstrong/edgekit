@@ -1,5 +1,5 @@
 import '@kevinmarmstrong/edgekit-ui'
-import { tool } from '@kevinmarmstrong/edgekit'
+import { chromeAI, tool } from '@kevinmarmstrong/edgekit'
 import type { EdgeChat } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
 import { docChunks, searchDocs } from './content'
@@ -107,10 +107,18 @@ const addToCart = tool({
 
 const docsChat = document.querySelector<EdgeChat>('edge-chat#docs-chat')
 docsChat?.configure({
+  model: [chromeAI()],
+  downloadPolicy: 'never',
   onNoModel: ({ input }) => answerFromDocs(input),
 })
 docsChat?.registerTools({ searchDocs: searchDocsTool })
-document.querySelector<EdgeChat>('edge-chat#commerce-chat')?.registerTools({ searchProducts, addToCart })
+const commerceChat = document.querySelector<EdgeChat>('edge-chat#commerce-chat')
+commerceChat?.configure({
+  model: [chromeAI()],
+  downloadPolicy: 'never',
+  onNoModel: ({ input }) => answerFromCatalog(input),
+})
+commerceChat?.registerTools({ searchProducts, addToCart })
 
 renderDocCards()
 renderCatalog()
@@ -168,6 +176,33 @@ function answerFromDocs(input: string) {
     .map(match => `${match.title}: ${match.body}`)
     .join('\n\n')
   return `Local browser AI is unavailable here, so edgekit answered through its docs-search fallback.\n\n${summary}`
+}
+
+function answerFromCatalog(input: string) {
+  const maxPrice = input.match(/under\s+\$?(\d+)/i)?.[1]
+  const requestedSize = input.match(/size\s+([\d.]+)/i)?.[1]
+  const normalizedInput = input.toLowerCase()
+  const results = products.filter(product => {
+    const matchesQuery =
+      normalizedInput.includes('shoe') ||
+      normalizedInput.includes('running') ||
+      product.name.toLowerCase().includes(normalizedInput)
+    const matchesPrice = maxPrice == null || product.price <= Number(maxPrice)
+    const matchesSize = requestedSize == null || product.sizes.includes(requestedSize)
+    return matchesQuery && matchesPrice && matchesSize
+  })
+
+  if (results.length === 0) {
+    return 'Local browser AI is unavailable here, and basic catalog mode did not find matching products.'
+  }
+
+  return [
+    'Local browser AI is unavailable here, so edgekit answered through basic catalog mode.',
+    '',
+    ...results.map(product => `${product.name} - $${product.price.toFixed(2)} - ${product.support}`),
+    '',
+    'Enable Chrome AI for tool-calling recommendations and guarded add-to-cart actions.',
+  ].join('\n')
 }
 
 function renderCart() {

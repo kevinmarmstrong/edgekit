@@ -8,6 +8,9 @@
       content="edgekit is a browser-native agent runtime for adding AI sidecars to existing web apps."
     />
     <title>edgekit · browser-native agent runtime</title>
+    <script>
+      globalThis.AI_SDK_LOG_WARNINGS = false
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
@@ -79,8 +82,8 @@
           <h2>Ask edgekit about its own design.</h2>
           <p>
             This demo registers a project documentation search tool with edgekit. Browsers with
-            Chrome AI or WebGPU can answer using local model calls; unsupported browsers fail
-            gracefully and keep the docs searchable below.
+            Chrome AI can answer using local model calls; unsupported browsers switch into basic
+            docs mode and keep the docs searchable below.
           </p>
           <div class="quick-search">
             <label for="doc-search">Basic docs search</label>
@@ -120,9 +123,13 @@
             <span>Docs Q&A</span>
             <strong>Project knowledge as a registered search tool</strong>
           </article>
-          <article class="demo-card muted">
-            <span>Coming next</span>
-            <strong>More demos can mount into this same gallery</strong>
+          <article class="demo-card">
+            <span>SaaS workflow</span>
+            <strong>Planned admin sidecar with guarded workflow actions</strong>
+          </article>
+          <article class="demo-card">
+            <span>Support triage</span>
+            <strong>Planned inbox assistant using existing case APIs</strong>
           </article>
         </div>
       </section>

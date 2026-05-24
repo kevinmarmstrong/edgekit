@@ -112,4 +112,104 @@ describe('createAgent', () => {
       ],
     })
   })
+
+  it('resumes a paused tool approval with an approval response message', async () => {
+    const streamText = vi
+      .fn()
+      .mockImplementationOnce((options: unknown) => ({
+        fullStream: (async function* () {
+          yield {
+            type: 'tool-approval-request',
+            approvalId: 'approval-1',
+            toolCall: {
+              type: 'tool-call',
+              toolCallId: 'tool-1',
+              toolName: 'addToCart',
+              input: { productId: 'pegasus', quantity: 1 },
+            },
+          }
+        })(),
+        response: Promise.resolve({
+          messages: [
+            {
+              role: 'assistant',
+              content: [
+                {
+                  type: 'tool-approval-request',
+                  approvalId: 'approval-1',
+                  toolCall: {
+                    type: 'tool-call',
+                    toolCallId: 'tool-1',
+                    toolName: 'addToCart',
+                    input: { productId: 'pegasus', quantity: 1 },
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        options,
+      }))
+      .mockImplementationOnce((options: unknown) => ({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'Added to cart.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Added to cart.' }] }],
+        }),
+        options,
+      }))
+
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [createModelProvider({ id: 'fake', label: 'Fake', resolve: async () => fakeModel })],
+      tools: { addToCart: {} },
+      streamText: streamText as never,
+    })
+
+    const firstEvents = []
+    for await (const event of agent.send('add the pegasus to my cart')) {
+      firstEvents.push(event)
+    }
+    const secondEvents = []
+    for await (const event of agent.respondToApproval('approval-1', true)) {
+      secondEvents.push(event)
+    }
+
+    expect(firstEvents).toContainEqual({
+      type: 'approval-request',
+      approvalId: 'approval-1',
+      toolCall: {
+        type: 'tool-call',
+        toolCallId: 'tool-1',
+        toolName: 'addToCart',
+        input: { productId: 'pegasus', quantity: 1 },
+      },
+    })
+    expect(secondEvents).toContainEqual({ type: 'text-delta', text: 'Added to cart.' })
+    expect(streamText.mock.calls[1][0]).toMatchObject({
+      messages: [
+        { role: 'user', content: 'add the pegasus to my cart' },
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-approval-request',
+              approvalId: 'approval-1',
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-approval-response',
+              approvalId: 'approval-1',
+              approved: true,
+            },
+          ],
+        },
+      ],
+    })
+  })
 })

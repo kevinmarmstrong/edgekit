@@ -1,4 +1,4 @@
-# edgekit v3 — Design Document
+# edgekit — Design Document
 
 ## Status: APPROVED — Ready for Implementation
 
@@ -171,7 +171,7 @@ Both achieve the same outcome (agent uses existing app capabilities) but edgekit
 
 **Magentic-UI**: Stores successful task-plan pairs as `(task, plan)` entries. When a similar task appears, retrieves and adapts the previous plan. Uses vector search for matching.
 
-**edgekit adaptation (v3.1, not v3.0)**: Store successful tool-calling sequences in IndexedDB. When a similar user intent appears, suggest the proven plan. This is a natural extension but not in scope for initial launch.
+**edgekit adaptation (future release)**: Store successful tool-calling sequences in IndexedDB. When a similar user intent appears, suggest the proven plan. This is a natural extension but not in scope for initial launch.
 
 ### Patterns We Don't Adopt
 
@@ -180,7 +180,7 @@ Both achieve the same outcome (agent uses existing app capabilities) but edgekit
 | Multi-agent team (WebSurfer, Coder, FileSurfer) | edgekit is single-agent with tools, not multi-agent. Simpler, sufficient for browser context |
 | Docker/QEMU sandboxing | No server, no containers. Browser is the sandbox |
 | Playwright browser control | We call APIs directly, not through UI automation |
-| MCP server extensibility | Future consideration, not v3.0 |
+| MCP server extensibility | Future consideration, not initial launch |
 
 ---
 
@@ -209,7 +209,7 @@ Developer's existing app
 ### Package Structure
 
 ```
-edgekit-v3/
+edgekit/
   packages/
     core/           # ~300 lines: createAgent(), progressive model, tool registry
     ui/             # Lit web component: <edge-chat>
@@ -582,14 +582,21 @@ edgekit should feel like a toolkit of composable pieces, not a framework that im
 
 ```html
 <script type="module">
-  import { createAgent, mountChat } from '@kevinmarmstrong/edgekit'
+  import '@kevinmarmstrong/edgekit-ui'
+  import { tool } from '@kevinmarmstrong/edgekit'
 
-  const agent = createAgent({
+  const searchProducts = tool({
+    description: 'Search the product catalog',
+    inputSchema: z.object({ query: z.string() }),
+    execute: async ({ query }) => fetch(`/api/products?q=${query}`).then(res => res.json()),
+  })
+
+  const chat = document.querySelector('edge-chat')
+  chat.configure({
     tools: { /* ... */ },
     systemPrompt: 'You are a helpful shopping assistant.',
   })
-
-  mountChat('#chat-container', agent)
+  chat.registerTools({ searchProducts })
 </script>
 ```
 
@@ -642,27 +649,27 @@ const agent = createAgent({
   downloadPolicy: 'prompt', // 'auto' | 'prompt' | 'never'
 
   // All user-facing messages are callbacks the developer can override
-  onModelStatus: ({ provider, status, progress, defaultMessage }) => {
+  onModelStatus: ({ provider, status, progress, message }) => {
     // provider: 'chrome-ai' | 'webllm' | 'server' | string
     // status: 'checking' | 'downloading' | 'ready' | 'unavailable' | 'error'
     // progress: number (0-1) when downloading
-    // defaultMessage: string — edgekit's default human-readable text
+    // message: string — edgekit's default human-readable text
     //
     // Return a string to show custom text, or null to show nothing (silent)
     if (status === 'downloading') return `Loading AI... ${Math.round(progress * 100)}%`
     if (status === 'unavailable') return null // silently skip, don't tell the user
-    return defaultMessage // use edgekit's default for everything else
+    return message // use edgekit's default for everything else
   },
 
   // Custom download prompt — replaces edgekit's default prompt UI
-  onDownloadPrompt: async ({ provider, modelSize, defaultMessage }) => {
+  onDownloadPrompt: async ({ provider, modelSize, message }) => {
     // Return true to proceed with download, false to skip this provider
     // If omitted, edgekit shows its built-in prompt UI
     return confirm(`Download ${modelSize} AI model for smarter answers?`)
   },
 
   // Custom fallback message when no model is available
-  onNoModel: ({ availableTools, defaultMessage }) => {
+  onNoModel: ({ availableTools, message }) => {
     // Return string to display, or null to hide the widget entirely
     return 'AI is not available in this browser. Basic search is still active.'
   },
@@ -824,23 +831,14 @@ Use it as your reference. Don't guess at APIs — copy the patterns that work.
 
 ```bash
 # Clone and install
-git clone https://github.com/kevinmarmstrong/edgekit-v3.git
-cd edgekit-v3
+git clone https://github.com/kevinmarmstrong/edgekit.git
+cd edgekit
 
-# Monorepo setup
-pnpm init   # if no root package.json yet
-# Add pnpm-workspace.yaml:
-# packages:
-#   - 'packages/*'
-#   - 'examples/*'
-
-# Per-package setup
-cd packages/core && pnpm init && pnpm add ai @browser-ai/core @browser-ai/web-llm zod
-cd packages/ui && pnpm init && pnpm add lit
-cd packages/cli && pnpm init  # CLI dependencies TBD
-
-# Dev dependencies (root)
-pnpm add -Dw typescript vite vitest @playwright/test
+pnpm install
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm test:e2e
 ```
 
 ### WebLLM model IDs (MLC format)

@@ -20,6 +20,12 @@ type PendingPrompt = {
   resolve: (accepted: boolean) => void
 }
 
+type PendingApproval = {
+  approvalId: string
+  toolName: string
+  input: unknown
+}
+
 @customElement('edge-chat')
 export class EdgeChat extends LitElement {
   static styles = css`
@@ -117,6 +123,12 @@ export class EdgeChat extends LitElement {
       padding: 12px;
     }
 
+    .approval-summary {
+      color: #5f6f69;
+      font-size: 12px;
+      word-break: break-word;
+    }
+
     .prompt-actions {
       display: flex;
       gap: 8px;
@@ -187,6 +199,9 @@ export class EdgeChat extends LitElement {
   @state()
   private pendingPrompt: PendingPrompt | null = null
 
+  @state()
+  private pendingApproval: PendingApproval | null = null
+
   private tools: CreateAgentOptions['tools'] = {}
   private config: Partial<CreateAgentOptions> = {}
   private agent: EdgeAgent | null = null
@@ -222,6 +237,29 @@ export class EdgeChat extends LitElement {
                   <button type="button" @click=${() => this.answerPrompt(true)}>Enable</button>
                   <button class="secondary" type="button" @click=${() => this.answerPrompt(false)}>
                     Not now
+                  </button>
+                </div>
+              </div>`
+            : null}
+          ${this.pendingApproval
+            ? html`<div class="message assistant prompt" data-testid="approval-prompt">
+                <div>Approve ${this.pendingApproval.toolName}?</div>
+                <div class="approval-summary">${this.summarizeInput(this.pendingApproval.input)}</div>
+                <div class="prompt-actions">
+                  <button
+                    type="button"
+                    data-testid="approve-button"
+                    @click=${() => this.answerApproval(true)}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    class="secondary"
+                    type="button"
+                    data-testid="reject-button"
+                    @click=${() => this.answerApproval(false)}
+                  >
+                    Reject
                   </button>
                 </div>
               </div>`
@@ -284,13 +322,20 @@ export class EdgeChat extends LitElement {
     } else if (event.type === 'tool-call') {
       this.messages = [...this.messages, { role: 'tool', text: `Tool: ${event.toolName}` }]
     } else if (event.type === 'approval-request') {
-      this.messages = [...this.messages, { role: 'system', text: 'Approval required before continuing.' }]
+      const toolCall = event.toolCall as { toolName?: string; input?: unknown } | undefined
+      this.pendingApproval = {
+        approvalId: event.approvalId,
+        toolName: toolCall?.toolName ?? 'action',
+        input: toolCall?.input,
+      }
+      this.statusText = 'Waiting for approval'
     } else if (event.type === 'no-model') {
       this.pendingPrompt = null
       this.appendToAssistant(event.message)
-      this.statusText = 'No local model'
+      this.statusText = event.message === 'AI is not available in this browser.' ? 'No local model' : 'Basic mode'
     } else if (event.type === 'error') {
       this.pendingPrompt = null
+      this.pendingApproval = null
       this.appendToAssistant(`Something went wrong: ${String(event.error)}`)
     } else if (event.type === 'done') {
       this.pendingPrompt = null
@@ -315,6 +360,38 @@ export class EdgeChat extends LitElement {
   private answerPrompt(accepted: boolean) {
     this.pendingPrompt?.resolve(accepted)
     this.pendingPrompt = null
+  }
+
+  private async answerApproval(approved: boolean) {
+    if (!this.pendingApproval) return
+
+    const approval = this.pendingApproval
+    this.pendingApproval = null
+    this.busy = true
+    this.messages = [
+      ...this.messages,
+      {
+        role: 'system',
+        text: approved
+          ? `Approved ${approval.toolName}. Continuing.`
+          : `Rejected ${approval.toolName}. Continuing without that action.`,
+      },
+      { role: 'assistant', text: '' },
+    ]
+
+    try {
+      for await (const agentEvent of this.getAgent().respondToApproval(approval.approvalId, approved)) {
+        this.applyAgentEvent(agentEvent)
+      }
+    } finally {
+      this.busy = false
+    }
+  }
+
+  private summarizeInput(input: unknown) {
+    if (input == null) return 'No input details.'
+    const text = typeof input === 'string' ? input : JSON.stringify(input)
+    return text.length > 140 ? `${text.slice(0, 137)}...` : text
   }
 }
 
