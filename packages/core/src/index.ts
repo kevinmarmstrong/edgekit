@@ -244,6 +244,8 @@ export interface EdgeToolManifest {
   description?: string
   roles?: string[]
   permissions?: string[]
+  readOnly?: boolean
+  parallelSafe?: boolean
 }
 
 export interface EdgeToolProviderContext {
@@ -262,6 +264,7 @@ export type EdgeTelemetryEventName =
   | 'model-selected'
   | 'model-unavailable'
   | 'status'
+  | 'activity'
   | 'memory-compact'
   | 'text-delta'
   | 'tool-call'
@@ -426,6 +429,7 @@ export interface ResolvedModel {
 
 export type AgentEvent =
   | { type: 'status'; event: ModelStatusEvent }
+  | { type: 'activity'; activity: EdgeActivityEvent }
   | { type: 'text-delta'; text: string }
   | { type: 'tool-call'; toolName: string; toolCallId: string; input: unknown }
   | { type: 'tool-result'; toolName: string; toolCallId: string; output: unknown }
@@ -436,6 +440,71 @@ export type AgentEvent =
   | { type: 'done'; text: string }
 
 type StreamTextFn = typeof aiStreamText
+
+export interface EdgeActivityEvent {
+  id: string
+  label: string
+  status: 'started' | 'completed' | 'failed'
+  detail?: string
+  toolName?: string
+  data?: unknown
+}
+
+export interface EdgeCachedResponse {
+  key: string
+  text: string
+  createdAt: string
+  expiresAt?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface EdgeResponseCache {
+  get(key: string): EdgeCachedResponse | null | Promise<EdgeCachedResponse | null>
+  set(entry: EdgeCachedResponse): void | Promise<void>
+  delete?(key: string): void | Promise<void>
+  clear?(): void | Promise<void>
+}
+
+export interface EdgeResponseCacheContext {
+  input: string
+  session: EdgeSessionContext
+  state?: EdgeStateSnapshot
+  memory: EdgeMemoryRecord[]
+  tools: string[]
+  phase: 'send' | 'approval'
+}
+
+export interface EdgeResponseCachePolicy {
+  ttlMs?: number
+  key?: (context: EdgeResponseCacheContext) => string | Promise<string>
+  shouldRead?: (context: EdgeResponseCacheContext) => boolean | Promise<boolean>
+  shouldWrite?: (context: EdgeResponseCacheContext & { text: string; usedTools: boolean }) => boolean | Promise<boolean>
+}
+
+export interface IndexedDbResponseCacheOptions {
+  databaseName?: string
+  storeName?: string
+}
+
+export interface ParallelToolCall {
+  id: string
+  toolName: string
+  input: Record<string, unknown>
+}
+
+export interface ParallelToolResult {
+  id: string
+  toolName: string
+  output?: unknown
+  error?: unknown
+}
+
+export interface ExecuteParallelToolsOptions {
+  calls: ParallelToolCall[]
+  tools: Record<string, unknown>
+  manifests?: EdgeToolManifest[]
+  context: EdgeToolExecutionContext
+}
 
 export interface CreateAgentOptions {
   systemPrompt: string
@@ -452,6 +521,8 @@ export interface CreateAgentOptions {
   modelRouter?: EdgeModelRouter
   memoryCompaction?: boolean | { thresholdTokens?: number; maxSnapshotTokens?: number }
   toolRepair?: boolean | EdgeToolRepairOptions
+  responseCache?: EdgeResponseCache
+  cachePolicy?: boolean | EdgeResponseCachePolicy
   downloadPolicy?: DownloadPolicy
   maxSteps?: number
   modelResolveTimeoutMs?: number
@@ -693,6 +764,123 @@ export function createHandoffEnvelope(options: CreateHandoffEnvelopeOptions): Ed
 export function estimateTokens(value: unknown): number {
   const text = typeof value === 'string' ? value : stableStringify(value)
   return Math.max(1, Math.ceil(text.length / 4))
+}
+
+export function createMemoryResponseCache(now: () => string = () => new Date().toISOString()): EdgeResponseCache {
+  const entries = new Map<string, EdgeCachedResponse>()
+
+  return {
+    get(key: string) {
+      const entry = entries.get(key)
+      if (!entry) return null
+      if (entry.expiresAt && Date.parse(entry.expiresAt) <= Date.parse(now())) {
+        entries.delete(key)
+        return null
+      }
+      return entry
+    },
+    set(entry: EdgeCachedResponse) {
+      entries.set(entry.key, entry)
+    },
+    delete(key: string) {
+      entries.delete(key)
+    },
+    clear() {
+      entries.clear()
+    },
+  }
+}
+
+export function createIndexedDbResponseCache(options: IndexedDbResponseCacheOptions = {}): EdgeResponseCache {
+  const databaseName = options.databaseName ?? 'edgekit'
+  const storeName = options.storeName ?? 'responses'
+  const openStore = async (mode: IDBTransactionMode) => {
+    if (typeof indexedDB === 'undefined') throw new Error('IndexedDB is not available in this environment.')
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1)
+      request.onupgradeneeded = () => {
+        const db = request.result
+        if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName, { keyPath: 'key' })
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const transaction = database.transaction(storeName, mode)
+    return { database, store: transaction.objectStore(storeName), transaction }
+  }
+
+  const requestToPromise = <T>(request: IDBRequest<T>) =>
+    new Promise<T>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+
+  const closeOnDone = (database: IDBDatabase, transaction: IDBTransaction) => {
+    transaction.oncomplete = () => database.close()
+    transaction.onerror = () => database.close()
+    transaction.onabort = () => database.close()
+  }
+
+  const deleteEntry = async (key: string) => {
+    const { database, store, transaction } = await openStore('readwrite')
+    closeOnDone(database, transaction)
+    await requestToPromise(store.delete(key))
+  }
+
+  return {
+    async get(key: string) {
+      const { database, store, transaction } = await openStore('readonly')
+      closeOnDone(database, transaction)
+      const entry = await requestToPromise<EdgeCachedResponse | undefined>(store.get(key))
+      if (!entry) return null
+      if (entry.expiresAt && Date.parse(entry.expiresAt) <= Date.now()) {
+        await deleteEntry(key)
+        return null
+      }
+      return entry
+    },
+    async set(entry: EdgeCachedResponse) {
+      const { database, store, transaction } = await openStore('readwrite')
+      closeOnDone(database, transaction)
+      await requestToPromise(store.put(entry))
+    },
+    async delete(key: string) {
+      await deleteEntry(key)
+    },
+    async clear() {
+      const { database, store, transaction } = await openStore('readwrite')
+      closeOnDone(database, transaction)
+      await requestToPromise(store.clear())
+    },
+  }
+}
+
+export async function executeParallelTools(options: ExecuteParallelToolsOptions): Promise<ParallelToolResult[]> {
+  const manifestByName = new Map((options.manifests ?? []).map(manifest => [manifest.name, manifest]))
+  const results: ParallelToolResult[] = []
+  let safeBatch: ParallelToolCall[] = []
+
+  const flushSafeBatch = async () => {
+    if (safeBatch.length === 0) return
+    const batch = safeBatch
+    safeBatch = []
+    const batchResults = await Promise.all(batch.map(call => executeToolCall(call, options.tools, options.context)))
+    results.push(...batchResults)
+  }
+
+  for (const call of options.calls) {
+    const manifest = manifestByName.get(call.toolName)
+    if (manifest?.readOnly && manifest.parallelSafe) {
+      safeBatch.push(call)
+      continue
+    }
+
+    await flushSafeBatch()
+    results.push(await executeToolCall(call, options.tools, options.context))
+  }
+
+  await flushSafeBatch()
+  return results
 }
 
 export async function applyRedactors(
@@ -961,6 +1149,16 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     }
     const contextualTools = withToolContext(activeTools, toolContext)
     const system = withSessionSystemContext(options.systemPrompt, session, memoryRecords)
+    const cacheContext: EdgeResponseCacheContext = {
+      input: lastUserInput,
+      session,
+      state: session.state,
+      memory: memoryRecords,
+      tools: Object.keys(contextualTools),
+      phase,
+    }
+    const cachePolicy = resolveCachePolicy(options.cachePolicy)
+    const cacheKey = options.responseCache && phase === 'send' ? await cachePolicy.key(cacheContext) : null
     const handoff = createHandoffEnvelope({
       input: lastUserInput,
       messages: [...messages],
@@ -982,8 +1180,23 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         handoff: { id: handoff.id, approximateTokens: handoff.approximateTokens },
       },
     })
+
+    const makeActivity = async (label: string, status: EdgeActivityEvent['status'], data?: Partial<EdgeActivityEvent>) => {
+      const activity: EdgeActivityEvent = {
+        id: data?.id ?? createId('activity'),
+        label,
+        status,
+        detail: data?.detail,
+        toolName: data?.toolName,
+        data: data?.data,
+      }
+      await telemetry.emit('activity', { runId, input: lastUserInput, toolName: activity.toolName, data: activity })
+      return { type: 'activity', activity } satisfies AgentEvent
+    }
+
     for (const result of compactionResults) {
       if (!result.compacted) continue
+      yield await makeActivity('Compacting memory', 'completed', { data: result })
       await telemetry.emit('memory-compact', {
         runId,
         input: lastUserInput,
@@ -994,6 +1207,19 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         },
       })
     }
+
+    if (options.responseCache && cacheKey && await cachePolicy.shouldRead(cacheContext)) {
+      const cached = await options.responseCache.get(cacheKey)
+      if (cached) {
+        yield await makeActivity('Using cached response', 'completed', { data: { key: cacheKey } })
+        messages.push({ role: 'assistant', content: [{ type: 'text', text: cached.text }] })
+        await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text: cached.text, cached: true } })
+        yield { type: 'text-delta', text: cached.text }
+        yield { type: 'done', text: cached.text }
+        return
+      }
+    }
+
     const statusEvents: ModelStatusEvent[] = []
     const drainStatus = function* () {
       while (statusEvents.length > 0) {
@@ -1054,6 +1280,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     let text = ''
     let repairAttempt = 0
     let terminalError = false
+    let usedTools = false
     const repairMessages: ModelMessage[] = []
     const toolRepair = resolveToolRepairOptions(options.toolRepair)
 
@@ -1079,6 +1306,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           }
           case 'tool-call': {
             const toolName = String(part.toolName)
+            usedTools = true
+            yield await makeActivity(`Running ${toolName}`, 'started', { toolName, data: part.input })
             await telemetry.emit('tool-call', { runId, input: lastUserInput, toolName, data: part.input })
             await recordAudit({
               action: 'tool-call',
@@ -1098,11 +1327,13 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           }
           case 'tool-result': {
             const toolName = String(part.toolName)
+            usedTools = true
             const redactedOutput = await applyRedactors(part.output, options.redactors, {
               ...toolContext,
               toolName,
               phase: 'tool-result',
             })
+            yield await makeActivity(`Completed ${toolName}`, 'completed', { toolName })
             await telemetry.emit('tool-result', { runId, input: lastUserInput, toolName, data: redactedOutput })
             await recordAudit({
               action: 'tool-result',
@@ -1122,6 +1353,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           }
           case 'tool-approval-request': {
             const toolCall = part.toolCall as { toolName?: string; input?: unknown } | undefined
+            usedTools = true
+            yield await makeActivity('Waiting for approval', 'started', { toolName: toolCall?.toolName })
             await telemetry.emit('approval-request', {
               runId,
               input: lastUserInput,
@@ -1148,6 +1381,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
               repairAttempt += 1
               const instruction = toolRepair.instruction(part.error, repairAttempt)
               repairMessages.push({ role: 'user', content: instruction })
+              usedTools = true
+              yield await makeActivity('Repairing tool arguments', 'started', { data: { attempt: repairAttempt } })
               await telemetry.emit('tool-repair', {
                 runId,
                 input: lastUserInput,
@@ -1174,6 +1409,24 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         messages.push(...response.messages)
       }
       break
+    }
+
+    if (
+      options.responseCache &&
+      cacheKey &&
+      text &&
+      await cachePolicy.shouldWrite({ ...cacheContext, text, usedTools })
+    ) {
+      const createdAt = new Date().toISOString()
+      const expiresAt = cachePolicy.ttlMs ? new Date(Date.parse(createdAt) + cachePolicy.ttlMs).toISOString() : undefined
+      await options.responseCache.set({
+        key: cacheKey,
+        text,
+        createdAt,
+        expiresAt,
+        metadata: { state: session.state, tools: Object.keys(contextualTools) },
+      })
+      yield await makeActivity('Saved response cache', 'completed', { data: { key: cacheKey } })
     }
 
     await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text } })
@@ -1376,6 +1629,7 @@ function parseAgUiLine(line: string): AgUiEvent | null {
 
 function agentEventToTelemetryName(event: AgentEvent): EdgeTelemetryEventName | null {
   switch (event.type) {
+    case 'activity':
     case 'text-delta':
     case 'tool-call':
     case 'tool-result':
@@ -1387,6 +1641,62 @@ function agentEventToTelemetryName(event: AgentEvent): EdgeTelemetryEventName | 
       return 'model-unavailable'
     default:
       return null
+  }
+}
+
+function resolveCachePolicy(policy: CreateAgentOptions['cachePolicy']): Required<EdgeResponseCachePolicy> {
+  if (policy === false) {
+    return {
+      ttlMs: 0,
+      key: () => '',
+      shouldRead: () => false,
+      shouldWrite: () => false,
+    }
+  }
+
+  const provided = typeof policy === 'object' ? policy : {}
+  return {
+    ttlMs: provided.ttlMs ?? 5 * 60 * 1000,
+    key: provided.key ?? createResponseCacheKey,
+    shouldRead: provided.shouldRead ?? (() => true),
+    shouldWrite: provided.shouldWrite ?? ((context: EdgeResponseCacheContext & { usedTools: boolean }) => !context.usedTools),
+  }
+}
+
+function createResponseCacheKey(context: EdgeResponseCacheContext) {
+  const payload = {
+    input: normalizeCacheText(context.input),
+    identity: publicIdentity(context.session.identity),
+    state: context.state,
+    memory: context.memory.map(record => ({
+      id: record.id,
+      title: record.title,
+      updatedAt: record.updatedAt,
+      source: record.source,
+    })),
+    tools: [...context.tools].sort(),
+    phase: context.phase,
+  }
+  return `edgekit:${stableHash(stableStringify(payload))}`
+}
+
+function normalizeCacheText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+async function executeToolCall(
+  call: ParallelToolCall,
+  tools: Record<string, unknown>,
+  context: EdgeToolExecutionContext,
+): Promise<ParallelToolResult> {
+  const candidate = tools[call.toolName] as { execute?: ContextualToolExecute } | undefined
+  if (!candidate?.execute) return { id: call.id, toolName: call.toolName, error: new Error(`${call.toolName} is not executable.`) }
+
+  try {
+    const output = await candidate.execute(call.input, context)
+    return { id: call.id, toolName: call.toolName, output }
+  } catch (error) {
+    return { id: call.id, toolName: call.toolName, error }
   }
 }
 

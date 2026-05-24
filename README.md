@@ -87,6 +87,9 @@ edgekit stays small by exposing contracts instead of shipping a required cloud s
 - Memory compaction: Markdown stores can compact append-heavy logs into current-state snapshots when token thresholds are reached; production apps can provide their own summarizer.
 - Cross-agent handoffs: `createHandoffEnvelope()` packages selected memory, app state, public identity, tool names, and trace ids for cloud workers or AG-UI backends.
 - Tool repair: `toolRepair` retries validation-shaped tool failures invisibly before surfacing an error to the user.
+- Streaming activity states: core emits `activity` events, and `<edge-chat>` renders safe orchestration progress without exposing hidden reasoning.
+- Edge response caching: `createMemoryResponseCache()` and `createIndexedDbResponseCache()` let read-only repeat questions bypass inference when state has not changed.
+- Parallel-safe tools: `executeParallelTools()` runs app-owned read-only batches concurrently only when manifests opt in with `readOnly` and `parallelSafe`.
 - Redaction middleware: `createPiiRedactor()` and custom redactors sanitize tool results before they reach UI events, telemetry, and audit trails.
 - MCP catalogs: `mcpToolsFromDefinitions()` and `loadMcpTools()` adapt safe MCP tool catalogs into normal Edgekit tools.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `<edge-chat>.configure()` to observe runs, tools, approvals, views, errors, and no-model fallbacks.
@@ -103,6 +106,8 @@ chat.configure({
   }),
   memoryCompaction: { thresholdTokens: 1200 },
   toolRepair: { maxAttempts: 2 },
+  responseCache: createIndexedDbResponseCache(),
+  cachePolicy: { ttlMs: 5 * 60 * 1000 },
   redactors: createPiiRedactor(),
   identityProvider: () => ({
     id: currentUser.id,

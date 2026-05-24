@@ -199,6 +199,9 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
           '`createMarkdownMemoryStore(options)`: hydrate relevant Markdown-backed memory into the run context.',
           '`createHandoffEnvelope(options)`: package intent, state, memory, and tool context for worker handoffs.',
           '`estimateTokens(value)`: lightweight token estimate for memory thresholds and handoff budgets.',
+          '`createMemoryResponseCache()`: opt-in in-memory response cache for deterministic local reuse.',
+          '`createIndexedDbResponseCache(options)`: browser IndexedDB response cache for persisted edge caching.',
+          '`executeParallelTools(options)`: run explicitly read-only and parallel-safe tool batches concurrently.',
           '`createPiiRedactor(options)`: mask common PII patterns before tool results are emitted to telemetry, audit, and UI events.',
           '`createAgUiAgent(options)`: wrap an AG-UI compatible event stream as an Edgekit agent.',
           '`agUiEventToAgentEvents(event)`: translate AG-UI events into Edgekit events.',
@@ -499,6 +502,66 @@ const agent = createAgent({
     maxAttempts: 2,
     shouldRepair: error => String(error).includes('validation'),
   },
+})`,
+        },
+      },
+      {
+        id: 'activity-events',
+        title: 'Streaming activity states',
+        body: [
+          'Edgekit emits `activity` events for orchestration states such as cached responses, tool execution, memory compaction, approvals, and tool repair. These are not chain-of-thought; they are safe, user-facing progress markers.',
+          'The default `<edge-chat>` component renders active states as transient rows so longer workflows feel alive without dumping internal reasoning into the transcript.',
+        ],
+        code: {
+          language: 'ts',
+          text: `for await (const event of agent.send(input)) {
+  if (event.type === 'activity') {
+    renderProgress(event.activity.label, event.activity.status)
+  }
+}`,
+        },
+      },
+      {
+        id: 'response-cache',
+        title: 'Edge response cache',
+        body: [
+          'Use `responseCache` when repeated read-only questions can be answered without running model inference again. The default cache key includes normalized input, public identity, app state, selected memory, tools, and phase.',
+          'Start with `createMemoryResponseCache()` for tests or short-lived sessions. Use `createIndexedDbResponseCache()` when a browser app wants persisted cache entries. Cache writes are skipped by default once a run uses tools, approvals, repairs, or errors.',
+          'Do not cache mutation flows, approval outcomes, auth-sensitive outputs, or responses that depend on hidden server state unless your app provides an explicit cache policy and invalidation story.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const agent = createAgent({
+  systemPrompt,
+  tools,
+  responseCache: createIndexedDbResponseCache(),
+  cachePolicy: {
+    ttlMs: 5 * 60 * 1000,
+  },
+})`,
+        },
+      },
+      {
+        id: 'parallel-tools',
+        title: 'Parallel-safe tools',
+        body: [
+          'Use `executeParallelTools()` for app-owned batches of independent tool calls. Edgekit only runs a batch concurrently when each tool manifest is marked `readOnly: true` and `parallelSafe: true`; mutations and unmarked tools stay sequential.',
+          'This keeps latency wins focused on safe reads such as profile lookups, catalog searches, weather, documentation search, or permissions checks while avoiding accidental concurrent writes.',
+          'The built-in AI SDK model loop remains the primary orchestrator. This helper is for custom harnesses, AG-UI backends, and host apps that receive an array of independent tool intents.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const results = await executeParallelTools({
+  calls: [
+    { id: 'profile', toolName: 'getProfile', input: {} },
+    { id: 'docs', toolName: 'searchDocs', input: { query } },
+  ],
+  tools,
+  manifests: [
+    { name: 'getProfile', tool: getProfile, readOnly: true, parallelSafe: true },
+    { name: 'searchDocs', tool: searchDocs, readOnly: true, parallelSafe: true },
+  ],
+  context: { session },
 })`,
         },
       },

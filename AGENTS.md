@@ -31,6 +31,9 @@ This repo is designed to be worked on by coding agents. Keep changes aligned wit
 - Memory compaction: configure Markdown compaction thresholds for append-heavy histories; archive raw records by default and summarize into a current-state snapshot.
 - Redaction: use `createPiiRedactor()` or custom `redactors` to sanitize sensitive tool results before UI, telemetry, or audit emission.
 - Tool repair: use `toolRepair` for schema/validation self-correction loops. Keep repair bounded and invisible until the retry limit is exhausted.
+- Activity states: emit/render `activity` events for safe orchestration progress. Do not expose hidden reasoning or chain-of-thought.
+- Response cache: use `responseCache` only for read-only, state-keyed answers with clear TTL/invalidation. Do not cache mutations or approval outcomes.
+- Parallel tools: use `executeParallelTools()` only for app-owned batches whose manifests are both `readOnly` and `parallelSafe`.
 - MCP: use `loadMcpTools()` or `mcpToolsFromDefinitions()` against a safe backend/proxy catalog.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `chat.configure()`.
 - Audit: pass `auditTrail: createAuditTrail(...)`; production compliance should provide a cryptographic hash/signing function and persist entries server-side.
@@ -73,6 +76,8 @@ After deploy, smoke `https://kevinmarmstrong.github.io/edgekit/` in a browser or
 - Do not pass raw DOM dumps to worker agents by default. Summarize app state through `stateProvider` and include selected memory through the handoff envelope.
 - Do not treat regex redaction as the only privacy control. Keep backend authorization, least-privilege tools, and prompt minimization in place.
 - Do not create unbounded self-repair loops. Tool repair must have a small retry limit and surface failures once exhausted.
+- Do not label mutating tools as parallel-safe or cacheable just to improve latency.
+- Do not present activity states as model reasoning. They are product progress states.
 - Do not hide tool/action failures behind generic assistant text.
 - Do not add a hardcoded fix only for one demo when the problem belongs in core configuration or reusable component patterns.
 - Do not flatten the docs into marketing copy. Technical builders need exact APIs, commands, and boundaries.

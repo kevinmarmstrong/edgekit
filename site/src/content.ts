@@ -127,6 +127,27 @@ export const docChunks: DocChunk[] = [
   },
   {
     slug: 'advanced',
+    title: 'Streaming Activity States',
+    tags: ['activity', 'progress', 'ui', 'streaming'],
+    body:
+      'Edgekit emits safe activity events for orchestration states such as cache hits, tool execution, approvals, memory compaction, and tool repair. The edge-chat component renders them as transient progress rows.',
+  },
+  {
+    slug: 'advanced',
+    title: 'Edge Response Cache',
+    tags: ['cache', 'indexeddb', 'local', 'battery'],
+    body:
+      'Response caches can bypass model inference for repeated read-only questions when the normalized prompt, public identity, app state, memory, and tool set have not changed.',
+  },
+  {
+    slug: 'advanced',
+    title: 'Parallel-Safe Tools',
+    tags: ['parallel', 'tools', 'latency', 'read-only'],
+    body:
+      'executeParallelTools runs app-owned batches concurrently only when each tool is marked readOnly and parallelSafe. Mutations and unmarked tools remain sequential.',
+  },
+  {
+    slug: 'advanced',
     title: 'PII Redaction',
     tags: ['pii', 'phi', 'redaction', 'privacy', 'compliance'],
     body:

@@ -6,6 +6,7 @@ import {
   createAgent,
   resolveSessionContext,
   type AgentEvent,
+  type EdgeActivityEvent,
   type EdgeAction,
   type EdgeActionContext,
   type EdgeField,
@@ -126,6 +127,43 @@ export class EdgeChat extends LitElement {
       color: #5f6f69;
       background: #eef5f2;
       font-size: 12px;
+    }
+
+    .activity-list {
+      display: grid;
+      gap: 7px;
+      justify-self: start;
+      width: min(580px, 92%);
+    }
+
+    .activity {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #42534d;
+      border: 1px solid #dfe9e4;
+      border-radius: 8px;
+      background: #f7faf8;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .activity::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #177e58;
+    }
+
+    .activity.completed::before {
+      background: #7a8a84;
+    }
+
+    .activity.failed::before {
+      background: #b6463a;
     }
 
     .prompt {
@@ -301,6 +339,9 @@ export class EdgeChat extends LitElement {
   @state()
   private views: EdgeViewNode[] = []
 
+  @state()
+  private activities: EdgeActivityEvent[] = []
+
   private tools: CreateAgentOptions['tools'] = {}
   private actionProviders: EdgeActionProvider[] = []
   private config: Partial<CreateAgentOptions> = {}
@@ -376,6 +417,15 @@ export class EdgeChat extends LitElement {
                 </div>
               </div>`
             : null}
+          ${this.activities.length > 0
+            ? html`<div class="activity-list" data-testid="activity-list">
+                ${this.activities.map(
+                  activity => html`<div class="activity ${activity.status}" data-testid="activity-item">
+                    ${activity.label}${activity.detail ? `: ${activity.detail}` : ''}
+                  </div>`,
+                )}
+              </div>`
+            : null}
           ${this.views.map(view => this.renderView(view))}
         </div>
         <form @submit=${this.submit}>
@@ -418,6 +468,7 @@ export class EdgeChat extends LitElement {
     if (input) input.value = ''
     this.busy = true
     this.views = []
+    this.activities = []
     this.messages = [...this.messages, { role: 'user', text }, { role: 'assistant', text: '' }]
 
     try {
@@ -434,6 +485,8 @@ export class EdgeChat extends LitElement {
   private applyAgentEvent(event: AgentEvent) {
     if (event.type === 'text-delta') {
       this.appendToAssistant(event.text)
+    } else if (event.type === 'activity') {
+      this.applyActivity(event.activity)
     } else if (event.type === 'tool-call') {
       if (this.showToolEvents) this.messages = [...this.messages, { role: 'tool', text: `Tool: ${event.toolName}` }]
     } else if (event.type === 'approval-request') {
@@ -462,9 +515,19 @@ export class EdgeChat extends LitElement {
       this.appendToAssistant(`Something went wrong: ${String(event.error)}`)
     } else if (event.type === 'done') {
       this.pendingPrompt = null
+      this.activities = this.activities.filter(activity => activity.status === 'failed')
     } else if (event.type === 'status') {
       this.statusText = event.event.message
     }
+  }
+
+  private applyActivity(activity: EdgeActivityEvent) {
+    this.statusText = activity.detail ?? activity.label
+    const existing = this.activities.filter(candidate => candidate.id !== activity.id)
+    const next = [...existing, activity]
+    this.activities = next
+      .filter(candidate => candidate.status === 'started' || candidate.status === 'failed')
+      .slice(-4)
   }
 
   private appendToAssistant(text: string) {

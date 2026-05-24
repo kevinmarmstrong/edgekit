@@ -35,7 +35,9 @@ Use `createAgUiAgent({ endpoint })` to connect an AG-UI compatible event stream,
 Use `createHybridModelRouter()` or `createSupervisorRouter()` when an app needs cloud fallback or lightweight supervisor/worker delegation without replacing the browser-native runtime.
 Use `createHandoffEnvelope()` or supervisor `onHandoff` callbacks to pass bounded context to cloud workers without leaking secret claims.
 Use `createMarkdownMemoryStore()` for inspectable `.md`-backed memory that can later be replaced by IndexedDB, OPFS, vectors, or a server store implementing the same `search()` contract. Configure compaction thresholds when Markdown logs become append-heavy.
+Use `createMemoryResponseCache()` or `createIndexedDbResponseCache()` for opt-in state-keyed caching of read-only responses.
 Use `createPiiRedactor()` or custom redactors to sanitize tool results before they are emitted to UI events, telemetry, and audit trails.
 Use `toolRepair` to invisibly retry validation-shaped tool failures before surfacing an error.
+Use `activity` events for safe progress UI, and `executeParallelTools()` for host-owned read-only tool batches that explicitly opt into parallel execution.
 Use `mcpToolsFromDefinitions()`, `createMissionControl()`, and `createAuditTrail()` when an app needs MCP-backed tools, telemetry, or approval audit logging.
 Use `identityProvider`, `sessionProvider`, `stateProvider`, `toolManifests`, and `withToolContext()` to bind tools to the host app identity, RBAC permissions, auth context, and current app state.

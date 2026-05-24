@@ -10,10 +10,12 @@ import {
   createHandoffEnvelope,
   createHybridModelRouter,
   createMarkdownMemoryStore,
+  createMemoryResponseCache,
   createMissionControl,
   createModelProvider,
   createPiiRedactor,
   createSupervisorRouter,
+  executeParallelTools,
   filterToolManifestsForSession,
   loadMcpTools,
   mcpToolsFromDefinitions,
@@ -296,6 +298,56 @@ The shopper prefers curbside pickup and size 11 shoes.`,
     expect(toolsFromManifests(allowed)).toEqual({ searchOrders: userTool })
   })
 
+  it('executes parallel-safe read tools concurrently and leaves unsafe tools sequential', async () => {
+    const order: string[] = []
+    const tools = {
+      profile: {
+        execute: async () => {
+          order.push('profile-start')
+          await new Promise(resolve => setTimeout(resolve, 30))
+          order.push('profile-end')
+          return { plan: 'pro' }
+        },
+      },
+      weather: {
+        execute: async () => {
+          order.push('weather-start')
+          await new Promise(resolve => setTimeout(resolve, 10))
+          order.push('weather-end')
+          return { temp: 72 }
+        },
+      },
+      updateCart: {
+        execute: async () => {
+          order.push('cart')
+          return { ok: true }
+        },
+      },
+    }
+    const results = await executeParallelTools({
+      calls: [
+        { id: 'call-1', toolName: 'profile', input: {} },
+        { id: 'call-2', toolName: 'weather', input: {} },
+        { id: 'call-3', toolName: 'updateCart', input: {} },
+      ],
+      tools,
+      manifests: [
+        { name: 'profile', tool: tools.profile, readOnly: true, parallelSafe: true },
+        { name: 'weather', tool: tools.weather, readOnly: true, parallelSafe: true },
+        { name: 'updateCart', tool: tools.updateCart },
+      ],
+      context: { session: {} },
+    })
+
+    expect(order.slice(0, 2).sort()).toEqual(['profile-start', 'weather-start'])
+    expect(order.at(-1)).toBe('cart')
+    expect(results).toEqual([
+      { id: 'call-1', toolName: 'profile', output: { plan: 'pro' } },
+      { id: 'call-2', toolName: 'weather', output: { temp: 72 } },
+      { id: 'call-3', toolName: 'updateCart', output: { ok: true } },
+    ])
+  })
+
   it('passes session auth and identity into contextual tool execution', async () => {
     const execute = vi.fn((_input, context) => context)
     const wrapped = withToolContext(
@@ -519,6 +571,82 @@ describe('createAgent', () => {
     expect(noModelInputs).toEqual(['hello'])
   })
 
+  it('returns a cached response without invoking model inference', async () => {
+    const responseCache = createMemoryResponseCache()
+    await responseCache.set({
+      key: 'edgekit-cache:test',
+      text: 'Cached answer.',
+      createdAt: '2026-05-24T00:00:00.000Z',
+    })
+    const streamText = vi.fn()
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: {},
+      streamText: streamText as never,
+      responseCache,
+      cachePolicy: {
+        key: () => 'edgekit-cache:test',
+      },
+    })
+
+    const events = []
+    for await (const event of agent.send('business hours?')) {
+      events.push(event)
+    }
+
+    expect(streamText).not.toHaveBeenCalled()
+    expect(events).toContainEqual({
+      type: 'activity',
+      activity: expect.objectContaining({ label: 'Using cached response', status: 'completed' }),
+    })
+    expect(events).toContainEqual({ type: 'text-delta', text: 'Cached answer.' })
+    expect(events).toContainEqual({ type: 'done', text: 'Cached answer.' })
+  })
+
+  it('caches clean text responses and skips caching tool workflows', async () => {
+    const responseCache = createMemoryResponseCache()
+    const streamText = vi
+      .fn()
+      .mockImplementationOnce(() => ({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'Fresh answer.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Fresh answer.' }] }],
+        }),
+      }))
+      .mockImplementationOnce(() => ({
+        fullStream: (async function* () {
+          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchProducts', input: { query: 'dunks' } }
+          yield { type: 'text-delta', delta: 'Tool answer.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Tool answer.' }] }],
+        }),
+      }))
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: { searchProducts: {} },
+      streamText: streamText as never,
+      responseCache,
+      cachePolicy: {
+        key: ({ input }) => `edgekit-cache:${input}`,
+      },
+    })
+
+    for await (const _ of agent.send('what are your hours?')) {
+      // drain
+    }
+    for await (const _ of agent.send('find dunks')) {
+      // drain
+    }
+
+    expect(await responseCache.get('edgekit-cache:what are your hours?')).toMatchObject({ text: 'Fresh answer.' })
+    expect(await responseCache.get('edgekit-cache:find dunks')).toBeNull()
+  })
+
   it('passes conversation history to the next turn', async () => {
     const streamText = vi.fn(async function* () {})
     const agent = createAgent({
@@ -701,6 +829,10 @@ describe('createAgent', () => {
     expect(streamText.mock.calls[1][0].messages.at(-1)).toMatchObject({
       role: 'user',
       content: expect.stringContaining('The previous tool call failed validation'),
+    })
+    expect(events).toContainEqual({
+      type: 'activity',
+      activity: expect.objectContaining({ label: 'Repairing tool arguments', status: 'started' }),
     })
   })
 
