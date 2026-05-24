@@ -117,6 +117,13 @@ export interface EdgeIdentity {
   claims?: Record<string, unknown>
 }
 
+export interface EdgePublicIdentity {
+  id: string
+  tenantId?: string
+  roles: string[]
+  permissions: string[]
+}
+
 export interface EdgeAuthContext {
   headers?: Record<string, string>
   credentials?: RequestCredentials
@@ -166,6 +173,8 @@ export interface EdgeMemorySearchContext {
 export interface EdgeMemoryStore {
   search(query: string, context: EdgeMemorySearchContext): EdgeMemoryRecord[] | Promise<EdgeMemoryRecord[]>
   write?(record: EdgeMemoryRecord, context: EdgeMemorySearchContext): EdgeMemoryRecord | Promise<EdgeMemoryRecord>
+  compact?(context: EdgeMemoryCompactionContext): EdgeMemoryCompactionResult | Promise<EdgeMemoryCompactionResult>
+  records?(): EdgeMemoryRecord[]
 }
 
 export interface MarkdownMemoryDocument {
@@ -179,6 +188,33 @@ export interface MarkdownMemoryDocument {
 export interface CreateMarkdownMemoryStoreOptions {
   documents: MarkdownMemoryDocument[]
   maxRecords?: number
+  compaction?: MarkdownMemoryCompactionOptions
+}
+
+export interface EdgeMemoryCompactionContext extends EdgeMemorySearchContext {
+  thresholdTokens: number
+  maxSnapshotTokens?: number
+}
+
+export interface EdgeMemoryCompactionResult {
+  compacted: boolean
+  approximateTokens: number
+  thresholdTokens: number
+  snapshot?: EdgeMemoryRecord
+  archivedRecords?: EdgeMemoryRecord[]
+}
+
+export type EdgeMemorySummarizer = (
+  records: EdgeMemoryRecord[],
+  context: EdgeMemoryCompactionContext,
+) => string | EdgeMemoryRecord | Promise<string | EdgeMemoryRecord>
+
+export interface MarkdownMemoryCompactionOptions {
+  thresholdTokens: number
+  maxSnapshotTokens?: number
+  archive?: boolean
+  summarize?: EdgeMemorySummarizer
+  now?: () => string
 }
 
 export interface EdgeRedactorContext extends EdgeToolExecutionContext {
@@ -226,9 +262,11 @@ export type EdgeTelemetryEventName =
   | 'model-selected'
   | 'model-unavailable'
   | 'status'
+  | 'memory-compact'
   | 'text-delta'
   | 'tool-call'
   | 'tool-result'
+  | 'tool-repair'
   | 'approval-request'
   | 'approval-decision'
   | 'view'
@@ -294,6 +332,7 @@ export interface ModelRouterContext {
   session: EdgeSessionContext
   defaultModel: Array<ModelProvider | LanguageModelV3>
   phase: 'send' | 'approval'
+  handoff?: EdgeHandoffEnvelope
 }
 
 export type EdgeModelRouter = (
@@ -314,11 +353,48 @@ export interface SupervisorWorkerRoute {
   intents?: string[]
   patterns?: RegExp[]
   when?: (context: ModelRouterContext) => boolean | Promise<boolean>
+  onHandoff?: (handoff: EdgeHandoffEnvelope) => void | Promise<void>
 }
 
 export interface CreateSupervisorRouterOptions {
   workers: SupervisorWorkerRoute[]
   fallback?: Array<ModelProvider | LanguageModelV3>
+}
+
+export interface EdgeHandoffEnvelope {
+  version: 'edgekit.handoff.v1'
+  id: string
+  createdAt: string
+  input: string
+  intent?: string
+  messages: ModelMessage[]
+  session: {
+    identity?: EdgePublicIdentity
+    state?: EdgeStateSnapshot
+  }
+  memory: EdgeMemoryRecord[]
+  tools: Array<{ name: string; description?: string }>
+  trace: {
+    sessionId: string
+    runId: string
+    phase: 'send' | 'approval'
+  }
+  redaction: {
+    applied: boolean
+  }
+  approximateTokens: number
+}
+
+export interface CreateHandoffEnvelopeOptions {
+  input: string
+  intent?: string
+  messages: ModelMessage[]
+  session: EdgeSessionContext
+  memory?: EdgeMemoryRecord[]
+  tools?: Array<string | { name: string; description?: string }>
+  trace: EdgeHandoffEnvelope['trace']
+  redactionApplied?: boolean
+  now?: () => string
 }
 
 export interface MissionControlSnapshot {
@@ -374,6 +450,8 @@ export interface CreateAgentOptions {
   stateProvider?: EdgeStateProvider
   model?: Array<ModelProvider | LanguageModelV3>
   modelRouter?: EdgeModelRouter
+  memoryCompaction?: boolean | { thresholdTokens?: number; maxSnapshotTokens?: number }
+  toolRepair?: boolean | EdgeToolRepairOptions
   downloadPolicy?: DownloadPolicy
   maxSteps?: number
   modelResolveTimeoutMs?: number
@@ -384,6 +462,12 @@ export interface CreateAgentOptions {
   onDownloadPrompt?: (event: DownloadPromptEvent) => boolean | Promise<boolean>
   onNoModel?: (event: NoModelEvent) => string | null | void
   streamText?: StreamTextFn
+}
+
+export interface EdgeToolRepairOptions {
+  maxAttempts?: number
+  shouldRepair?: (error: unknown, attempt: number) => boolean
+  instruction?: (error: unknown, attempt: number) => string
 }
 
 export interface EdgeAgent {
@@ -525,7 +609,10 @@ export function createSupervisorRouter(options: CreateSupervisorRouterOptions): 
         return pattern.test(context.input)
       }) ?? false
       const customMatch = worker.when ? await worker.when(context) : false
-      if (intentMatch || patternMatch || customMatch) return worker.model
+      if (intentMatch || patternMatch || customMatch) {
+        if (worker.onHandoff && context.handoff) await worker.onHandoff(context.handoff)
+        return worker.model
+      }
     }
 
     return options.fallback ?? context.defaultModel
@@ -535,6 +622,7 @@ export function createSupervisorRouter(options: CreateSupervisorRouterOptions): 
 export function createMarkdownMemoryStore(options: CreateMarkdownMemoryStoreOptions): EdgeMemoryStore {
   const maxRecords = options.maxRecords ?? 5
   const records = options.documents.flatMap(parseMarkdownMemoryDocument)
+  const archivedRecords: EdgeMemoryRecord[] = []
 
   return {
     search(query: string) {
@@ -552,7 +640,59 @@ export function createMarkdownMemoryStore(options: CreateMarkdownMemoryStoreOpti
       records.unshift(record)
       return record
     },
+    async compact(context: EdgeMemoryCompactionContext) {
+      const thresholdTokens = context.thresholdTokens
+      const approximateTokens = estimateTokens(records)
+      if (approximateTokens <= thresholdTokens || records.length <= 1) {
+        return { compacted: false, approximateTokens, thresholdTokens }
+      }
+
+      const summarized = await (options.compaction?.summarize ?? defaultMemorySummarizer)(records, context)
+      const snapshot = normalizeMemorySnapshot(summarized, options.compaction?.now?.() ?? new Date().toISOString())
+      if (options.compaction?.archive !== false) archivedRecords.push(...records)
+      records.splice(0, records.length, snapshot)
+      return {
+        compacted: true,
+        approximateTokens,
+        thresholdTokens,
+        snapshot,
+        archivedRecords: [...archivedRecords],
+      }
+    },
+    records() {
+      return [...records]
+    },
   }
+}
+
+export function createHandoffEnvelope(options: CreateHandoffEnvelopeOptions): EdgeHandoffEnvelope {
+  const envelope = {
+    version: 'edgekit.handoff.v1' as const,
+    id: createId('handoff'),
+    createdAt: options.now?.() ?? new Date().toISOString(),
+    input: options.input,
+    intent: options.intent,
+    messages: options.messages,
+    session: {
+      identity: publicIdentity(options.session.identity),
+      state: options.session.state,
+    },
+    memory: options.memory ?? [],
+    tools: (options.tools ?? []).map(toolEntry =>
+      typeof toolEntry === 'string' ? { name: toolEntry } : { name: toolEntry.name, description: toolEntry.description },
+    ),
+    trace: options.trace,
+    redaction: {
+      applied: Boolean(options.redactionApplied),
+    },
+    approximateTokens: 0,
+  }
+  return { ...envelope, approximateTokens: estimateTokens(envelope) }
+}
+
+export function estimateTokens(value: unknown): number {
+  const text = typeof value === 'string' ? value : stableStringify(value)
+  return Math.max(1, Math.ceil(text.length / 4))
 }
 
 export async function applyRedactors(
@@ -811,6 +951,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     const runId = createId('run')
     const session = await resolveSessionContext(options)
     const activeTools = await resolveActiveTools(options, session, lastUserInput, phase)
+    const compactionResults = await compactMemoryStores(options, session, lastUserInput)
     const memoryRecords = await resolveMemoryRecords(options, session, lastUserInput)
     const toolContext: EdgeToolExecutionContext = {
       session,
@@ -820,6 +961,15 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     }
     const contextualTools = withToolContext(activeTools, toolContext)
     const system = withSessionSystemContext(options.systemPrompt, session, memoryRecords)
+    const handoff = createHandoffEnvelope({
+      input: lastUserInput,
+      messages: [...messages],
+      session,
+      memory: memoryRecords,
+      tools: toolMetadata(options, contextualTools, session),
+      trace: { sessionId, runId, phase },
+      redactionApplied: Boolean(options.redactors),
+    })
     await telemetry.emit('run-start', {
       runId,
       input: lastUserInput,
@@ -829,8 +979,21 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         state: session.state,
         tools: Object.keys(contextualTools),
         memory: memoryRecords.map(record => ({ id: record.id, title: record.title, source: record.source })),
+        handoff: { id: handoff.id, approximateTokens: handoff.approximateTokens },
       },
     })
+    for (const result of compactionResults) {
+      if (!result.compacted) continue
+      await telemetry.emit('memory-compact', {
+        runId,
+        input: lastUserInput,
+        data: {
+          approximateTokens: result.approximateTokens,
+          thresholdTokens: result.thresholdTokens,
+          snapshot: result.snapshot,
+        },
+      })
+    }
     const statusEvents: ModelStatusEvent[] = []
     const drainStatus = function* () {
       while (statusEvents.length > 0) {
@@ -846,6 +1009,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           session,
           defaultModel: providers,
           phase,
+          handoff,
         })
       : providers
 
@@ -888,101 +1052,130 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     })
 
     let text = ''
-    const result = (streamText as never as (options: Record<string, unknown>) => ReturnType<StreamTextFn>)({
-      model: resolved.model,
-      system,
-      messages: [...messages],
-      tools: contextualTools,
-      stopWhen: stepCountIs(maxSteps),
-    })
+    let repairAttempt = 0
+    let terminalError = false
+    const repairMessages: ModelMessage[] = []
+    const toolRepair = resolveToolRepairOptions(options.toolRepair)
 
-    for await (const part of result.fullStream as AsyncIterable<Record<string, unknown>>) {
-      yield* drainStatus()
-      switch (part.type) {
-        case 'text-delta': {
-          const delta = String(part.text ?? part.delta ?? '')
-          text += delta
-          await telemetry.emit('text-delta', { runId, input: lastUserInput, data: { length: delta.length } })
-          yield { type: 'text-delta', text: delta }
-          break
-        }
-        case 'tool-call': {
-          const toolName = String(part.toolName)
-          await telemetry.emit('tool-call', { runId, input: lastUserInput, toolName, data: part.input })
-          await recordAudit({
-            action: 'tool-call',
-            sessionId,
-            runId,
-            prompt: lastUserInput,
-            toolName,
-            input: part.input,
-          })
-          yield {
-            type: 'tool-call',
-            toolName,
-            toolCallId: String(part.toolCallId),
-            input: part.input,
+    while (true) {
+      let shouldRetry = false
+      const result = (streamText as never as (options: Record<string, unknown>) => ReturnType<StreamTextFn>)({
+        model: resolved.model,
+        system,
+        messages: [...messages, ...repairMessages],
+        tools: contextualTools,
+        stopWhen: stepCountIs(maxSteps),
+      })
+
+      for await (const part of result.fullStream as AsyncIterable<Record<string, unknown>>) {
+        yield* drainStatus()
+        switch (part.type) {
+          case 'text-delta': {
+            const delta = String(part.text ?? part.delta ?? '')
+            text += delta
+            await telemetry.emit('text-delta', { runId, input: lastUserInput, data: { length: delta.length } })
+            yield { type: 'text-delta', text: delta }
+            break
           }
-          break
-        }
-        case 'tool-result': {
-          const toolName = String(part.toolName)
-          const redactedOutput = await applyRedactors(part.output, options.redactors, {
-            ...toolContext,
-            toolName,
-            phase: 'tool-result',
-          })
-          await telemetry.emit('tool-result', { runId, input: lastUserInput, toolName, data: redactedOutput })
-          await recordAudit({
-            action: 'tool-result',
-            sessionId,
-            runId,
-            prompt: lastUserInput,
-            toolName,
-            output: redactedOutput,
-          })
-          yield {
-            type: 'tool-result',
-            toolName,
-            toolCallId: String(part.toolCallId),
-            output: redactedOutput,
+          case 'tool-call': {
+            const toolName = String(part.toolName)
+            await telemetry.emit('tool-call', { runId, input: lastUserInput, toolName, data: part.input })
+            await recordAudit({
+              action: 'tool-call',
+              sessionId,
+              runId,
+              prompt: lastUserInput,
+              toolName,
+              input: part.input,
+            })
+            yield {
+              type: 'tool-call',
+              toolName,
+              toolCallId: String(part.toolCallId),
+              input: part.input,
+            }
+            break
           }
-          break
-        }
-        case 'tool-approval-request': {
-          const toolCall = part.toolCall as { toolName?: string; input?: unknown } | undefined
-          await telemetry.emit('approval-request', {
-            runId,
-            input: lastUserInput,
-            toolName: toolCall?.toolName,
-            data: part.toolCall,
-          })
-          await recordAudit({
-            action: 'approval-request',
-            sessionId,
-            runId,
-            prompt: lastUserInput,
-            toolName: toolCall?.toolName,
-            input: toolCall?.input,
-          })
-          yield {
-            type: 'approval-request',
-            approvalId: String(part.approvalId),
-            toolCall: part.toolCall,
+          case 'tool-result': {
+            const toolName = String(part.toolName)
+            const redactedOutput = await applyRedactors(part.output, options.redactors, {
+              ...toolContext,
+              toolName,
+              phase: 'tool-result',
+            })
+            await telemetry.emit('tool-result', { runId, input: lastUserInput, toolName, data: redactedOutput })
+            await recordAudit({
+              action: 'tool-result',
+              sessionId,
+              runId,
+              prompt: lastUserInput,
+              toolName,
+              output: redactedOutput,
+            })
+            yield {
+              type: 'tool-result',
+              toolName,
+              toolCallId: String(part.toolCallId),
+              output: redactedOutput,
+            }
+            break
           }
-          break
+          case 'tool-approval-request': {
+            const toolCall = part.toolCall as { toolName?: string; input?: unknown } | undefined
+            await telemetry.emit('approval-request', {
+              runId,
+              input: lastUserInput,
+              toolName: toolCall?.toolName,
+              data: part.toolCall,
+            })
+            await recordAudit({
+              action: 'approval-request',
+              sessionId,
+              runId,
+              prompt: lastUserInput,
+              toolName: toolCall?.toolName,
+              input: toolCall?.input,
+            })
+            yield {
+              type: 'approval-request',
+              approvalId: String(part.approvalId),
+              toolCall: part.toolCall,
+            }
+            break
+          }
+          case 'error': {
+            if (toolRepair && repairAttempt < toolRepair.maxAttempts && toolRepair.shouldRepair(part.error, repairAttempt + 1)) {
+              repairAttempt += 1
+              const instruction = toolRepair.instruction(part.error, repairAttempt)
+              repairMessages.push({ role: 'user', content: instruction })
+              await telemetry.emit('tool-repair', {
+                runId,
+                input: lastUserInput,
+                data: { attempt: repairAttempt, error: readableError(part.error) },
+              })
+              shouldRetry = true
+              break
+            }
+
+            terminalError = true
+            await telemetry.emit('error', { runId, input: lastUserInput, data: part.error })
+            await recordAudit({ action: 'error', sessionId, runId, prompt: lastUserInput, output: part.error })
+            yield { type: 'error', error: part.error }
+            break
+          }
         }
-        case 'error':
-          await telemetry.emit('error', { runId, input: lastUserInput, data: part.error })
-          await recordAudit({ action: 'error', sessionId, runId, prompt: lastUserInput, output: part.error })
-          yield { type: 'error', error: part.error }
-          break
+        if (shouldRetry || terminalError) break
       }
-    }
-    yield* drainStatus()
+      yield* drainStatus()
 
-    const response = await result.response
-    messages.push(...response.messages)
+      if (shouldRetry) continue
+      if (!terminalError) {
+        const response = await result.response
+        messages.push(...response.messages)
+      }
+      break
+    }
+
     await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text } })
     yield { type: 'done', text }
   }
@@ -1208,6 +1401,22 @@ async function resolveActiveTools(
   return options.tools ?? {}
 }
 
+async function compactMemoryStores(options: CreateAgentOptions, session: EdgeSessionContext, input: string) {
+  const stores = Array.isArray(options.memory) ? options.memory : options.memory ? [options.memory] : []
+  if (stores.length === 0 || !options.memoryCompaction) return []
+
+  const config = typeof options.memoryCompaction === 'object' ? options.memoryCompaction : {}
+  const context: EdgeMemoryCompactionContext = {
+    input,
+    session,
+    state: session.state,
+    thresholdTokens: config.thresholdTokens ?? 2_000,
+    maxSnapshotTokens: config.maxSnapshotTokens,
+  }
+  const results = await Promise.all(stores.filter(store => store.compact).map(store => store.compact!(context)))
+  return results
+}
+
 async function resolveMemoryRecords(options: CreateAgentOptions, session: EdgeSessionContext, input: string) {
   const stores = Array.isArray(options.memory) ? options.memory : options.memory ? [options.memory] : []
   if (stores.length === 0) return []
@@ -1216,6 +1425,49 @@ async function resolveMemoryRecords(options: CreateAgentOptions, session: EdgeSe
   const context: EdgeMemorySearchContext = { input, session, state: session.state }
   const records = await Promise.all(stores.map(store => store.search(input, context)))
   return records.flat().slice(0, limit)
+}
+
+function toolMetadata(
+  options: CreateAgentOptions,
+  activeTools: Record<string, unknown>,
+  session: EdgeSessionContext,
+): Array<{ name: string; description?: string }> {
+  if (options.toolManifests) {
+    return filterToolManifestsForSession(options.toolManifests, session)
+      .map(manifest => ({ name: manifest.name, description: manifest.description }))
+  }
+  return Object.keys(activeTools).map(name => ({ name }))
+}
+
+function resolveToolRepairOptions(options: CreateAgentOptions['toolRepair']): Required<EdgeToolRepairOptions> | null {
+  if (options === false) return null
+  const provided = typeof options === 'object' ? options : {}
+  return {
+    maxAttempts: provided.maxAttempts ?? 3,
+    shouldRepair: provided.shouldRepair ?? defaultShouldRepairToolError,
+    instruction: provided.instruction ?? defaultToolRepairInstruction,
+  }
+}
+
+function defaultShouldRepairToolError(error: unknown) {
+  const text = readableError(error).toLowerCase()
+  const name = isRecord(error) && typeof error.name === 'string' ? error.name.toLowerCase() : ''
+  return [
+    'typevalidationerror',
+    'validation',
+    'invalid tool',
+    'tool arguments',
+    'zod',
+    'schema',
+  ].some(marker => name.includes(marker) || text.includes(marker))
+}
+
+function defaultToolRepairInstruction(error: unknown, attempt: number) {
+  return [
+    `The previous tool call failed validation on repair attempt ${attempt}.`,
+    `Validation error: ${readableError(error)}`,
+    'Correct the tool arguments to match the registered schema. Do not apologize. Do not ask the user to repeat themselves. Retry the appropriate tool call with valid JSON only.',
+  ].join('\n')
 }
 
 function canUseTool(manifest: EdgeToolManifest, identity: EdgeIdentity | undefined) {
@@ -1250,6 +1502,36 @@ function withSessionSystemContext(systemPrompt: string, session: EdgeSessionCont
 function formatMemoryRecord(record: EdgeMemoryRecord) {
   const title = record.title ? `${record.title}: ` : ''
   return `- ${title}${record.body}`
+}
+
+function defaultMemorySummarizer(records: EdgeMemoryRecord[], context: EdgeMemoryCompactionContext) {
+  const maxTokens = context.maxSnapshotTokens ?? 500
+  const budget = maxTokens * 4
+  const bullets = records.map(record => {
+    const title = record.title ? `${record.title}: ` : ''
+    return `- ${title}${record.body.replace(/\s+/g, ' ').trim()}`
+  })
+  const body = `Current state snapshot:\n${bullets.join('\n')}`
+  return body.length > budget ? body.slice(0, Math.max(0, budget - 3)).trimEnd() + '...' : body
+}
+
+function normalizeMemorySnapshot(value: string | EdgeMemoryRecord, updatedAt: string): EdgeMemoryRecord {
+  if (typeof value !== 'string') {
+    return {
+      ...value,
+      id: value.id || createId('memory'),
+      title: value.title ?? 'Current state snapshot',
+      updatedAt: value.updatedAt ?? updatedAt,
+    }
+  }
+
+  return {
+    id: createId('memory'),
+    title: 'Current state snapshot',
+    body: value,
+    tags: ['snapshot'],
+    updatedAt,
+  }
 }
 
 function parseMarkdownMemoryDocument(document: MarkdownMemoryDocument): EdgeMemoryRecord[] {
@@ -1340,7 +1622,7 @@ function redactValue(value: unknown, patterns: PiiRedactorPattern[]): unknown {
   return value
 }
 
-function publicIdentity(identity: EdgeIdentity | undefined) {
+function publicIdentity(identity: EdgeIdentity | undefined): EdgePublicIdentity | undefined {
   if (!identity) return undefined
   return {
     id: identity.id,

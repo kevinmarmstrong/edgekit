@@ -7,6 +7,7 @@ import {
   createAgent,
   createAgUiAgent,
   createAuditTrail,
+  createHandoffEnvelope,
   createHybridModelRouter,
   createMarkdownMemoryStore,
   createMissionControl,
@@ -17,6 +18,7 @@ import {
   loadMcpTools,
   mcpToolsFromDefinitions,
   modelOptional,
+  estimateTokens,
   resolveSessionContext,
   resolveModel,
   toolsFromManifests,
@@ -358,6 +360,58 @@ The shopper prefers curbside pickup and size 11 shoes.`,
       }),
     ).resolves.toEqual([localModel])
   })
+
+  it('passes a standardized handoff envelope to routed worker callbacks', async () => {
+    const localModel = { provider: 'local', modelId: 'local', specificationVersion: 'v3' } as LanguageModelV3
+    const cloudModel = { provider: 'cloud', modelId: 'cloud', specificationVersion: 'v3' } as LanguageModelV3
+    const onHandoff = vi.fn()
+    const router = createSupervisorRouter({
+      fallback: [localModel],
+      workers: [
+        {
+          id: 'cloud-worker',
+          model: [cloudModel],
+          intents: ['synthesize'],
+          onHandoff,
+        },
+      ],
+    })
+    const handoff = createHandoffEnvelope({
+      input: 'synthesize churn risk',
+      intent: 'synthesize',
+      messages: [{ role: 'user', content: 'synthesize churn risk' }],
+      session: {
+        identity: { id: 'user-1', roles: ['admin'], claims: { jwt: 'secret' } },
+        state: { route: '/accounts', summary: 'Viewing ACME account.' },
+      },
+      memory: [{ id: 'm1', title: 'Account', body: 'ACME prefers annual billing.' }],
+      tools: ['searchAccounts', 'updatePlan'],
+      trace: { sessionId: 'session-1', runId: 'run-1', phase: 'send' },
+    })
+
+    await expect(
+      router({
+        input: 'synthesize churn risk',
+        messages: [],
+        tools: ['searchAccounts', 'updatePlan'],
+        session: {},
+        defaultModel: [localModel],
+        phase: 'send',
+        handoff,
+      }),
+    ).resolves.toEqual([cloudModel])
+
+    expect(onHandoff).toHaveBeenCalledWith(expect.objectContaining({
+      input: 'synthesize churn risk',
+      memory: [{ id: 'm1', title: 'Account', body: 'ACME prefers annual billing.' }],
+      session: expect.objectContaining({
+        identity: expect.objectContaining({ id: 'user-1', roles: ['admin'] }),
+        state: expect.objectContaining({ summary: 'Viewing ACME account.' }),
+      }),
+      tools: [{ name: 'searchAccounts' }, { name: 'updatePlan' }],
+    }))
+    expect(JSON.stringify(onHandoff.mock.calls[0][0])).not.toContain('secret')
+  })
 })
 
 describe('createMarkdownMemoryStore', () => {
@@ -386,6 +440,45 @@ Offer curbside pickup for preferred shoppers.`,
       body: expect.stringContaining('curbside pickup'),
       tags: ['checkout'],
     })
+  })
+
+  it('compacts append-heavy markdown records into a searchable snapshot', async () => {
+    const store = createMarkdownMemoryStore({
+      documents: [
+        {
+          id: 'history',
+          content: `# Turn 1
+Customer asked about refunds for order A.
+
+# Turn 2
+Agent checked warranty and offered store credit.
+
+# Turn 3
+Customer prefers curbside pickup and text updates.`,
+        },
+      ],
+      compaction: {
+        thresholdTokens: 8,
+        summarize: records => `Current state snapshot:\n${records.map(record => `- ${record.body}`).join('\n')}`,
+      },
+    })
+
+    const result = await store.compact?.({
+      input: 'pickup',
+      session: {},
+      thresholdTokens: 8,
+    })
+    const records = store.records?.() ?? []
+    const search = await store.search('curbside pickup', { input: 'curbside pickup', session: {} })
+
+    expect(result).toMatchObject({
+      compacted: true,
+      archivedRecords: expect.arrayContaining([expect.objectContaining({ title: 'Turn 1' })]),
+      snapshot: expect.objectContaining({ title: 'Current state snapshot' }),
+    })
+    expect(records).toHaveLength(1)
+    expect(records[0].body).toContain('Customer prefers curbside pickup')
+    expect(search[0].title).toBe('Current state snapshot')
   })
 })
 
@@ -564,6 +657,124 @@ describe('createAgent', () => {
         },
       ],
     })
+  })
+
+  it('repairs validation-shaped tool failures invisibly before surfacing a response', async () => {
+    const streamText = vi
+      .fn()
+      .mockImplementationOnce(() => ({
+        fullStream: (async function* () {
+          yield {
+            type: 'error',
+            error: {
+              name: 'AI_TypeValidationError',
+              message: 'Invalid tool arguments for searchProducts: size must be a string.',
+            },
+          }
+        })(),
+        response: Promise.resolve({ messages: [] }),
+      }))
+      .mockImplementationOnce(() => ({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'Found Nike Dunk Low in size 9.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Found Nike Dunk Low in size 9.' }] }],
+        }),
+      }))
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: { searchProducts: {} },
+      streamText: streamText as never,
+      toolRepair: { maxAttempts: 2 },
+    })
+
+    const events = []
+    for await (const event of agent.send('find size nine dunks')) {
+      events.push(event)
+    }
+
+    expect(streamText).toHaveBeenCalledTimes(2)
+    expect(events.some(event => event.type === 'error')).toBe(false)
+    expect(events).toContainEqual({ type: 'text-delta', text: 'Found Nike Dunk Low in size 9.' })
+    expect(streamText.mock.calls[1][0].messages.at(-1)).toMatchObject({
+      role: 'user',
+      content: expect.stringContaining('The previous tool call failed validation'),
+    })
+  })
+
+  it('surfaces a tool validation error after the repair limit is exhausted', async () => {
+    const streamText = vi.fn(() => ({
+      fullStream: (async function* () {
+        yield {
+          type: 'error',
+          error: {
+            name: 'AI_TypeValidationError',
+            message: 'Invalid tool arguments.',
+          },
+        }
+      })(),
+      response: Promise.resolve({ messages: [] }),
+    }))
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: { searchProducts: {} },
+      streamText: streamText as never,
+      toolRepair: { maxAttempts: 1 },
+    })
+
+    const events = []
+    for await (const event of agent.send('find shoes')) {
+      events.push(event)
+    }
+
+    expect(streamText).toHaveBeenCalledTimes(2)
+    expect(events).toContainEqual({
+      type: 'error',
+      error: {
+        name: 'AI_TypeValidationError',
+        message: 'Invalid tool arguments.',
+      },
+    })
+  })
+})
+
+describe('createHandoffEnvelope', () => {
+  it('packages intent, state, memory, messages, and tool names without secret claims', () => {
+    const envelope = createHandoffEnvelope({
+      input: 'plan an account save workflow',
+      intent: 'account-save',
+      messages: [{ role: 'user', content: 'plan an account save workflow' }],
+      session: {
+        identity: { id: 'user-1', tenantId: 'tenant-1', roles: ['admin'], claims: { token: 'secret' } },
+        state: { route: '/accounts/acme', summary: 'Viewing ACME renewal risk.' },
+      },
+      memory: [{ id: 'pref', body: 'ACME wants annual billing.' }],
+      tools: ['searchAccounts'],
+      trace: { sessionId: 'session-1', runId: 'run-1', phase: 'send' },
+    })
+
+    expect(envelope).toMatchObject({
+      version: 'edgekit.handoff.v1',
+      input: 'plan an account save workflow',
+      intent: 'account-save',
+      session: {
+        identity: { id: 'user-1', tenantId: 'tenant-1', roles: ['admin'], permissions: [] },
+        state: { route: '/accounts/acme', summary: 'Viewing ACME renewal risk.' },
+      },
+      memory: [{ id: 'pref', body: 'ACME wants annual billing.' }],
+      tools: [{ name: 'searchAccounts' }],
+      trace: { sessionId: 'session-1', runId: 'run-1', phase: 'send' },
+    })
+    expect(envelope.approximateTokens).toBeGreaterThan(0)
+    expect(JSON.stringify(envelope)).not.toContain('secret')
+  })
+
+  it('estimates tokens from serialized payload size', () => {
+    expect(estimateTokens('12345678')).toBe(2)
+    expect(estimateTokens({ a: '12345678' })).toBeGreaterThan(2)
   })
 })
 

@@ -99,10 +99,31 @@ export const docChunks: DocChunk[] = [
   },
   {
     slug: 'advanced',
+    title: 'Memory Compaction',
+    tags: ['memory', 'compaction', 'snapshot', 'latency'],
+    body:
+      'Markdown stores can compact append-heavy logs into current-state snapshots once they pass a token threshold. Developers can keep the default deterministic summarizer or provide their own summarization endpoint.',
+  },
+  {
+    slug: 'advanced',
     title: 'Supervisor Routing',
     tags: ['supervisor', 'routing', 'workers', 'multi-agent'],
     body:
       'createSupervisorRouter provides a lightweight supervisor/worker routing pattern. Route simple UI tasks to local models and delegate synthesis, planning, or analysis to developer-provided workers.',
+  },
+  {
+    slug: 'advanced',
+    title: 'Cross-Agent Handoffs',
+    tags: ['handoff', 'worker', 'cloud', 'state'],
+    body:
+      'createHandoffEnvelope packages user intent, selected memory, app state, public identity, tool names, and trace ids so cloud workers and AG-UI backends do not wake up cold.',
+  },
+  {
+    slug: 'advanced',
+    title: 'Tool Repair Loop',
+    tags: ['tools', 'validation', 'schema', 'retry'],
+    body:
+      'Edgekit can invisibly retry validation-shaped tool failures with a corrective model instruction, then surface a user-facing error only after the configured repair limit is exhausted.',
   },
   {
     slug: 'advanced',

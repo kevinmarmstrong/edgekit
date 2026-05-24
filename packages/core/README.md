@@ -33,7 +33,9 @@ Use `chromeAI()` and `webLLM()` for the default local model cascade, or pass any
 Use `modelOptional(schema)` for optional tool fields so browser models can omit a value or send `null` without causing a visible schema-retry loop.
 Use `createAgUiAgent({ endpoint })` to connect an AG-UI compatible event stream, and `actionsToEdgeView()` when you want tool results to render as declarative cards/forms.
 Use `createHybridModelRouter()` or `createSupervisorRouter()` when an app needs cloud fallback or lightweight supervisor/worker delegation without replacing the browser-native runtime.
-Use `createMarkdownMemoryStore()` for inspectable `.md`-backed memory that can later be replaced by IndexedDB, OPFS, vectors, or a server store implementing the same `search()` contract.
+Use `createHandoffEnvelope()` or supervisor `onHandoff` callbacks to pass bounded context to cloud workers without leaking secret claims.
+Use `createMarkdownMemoryStore()` for inspectable `.md`-backed memory that can later be replaced by IndexedDB, OPFS, vectors, or a server store implementing the same `search()` contract. Configure compaction thresholds when Markdown logs become append-heavy.
 Use `createPiiRedactor()` or custom redactors to sanitize tool results before they are emitted to UI events, telemetry, and audit trails.
+Use `toolRepair` to invisibly retry validation-shaped tool failures before surfacing an error.
 Use `mcpToolsFromDefinitions()`, `createMissionControl()`, and `createAuditTrail()` when an app needs MCP-backed tools, telemetry, or approval audit logging.
 Use `identityProvider`, `sessionProvider`, `stateProvider`, `toolManifests`, and `withToolContext()` to bind tools to the host app identity, RBAC permissions, auth context, and current app state.

@@ -197,6 +197,8 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
           '`createHybridModelRouter(routes)`: route simple work to local models and complex work to developer-provided models.',
           '`createSupervisorRouter(options)`: route by lightweight intent patterns before falling back to the default model cascade.',
           '`createMarkdownMemoryStore(options)`: hydrate relevant Markdown-backed memory into the run context.',
+          '`createHandoffEnvelope(options)`: package intent, state, memory, and tool context for worker handoffs.',
+          '`estimateTokens(value)`: lightweight token estimate for memory thresholds and handoff budgets.',
           '`createPiiRedactor(options)`: mask common PII patterns before tool results are emitted to telemetry, audit, and UI events.',
           '`createAgUiAgent(options)`: wrap an AG-UI compatible event stream as an Edgekit agent.',
           '`agUiEventToAgentEvents(event)`: translate AG-UI events into Edgekit events.',
@@ -340,6 +342,33 @@ const agent = createAgent({
         },
       },
       {
+        id: 'memory-compaction',
+        title: 'Memory compaction',
+        body: [
+          'Markdown memory is transparent, but append-heavy history must be compressed before it overwhelms small local context windows. Configure compaction on the Markdown store or pass `memoryCompaction` to `createAgent()` so Edgekit can replace active raw records with a concise current-state snapshot.',
+          'The default summarizer is deterministic and local. Production apps can provide `summarize(records, context)` to call a local summarizer, a cloud model route, or an app-owned summarization endpoint. Raw records are archived by default inside the store rather than silently discarded.',
+          'Run redaction before writing sensitive memory, and avoid treating memory compaction as a compliance boundary. It is a context-budget and latency control.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const memory = createMarkdownMemoryStore({
+  documents: [{ id: 'session-log', content: sessionMarkdown }],
+  compaction: {
+    thresholdTokens: 1200,
+    maxSnapshotTokens: 350,
+    summarize: async records => summarizeWithAppModel(records),
+  },
+})
+
+const agent = createAgent({
+  systemPrompt,
+  tools,
+  memory,
+  memoryCompaction: { thresholdTokens: 1200 },
+})`,
+        },
+      },
+      {
         id: 'hybrid-routing',
         title: 'Hybrid routing',
         body: [
@@ -370,6 +399,7 @@ const agent = createAgent({
         body: [
           '`createSupervisorRouter()` is a simpler route-by-intent layer for apps that want a supervisor/worker pattern without a heavy multi-agent framework. Keep navigation, filtering, and simple extraction on the local model; route synthesis, long planning, or account analysis to a developer-provided worker model.',
           'The router can match explicit intent strings, regular expressions, or a custom `when(context)` predicate. Because it returns a normal `EdgeModelRouter`, teams can replace it later with a richer classifier without changing the sidecar integration.',
+          'Worker routes can receive `onHandoff(envelope)`. The envelope contains the user intent, recent messages, selected memory records, public identity, app state, tool names, and trace ids without secret identity claims.',
         ],
         code: {
           language: 'ts',
@@ -386,6 +416,28 @@ const agent = createAgent({
 })
 
 chat.configure({ modelRouter })`,
+        },
+      },
+      {
+        id: 'handoffs',
+        title: 'Cross-agent handoffs',
+        body: [
+          'Use the handoff envelope when a local supervisor routes work to a cloud worker, AG-UI backend, or other specialist agent. The cloud worker should not wake up cold; it should receive a strict, bounded package of context that mirrors what the local sidecar already knows.',
+          'Edgekit intentionally packages selected memory records and the host-provided state snapshot, not a raw DOM dump. If a developer wants DOM-derived context, they should summarize it through `stateProvider` first.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const modelRouter = createSupervisorRouter({
+  fallback: [chromeAI()],
+  workers: [
+    {
+      id: 'cloud-analysis',
+      model: [cloudModel],
+      patterns: [/synthesize|forecast/i],
+      onHandoff: envelope => sendToWorkerTrace(envelope),
+    },
+  ],
+})`,
         },
       },
       {
@@ -428,6 +480,25 @@ const agent = createAgent({
   systemPrompt,
   tools,
   redactors: redactor,
+})`,
+        },
+      },
+      {
+        id: 'tool-repair',
+        title: 'Tool repair loop',
+        body: [
+          'Browser-local models may produce malformed tool arguments. Edgekit now retries validation-shaped tool failures invisibly before showing the user an error. The repair message includes the validation failure and asks the model to retry the tool call with valid JSON.',
+          'The default repair loop retries up to three validation-like failures. Configure `toolRepair` to reduce attempts, disable repair, or plug in your own `shouldRepair` and `instruction` functions for app-specific schemas.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const agent = createAgent({
+  systemPrompt,
+  tools,
+  toolRepair: {
+    maxAttempts: 2,
+    shouldRepair: error => String(error).includes('validation'),
+  },
 })`,
         },
       },

@@ -84,6 +84,9 @@ edgekit stays small by exposing contracts instead of shipping a required cloud s
 - Hybrid routing: `createHybridModelRouter()` keeps simple work local and routes complex work to a developer-provided model.
 - Supervisor routing: `createSupervisorRouter()` gives teams a lightweight supervisor/worker pattern for intent-based delegation without adopting a full multi-agent framework.
 - Markdown memory: `createMarkdownMemoryStore()` hydrates relevant `.md` files into the agent context; replace it with IndexedDB, OPFS, vector, or server-backed stores by implementing the same `search()` contract.
+- Memory compaction: Markdown stores can compact append-heavy logs into current-state snapshots when token thresholds are reached; production apps can provide their own summarizer.
+- Cross-agent handoffs: `createHandoffEnvelope()` packages selected memory, app state, public identity, tool names, and trace ids for cloud workers or AG-UI backends.
+- Tool repair: `toolRepair` retries validation-shaped tool failures invisibly before surfacing an error to the user.
 - Redaction middleware: `createPiiRedactor()` and custom redactors sanitize tool results before they reach UI events, telemetry, and audit trails.
 - MCP catalogs: `mcpToolsFromDefinitions()` and `loadMcpTools()` adapt safe MCP tool catalogs into normal Edgekit tools.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `<edge-chat>.configure()` to observe runs, tools, approvals, views, errors, and no-model fallbacks.
@@ -96,7 +99,10 @@ edgekit stays small by exposing contracts instead of shipping a required cloud s
 chat.configure({
   memory: createMarkdownMemoryStore({
     documents: [{ id: 'preferences', content: preferencesMarkdown }],
+    compaction: { thresholdTokens: 1200 },
   }),
+  memoryCompaction: { thresholdTokens: 1200 },
+  toolRepair: { maxAttempts: 2 },
   redactors: createPiiRedactor(),
   identityProvider: () => ({
     id: currentUser.id,

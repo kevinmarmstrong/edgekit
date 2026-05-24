@@ -26,8 +26,11 @@ This repo is designed to be worked on by coding agents. Keep changes aligned wit
 - AG-UI: use `createAgUiAgent({ endpoint })` or `createAgUiAgent({ run })`.
 - Hybrid routing: use `createHybridModelRouter()` with local and developer-provided model routes.
 - Supervisor routing: use `createSupervisorRouter()` for intent-pattern worker delegation while preserving the normal model-router contract.
+- Handoffs: use `createHandoffEnvelope()` or supervisor `onHandoff` callbacks to pass bounded context to cloud workers and AG-UI backends.
 - Memory: use `createMarkdownMemoryStore()` as the simple inspectable default. Replace it with another store by implementing `search(query, context)` and optional `write(record, context)`.
+- Memory compaction: configure Markdown compaction thresholds for append-heavy histories; archive raw records by default and summarize into a current-state snapshot.
 - Redaction: use `createPiiRedactor()` or custom `redactors` to sanitize sensitive tool results before UI, telemetry, or audit emission.
+- Tool repair: use `toolRepair` for schema/validation self-correction loops. Keep repair bounded and invisible until the retry limit is exhausted.
 - MCP: use `loadMcpTools()` or `mcpToolsFromDefinitions()` against a safe backend/proxy catalog.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `chat.configure()`.
 - Audit: pass `auditTrail: createAuditTrail(...)`; production compliance should provide a cryptographic hash/signing function and persist entries server-side.
@@ -67,7 +70,9 @@ After deploy, smoke `https://kevinmarmstrong.github.io/edgekit/` in a browser or
 - Do not connect browsers directly to broad MCP stdio servers, local filesystems, databases, or secret-bearing resources.
 - Do not put JWTs, cookies, API keys, or secret claims into `systemPrompt` or `stateProvider` summaries. Keep auth in tool execution context.
 - Do not store secrets, raw payment data, or regulated records in Markdown memory. Store only safe preferences, workflow notes, and summaries unless the host app has a compliance design.
+- Do not pass raw DOM dumps to worker agents by default. Summarize app state through `stateProvider` and include selected memory through the handoff envelope.
 - Do not treat regex redaction as the only privacy control. Keep backend authorization, least-privilege tools, and prompt minimization in place.
+- Do not create unbounded self-repair loops. Tool repair must have a small retry limit and surface failures once exhausted.
 - Do not hide tool/action failures behind generic assistant text.
 - Do not add a hardcoded fix only for one demo when the problem belongs in core configuration or reusable component patterns.
 - Do not flatten the docs into marketing copy. Technical builders need exact APIs, commands, and boundaries.
