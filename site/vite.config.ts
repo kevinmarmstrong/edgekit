@@ -51,7 +51,7 @@ function agentDocsPlugin() {
         .join('\n')
       const llms = `# edgekit
 
-edgekit is a browser-native agent runtime for adding an AI sidecar to an existing web app while keeping app state, identity, tools, and approval boundaries under host control.
+edgekit is a browser-native agent runtime with local-first, privacy-first defaults for adding AI workflows to existing web apps without making every interaction an unpredictable cloud-token cost. It uses browser-native models first, supports tuned model cascades and optional cloud fallback, and keeps app state, identity, tools, and approval boundaries under host control.
 
 ## Documentation
 

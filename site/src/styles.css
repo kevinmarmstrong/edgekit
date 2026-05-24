@@ -333,7 +333,6 @@ button:hover {
   color: var(--danger);
 }
 
-.proof-grid,
 .demo-grid,
 .doc-card-grid,
 .steps-grid,
@@ -341,6 +340,16 @@ button:hover {
 .context-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -951,6 +960,10 @@ pre code {
 
   .mission-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .proof-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

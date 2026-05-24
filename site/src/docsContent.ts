@@ -23,20 +23,21 @@ export const docsPages: DocsPage[] = [
     navLabel: 'Overview',
     title: 'Local-first agent sidecars',
     summary:
-      'edgekit is a first-principles runtime for adding an agent to an existing web app without surrendering app authority.',
+      'edgekit adds agent workflows to existing web apps with local-first inference, privacy-first defaults, governed tool calls, and optional cloud fallback.',
     sections: [
       {
         id: 'first-principles',
         title: 'First principles',
         body: [
-          'Agent UX is moving from detached chat boxes into the product surface. In a real application, the agent must understand current state, call app capabilities, respect identity and RBAC, and pause before mutating important state.',
-          'edgekit starts from that constraint. The host app remains the authority for data, permissions, state, and final execution. The model is a sidecar that reasons over a narrow, typed surface the developer intentionally exposes.',
+          'Developers need useful agents without handing every prompt to a metered cloud model, leaking product context unnecessarily, or rebuilding app logic around an agent framework.',
+          'edgekit starts from that constraint. Run browser-native models first, tune the cascade to the workflow, register existing app capabilities as typed tools, and let the host app remain the authority for data, permissions, state, and final execution.',
         ],
         bullets: [
-          'Local-first by default: use browser-native inference when available and route to cloud workers only when configured.',
+          'Cost-controlled by default: use browser-native inference for common work and route to cloud workers only when configured.',
+          'Privacy-first by design: keep prompts, state summaries, and tool results local unless the app explicitly chooses a cloud route.',
           'Tool-owned by the app: wrap existing product functions instead of duplicating business logic in an agent framework.',
+          'Use-case tuned models: choose Chrome AI, WebLLM, local model ladders, or cloud fallback per workflow.',
           'Human-gated mutations: approval, audit, telemetry, and recovery are part of the runtime contract.',
-          'Framework-neutral UI: ship a web component first, then idiomatic wrappers such as React on top.',
           'Agent-readable docs: provide Markdown and llms exports so coding agents can implement against the project without scraping UI chrome.',
         ],
       },
