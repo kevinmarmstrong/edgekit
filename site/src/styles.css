@@ -144,7 +144,7 @@ p {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
   gap: 18px;
-  min-height: calc(100vh - 116px);
+  min-height: min(760px, calc(100vh - 116px));
   align-items: stretch;
 }
 
@@ -347,7 +347,7 @@ button:hover {
   background: var(--line);
 }
 
-.proof-grid {
+.value-matrix {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
@@ -370,7 +370,7 @@ button:hover {
   flex: 1 1 220px;
 }
 
-.proof-grid article,
+.value-matrix article,
 .steps-grid article,
 .doc-card,
 .demo-card,
@@ -383,7 +383,7 @@ button:hover {
   background: var(--panel);
 }
 
-.proof-grid article,
+.value-matrix article,
 .steps-grid article,
 .doc-card,
 .demo-card,
@@ -393,17 +393,23 @@ button:hover {
   padding: 18px;
 }
 
-.proof-grid strong,
-.proof-grid span {
-  display: block;
+.value-matrix article {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 318px;
 }
 
-.proof-grid strong {
-  margin-bottom: 8px;
+.value-matrix h3,
+.value-matrix p {
+  margin: 0;
+}
+
+.value-matrix h3 {
   font-size: 18px;
 }
 
-.proof-grid span,
+.value-matrix p,
 .steps-grid p,
 .doc-card p,
 .demo-card strong,
@@ -413,6 +419,66 @@ dl {
   line-height: 1.5;
 }
 
+.value-label {
+  width: fit-content;
+  color: var(--danger);
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.value-label.solution {
+  margin-top: 4px;
+  color: var(--accent);
+}
+
+.primitive-band {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.primitive-band h3,
+.primitive-band p {
+  margin: 0;
+}
+
+.primitive-band > div:first-child {
+  display: grid;
+  gap: 8px;
+}
+
+.primitive-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.primitive-list a {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  color: var(--ink);
+  background: #10130f;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.primitive-list a:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.value-section,
 .how-section,
 .docs-section,
 .demos-section,
@@ -962,8 +1028,12 @@ pre code {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .proof-grid {
+  .value-matrix {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .primitive-band {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -988,6 +1058,7 @@ pre code {
 
   .hero-copy,
   .hero-visual,
+  .value-section,
   .how-section,
   .docs-section,
   .demos-section,
@@ -999,7 +1070,7 @@ pre code {
     padding: 20px;
   }
 
-  .proof-grid,
+  .value-matrix,
   .demo-grid,
   .doc-card-grid,
   .steps-grid,

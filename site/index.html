@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="edgekit is a browser-native agent runtime for adding AI sidecars to existing web apps."
+      content="edgekit is an open-source browser-native agent runtime for adding local-first AI agents to existing web apps."
     />
     <title>edgekit · browser-native agent runtime</title>
     <script>
@@ -31,12 +31,12 @@
       <section class="hero">
         <div class="hero-copy">
           <p class="hero-kicker">local-first, privacy-first agent runtime</p>
-          <h1>Add an AI agent without unpredictable token spend.</h1>
+          <h1>Add an agent to your app without handing every interaction to a cloud meter.</h1>
           <p>
-            edgekit lets developers add agent workflows to existing web apps using browser-native
-            models first: Chrome AI, WebLLM, and app-tuned local models before optional cloud
-            fallback. Keep prompts and app state near the user, call your existing APIs as tools,
-            and gate sensitive actions before anything changes.
+            edgekit is open-source infrastructure for developers who want agent workflows inside
+            real product surfaces. Run Chrome AI, WebLLM, and app-tuned local models first; call
+            your existing APIs as tools; keep sensitive context close to the user; and route to
+            cloud workers only when a workflow actually needs it.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="docs/">Read the docs</a>
@@ -66,32 +66,152 @@
         </div>
       </section>
 
-      <section class="proof-grid" aria-label="edgekit principles">
-        <article>
-          <strong>Cost-controlled by default</strong>
-          <span>Run locally first so common agent work does not become an open-ended API bill.</span>
-        </article>
-        <article>
-          <strong>Privacy-first by design</strong>
-          <span>Use browser models and host-owned tools before sending context to a cloud model.</span>
-        </article>
-        <article>
-          <strong>Tuned to the use case</strong>
-          <span>Choose Chrome AI, WebLLM, local model ladders, or cloud fallback per workflow.</span>
-        </article>
-        <article>
-          <strong>Built for existing apps</strong>
-          <span>Register current APIs and functions as tools instead of rebuilding product logic.</span>
-        </article>
+      <section class="value-section" id="value-props">
+        <div class="section-heading">
+          <p class="section-label">Problem to solution</p>
+          <h2>You want an agent in your app. These are the blockers edgekit is built to remove.</h2>
+          <p>
+            Developers do not evaluate open-source agent infrastructure like a SaaS checkout page.
+            They arrive with a constraint. Scan the matrix for the problem that is slowing your
+            rollout, then jump into the docs for the implementation surface.
+          </p>
+        </div>
+        <div class="value-matrix" aria-label="edgekit challenge and solution matrix">
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Token costs become an open-ended liability.</h3>
+            <p>
+              Public agents can turn stuck users, power users, or scripted loops into metered
+              cloud spend before the feature proves ROI.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Run browser-native models first and use explicit cloud fallback only for workflows
+              that justify the cost.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Sensitive app context crosses the wrong boundary.</h3>
+            <p>
+              Agent prompts often need identity, page state, account data, and tool results that
+              should not automatically leave the application.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Keep inference, memory, state summaries, and redaction local by default while the
+              host app controls every cloud route.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>The agent ignores the app you already built.</h3>
+            <p>
+              Rebuilding product logic around a new agent stack creates drift from the APIs,
+              permissions, and workflows users already trust.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Register existing app functions and MCP catalogs as typed tools, with the host app
+              staying responsible for execution.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>One model does not fit every workflow.</h3>
+            <p>
+              Basic navigation, product help, support triage, and deep synthesis have different
+              latency, cost, and reasoning requirements.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Configure Chrome AI, WebLLM, local ladders, supervisor routing, and cloud workers per
+              use case instead of per project.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Slow orchestration makes the product feel broken.</h3>
+            <p>
+              Sequential tool calls, repeated prompts, and blank spinners make agent workflows feel
+              heavier than the app around them.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Use parallel-safe read tools, semantic response caching, and streaming activity states
+              to keep the UI moving.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Network drops break cloud-only agents.</h3>
+            <p>
+              Field teams, travel workflows, and unreliable mobile connections cannot depend on a
+              remote model for every step.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Pair local inference with Markdown memory, offline mutation journals, and adapter
+              contracts for CRDT-backed sync.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Autonomous mutations need trust and evidence.</h3>
+            <p>
+              Adding to cart, updating plans, suspending accounts, or touching regulated workflows
+              cannot happen as invisible model side effects.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Gate risky tools with approvals, emit telemetry, and record hash-chained audit trails
+              around important actions.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Dynamic tools expand the attack surface.</h3>
+            <p>
+              Third-party MCP catalogs and generated tool calls need policy boundaries before they
+              touch app state or credentialed systems.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Apply RBAC manifests, identity-aware tool hydration, payload limits, timeouts, and
+              guarded execution before broader isolation adapters.
+            </p>
+          </article>
+        </div>
+        <div class="primitive-band">
+          <div>
+            <p class="section-label">Deeper primitives</p>
+            <h3>More than the first eight blockers</h3>
+            <p>
+              The docs go deeper on the integration primitives teams need once the basic sidecar is
+              working.
+            </p>
+          </div>
+          <div class="primitive-list" aria-label="edgekit deeper primitives">
+            <a href="docs/advanced/#state-hydration">State hydration</a>
+            <a href="docs/advanced/#tool-repair">Tool repair loop</a>
+            <a href="docs/advanced/#cross-agent-handoffs">Cross-agent handoffs</a>
+            <a href="docs/ecosystem/#ag-ui">AG-UI streams</a>
+            <a href="docs/ecosystem/#frameworks">React wrapper</a>
+            <a href="docs/advanced/#telemetry">Mission control</a>
+            <a href="docs/advanced/#redaction">PII/PHI redaction</a>
+            <a href="llms.txt">LLM-ready docs</a>
+          </div>
+        </div>
       </section>
 
       <section class="how-section" id="how-it-works">
         <div class="section-heading">
           <p class="section-label">First principles</p>
-          <h2>The agent uses your app. The app stays in control.</h2>
+          <h2>The sidecar assists the workflow. Your app remains the authority.</h2>
           <p>
-            Enterprise agent UX is not a detached chat panel. It is a governed interface over real
-            app capabilities: identity, state, tools, approval, audit, and recovery.
+            edgekit is not asking you to move product logic into a chatbot. The agent gets a typed,
+            governed view of what the app already knows how to do: identity, state, tools,
+            approval, audit, and recovery.
           </p>
         </div>
         <div class="steps-grid">

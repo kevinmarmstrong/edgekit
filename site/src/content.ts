@@ -14,6 +14,48 @@ export const docChunks: DocChunk[] = [
       'edgekit is a browser-native agent runtime. It lets developers add an AI sidecar to any web app that runs in the visitor browser using Chrome AI or WebLLM. No backend, no API keys, and zero marginal cost per user by default.',
   },
   {
+    slug: 'overview',
+    title: 'Problem to Solution Matrix',
+    tags: ['value props', 'positioning', 'open source', 'developer'],
+    body:
+      'edgekit is positioned for developers who already want an agent in an app and need to solve concrete blockers: token cost, privacy, app integration, model routing, latency, offline operation, approvals, audit, RBAC, and safe dynamic tools. It is not a SaaS sales landing page with one value proposition.',
+  },
+  {
+    slug: 'overview',
+    title: 'Predictable Economics',
+    tags: ['cost', 'token', 'local', 'browser', 'roi'],
+    body:
+      'The core economic value is avoiding unbounded token liability. Edgekit runs Chrome AI, WebLLM, or other browser-local models first so common agent work does not create variable cloud API spend. Cloud fallback is explicit and configurable.',
+  },
+  {
+    slug: 'overview',
+    title: 'Privacy and Data Boundary',
+    tags: ['privacy', 'security', 'data sovereignty', 'local'],
+    body:
+      'Edgekit keeps prompts, app-state summaries, memory, and tool results local by default. Apps can add redaction middleware, host-owned tool execution, and explicit cloud routes when their security model allows it.',
+  },
+  {
+    slug: 'overview',
+    title: 'Agent UX Inside Existing Apps',
+    tags: ['tools', 'workflow', 'existing app', 'api'],
+    body:
+      'Edgekit adds an agent sidecar to product workflows without moving business logic into a chatbot. Developers register existing app APIs and functions as typed tools while the host app keeps authority over identity, state, permissions, approvals, and execution.',
+  },
+  {
+    slug: 'overview',
+    title: 'Latency and Resilience',
+    tags: ['latency', 'cache', 'parallel', 'offline'],
+    body:
+      'Edgekit addresses slow or brittle agent loops with parallel-safe read tools, edge response caching, streaming activity states, Markdown memory, offline mutation journals, and sync adapter contracts.',
+  },
+  {
+    slug: 'overview',
+    title: 'Enterprise Guardrails',
+    tags: ['approval', 'audit', 'rbac', 'mcp', 'policy'],
+    body:
+      'Edgekit includes primitives for human-gated mutations, telemetry, hash-chained audit trails, identity-aware RBAC tool manifests, safe MCP catalog adapters, and guarded execution policies for dynamic tools.',
+  },
+  {
     slug: 'getting-started',
     title: 'Retrofit Pattern',
     tags: ['tools', 'api', 'retrofit'],

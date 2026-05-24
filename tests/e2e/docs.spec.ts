@@ -5,6 +5,11 @@ const siteURL = 'http://127.0.0.1:4174/edgekit/'
 test('homepage links into the full documentation site', async ({ page }) => {
   await page.goto(siteURL)
 
+  await expect(page.getByRole('heading', { name: 'Add an agent to your app without handing every interaction to a cloud meter.' })).toBeVisible()
+  await expect(page.locator('.value-matrix article')).toHaveCount(8)
+  await expect(page.getByRole('heading', { name: 'Token costs become an open-ended liability.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sensitive app context crosses the wrong boundary.' })).toBeVisible()
+  await expect(page.locator('.primitive-list a')).toHaveCount(8)
   await expect(page.getByRole('heading', { name: 'Start with the thesis, then jump to the implementation surface.' })).toBeVisible()
   await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(10)
   await expect(page.locator('.demo-grid a.demo-card')).toHaveCount(5)

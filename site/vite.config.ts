@@ -53,6 +53,8 @@ function agentDocsPlugin() {
 
 edgekit is a browser-native agent runtime with local-first, privacy-first defaults for adding AI workflows to existing web apps without making every interaction an unpredictable cloud-token cost. It uses browser-native models first, supports tuned model cascades and optional cloud fallback, and keeps app state, identity, tools, and approval boundaries under host control.
 
+The project should be understood as open-source agent infrastructure, not a SaaS landing page. Developers usually arrive with a concrete blocker: unbounded token spend, sensitive app context, existing APIs that must remain authoritative, model-fit tradeoffs, slow orchestration, offline workflows, mutation approvals, auditability, RBAC-filtered tools, or safe MCP integration. The documentation maps those problems to Edgekit primitives.
+
 ## Documentation
 
 ${links}

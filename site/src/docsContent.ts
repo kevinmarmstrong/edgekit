@@ -23,21 +23,24 @@ export const docsPages: DocsPage[] = [
     navLabel: 'Overview',
     title: 'Local-first agent sidecars',
     summary:
-      'edgekit adds agent workflows to existing web apps with local-first inference, privacy-first defaults, governed tool calls, and optional cloud fallback.',
+      'edgekit adds agent workflows to existing web apps without forcing every prompt, tool call, and UI step through a metered cloud agent.',
     sections: [
       {
         id: 'first-principles',
         title: 'First principles',
         body: [
-          'Developers need useful agents without handing every prompt to a metered cloud model, leaking product context unnecessarily, or rebuilding app logic around an agent framework.',
-          'edgekit starts from that constraint. Run browser-native models first, tune the cascade to the workflow, register existing app capabilities as typed tools, and let the host app remain the authority for data, permissions, state, and final execution.',
+          'Developers usually investigate edgekit because they already want an agent in a site or application and have run into a blocker: unpredictable token costs, sensitive context, slow orchestration, offline workflows, tool safety, or the need to reuse existing product APIs.',
+          'edgekit starts from those constraints. Run browser-native models first, tune the cascade to the workflow, register existing app capabilities as typed tools, and let the host app remain the authority for data, permissions, state, and final execution.',
         ],
         bullets: [
-          'Cost-controlled by default: use browser-native inference for common work and route to cloud workers only when configured.',
-          'Privacy-first by design: keep prompts, state summaries, and tool results local unless the app explicitly chooses a cloud route.',
-          'Tool-owned by the app: wrap existing product functions instead of duplicating business logic in an agent framework.',
-          'Use-case tuned models: choose Chrome AI, WebLLM, local model ladders, or cloud fallback per workflow.',
-          'Human-gated mutations: approval, audit, telemetry, and recovery are part of the runtime contract.',
+          'Unbounded token spend: run local browser models first and reserve cloud models for explicit fallback routes.',
+          'Sensitive app context: keep prompts, state summaries, memory, and tool results local unless the app chooses otherwise.',
+          'Existing app logic: register current APIs and functions as typed tools instead of rebuilding workflow logic.',
+          'Model fit: choose Chrome AI, WebLLM, local model ladders, supervisor routing, or cloud workers per use case.',
+          'Agent latency: combine parallel-safe read tools, edge response caching, and streaming activity states.',
+          'Offline workflows: pair local inference with Markdown memory, offline mutation journals, and CRDT-ready sync adapters.',
+          'Trust and compliance: require approvals for risky tools and emit telemetry plus hash-chained audit trails.',
+          'Dynamic tools: hydrate RBAC-filtered manifests, adapt MCP catalogs safely, and wrap tool execution with policy limits.',
           'Agent-readable docs: provide Markdown and llms exports so coding agents can implement against the project without scraping UI chrome.',
         ],
       },
