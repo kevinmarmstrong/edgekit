@@ -20,10 +20,9 @@
         <span>edgekit</span>
       </a>
       <nav aria-label="Primary navigation">
-        <a href="#qa">Q&A</a>
-        <a href="#demos">Demos</a>
-        <a href="#admin">Admin</a>
         <a href="docs/">Docs</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#demos">Demos</a>
         <a href="https://github.com/kevinmarmstrong/edgekit">GitHub</a>
       </nav>
     </header>
@@ -31,15 +30,15 @@
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
-          <h1>Browser-native agents for apps that already exist.</h1>
+          <h1>Add an agent to your web app without adding an AI backend.</h1>
           <p>
-            edgekit lets developers drop an AI sidecar into a web app, register existing API
-            endpoints as tools, and run the agent locally through Chrome AI or WebLLM.
+            edgekit is a drop-in sidecar for product workflows. Register your app's existing
+            functions as tools, run the model in the browser when available, and require approval
+            before the agent changes important state.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#qa">Ask the docs</a>
-            <a class="button secondary" href="docs/">Read docs</a>
-            <a class="button secondary" href="#ecommerce">Open ecommerce demo</a>
+            <a class="button primary" href="docs/">Read the docs</a>
+            <a class="button secondary" href="#demos">Try live demos</a>
           </div>
         </div>
         <div class="hero-visual" aria-label="edgekit architecture diagram">
@@ -56,6 +55,7 @@
                 <div class="pane-title">edgekit sidecar</div>
                 <div class="bubble user">find running shoes under $100</div>
                 <div class="tool-pill">searchProducts()</div>
+                <div class="tool-pill approval">approval required: addToCart()</div>
                 <div class="bubble assistant">3 matching products found</div>
               </div>
             </div>
@@ -65,22 +65,91 @@
 
       <section class="proof-grid" aria-label="edgekit principles">
         <article>
-          <strong>Zero backend by default</strong>
-          <span>Runs with browser-local models when available.</span>
+          <strong>Embed the sidecar</strong>
+          <span>Use the web component or core runtime inside an existing app.</span>
         </article>
         <article>
-          <strong>Real tool calling</strong>
-          <span>Uses Vercel AI SDK tools instead of custom orchestration.</span>
+          <strong>Register app tools</strong>
+          <span>Expose existing functions like search, cart, account updates, and docs lookup.</span>
         </article>
         <article>
-          <strong>Retrofit friendly</strong>
-          <span>Register existing endpoints; the app architecture stays intact.</span>
+          <strong>Gate risky actions</strong>
+          <span>Approval prompts appear before cart, admin, or other state-changing tools run.</span>
         </article>
+      </section>
+
+      <section class="how-section" id="how-it-works">
+        <div class="section-heading">
+          <p class="section-label">How it works</p>
+          <h2>The agent uses your app. It does not replace it.</h2>
+          <p>
+            edgekit gives the model a controlled surface area: tools you register, state your app
+            owns, and approvals your users can see.
+          </p>
+        </div>
+        <div class="steps-grid">
+          <article>
+            <span>01</span>
+            <h3>Mount the sidecar</h3>
+            <p>Add the edge-chat web component or use `createAgent()` when you need a custom interface.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Expose real actions</h3>
+            <p>Wrap existing app functions as AI SDK tools with typed inputs and outputs.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Approve changes</h3>
+            <p>Mark irreversible tools as guarded so the user approves before state changes.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="docs-section" id="docs">
+        <div class="section-heading">
+          <p class="section-label">Docs</p>
+          <h2>Full documentation, not just a demo page.</h2>
+          <p>
+            The docs now cover embedding, concepts, API usage, the UI component, CLI indexing,
+            testing, model evals, and deployment. These cards open the full docs pages.
+          </p>
+        </div>
+        <div class="doc-card-grid" id="doc-card-grid"></div>
+      </section>
+
+      <section class="demos-section" id="demos">
+        <div class="section-heading">
+          <p class="section-label">Demos</p>
+          <h2>Live examples of agents inside app workflows.</h2>
+          <p>
+            These are not separate chatbots. Each demo registers app capabilities as tools and lets
+            the sidecar assist inside the workflow.
+          </p>
+        </div>
+        <div class="demo-grid">
+          <a class="demo-card active" href="#ecommerce">
+            <span>Live ecommerce</span>
+            <strong>Product search and guarded add-to-cart</strong>
+          </a>
+          <a class="demo-card" href="#qa">
+            <span>Live docs Q&A</span>
+            <strong>Project knowledge as a registered search tool</strong>
+          </a>
+          <a class="demo-card active-secondary" href="#admin">
+            <span>Live SaaS admin</span>
+            <strong>Admin sidecar with guarded workflow actions</strong>
+          </a>
+          <article class="demo-card">
+            <span>Planned support</span>
+            <strong>Planned inbox assistant using existing case APIs</strong>
+          </article>
+        </div>
       </section>
 
       <section class="split-section" id="qa">
         <div>
-          <p class="section-label">Project Q&A</p>
+          <p class="section-label">Docs Q&A demo</p>
           <h2>Ask edgekit about its own design.</h2>
           <p>
             This demo registers a project documentation search tool with edgekit. Browsers with
@@ -101,43 +170,6 @@
           system-prompt="You answer questions about the edgekit project. Always call searchDocs before answering. Cite the matching section titles in concise language."
           placeholder="Ask: how does the model cascade work?"
         ></edge-chat>
-      </section>
-
-      <section class="docs-section" id="docs">
-        <div class="section-heading">
-          <p class="section-label">Docs</p>
-          <h2>Full documentation, not just a demo page.</h2>
-          <p>
-            The docs now cover embedding, concepts, API usage, the UI component, CLI indexing,
-            testing, model evals, and deployment. These cards open the full docs pages.
-          </p>
-        </div>
-        <div class="doc-card-grid" id="doc-card-grid"></div>
-      </section>
-
-      <section class="demos-section" id="demos">
-        <div class="section-heading">
-          <p class="section-label">Demos</p>
-          <h2>One runtime, multiple app surfaces.</h2>
-        </div>
-        <div class="demo-grid">
-          <a class="demo-card active" href="#ecommerce">
-            <span>Ecommerce assistant</span>
-            <strong>Product search and guarded add-to-cart</strong>
-          </a>
-          <article class="demo-card">
-            <span>Docs Q&A</span>
-            <strong>Project knowledge as a registered search tool</strong>
-          </article>
-          <a class="demo-card active-secondary" href="#admin">
-            <span>SaaS workflow</span>
-            <strong>Admin sidecar with guarded workflow actions</strong>
-          </a>
-          <article class="demo-card">
-            <span>Support triage</span>
-            <strong>Planned inbox assistant using existing case APIs</strong>
-          </article>
-        </div>
       </section>
 
       <section class="ecommerce-demo" id="ecommerce">

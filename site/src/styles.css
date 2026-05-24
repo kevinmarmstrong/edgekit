@@ -276,15 +276,22 @@ button {
   font-weight: 800;
 }
 
+.tool-pill.approval {
+  color: #4e3922;
+  background: #f4dfbf;
+}
+
 .proof-grid,
 .demo-grid,
-.doc-card-grid {
+.doc-card-grid,
+.steps-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
 .proof-grid article,
+.steps-grid article,
 .doc-card,
 .demo-card,
 .product-card {
@@ -305,6 +312,7 @@ button {
 }
 
 .proof-grid span,
+.steps-grid p,
 .doc-card p,
 .demo-card strong,
 .product-card p,
@@ -356,6 +364,7 @@ input {
   font-size: 14px;
 }
 
+.how-section,
 .docs-section,
 .demos-section,
 .ecommerce-demo,
@@ -363,6 +372,23 @@ input {
   display: grid;
   gap: 22px;
   padding: 28px;
+}
+
+.steps-grid article {
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+}
+
+.steps-grid span {
+  color: #177e58;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.steps-grid h3,
+.steps-grid p {
+  margin: 0;
 }
 
 .section-heading {
@@ -704,6 +730,7 @@ pre code {
   .proof-grid,
   .demo-grid,
   .doc-card-grid,
+  .steps-grid,
   .catalog {
     grid-template-columns: 1fr;
   }

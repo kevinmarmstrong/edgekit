@@ -7,8 +7,10 @@ test('homepage links into the full documentation site', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Full documentation, not just a demo page.' })).toBeVisible()
   await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(11)
+  await expect(page.locator('.site-header nav').getByRole('link', { name: 'Admin' })).toHaveCount(0)
+  await expect(page.locator('edge-chat')).toHaveCount(3)
 
-  await page.getByRole('link', { name: 'Read docs' }).click()
+  await page.getByRole('link', { name: 'Read the docs' }).click()
   await expect(page).toHaveURL(/\/edgekit\/docs\/$/)
   await expect(page.getByRole('heading', { name: 'What edgekit is' })).toBeVisible()
 })
