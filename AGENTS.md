@@ -12,7 +12,7 @@ This repo is designed to be worked on by coding agents. Keep changes aligned wit
 
 ## Main Packages
 
-- `packages/core`: model providers, model routing, agent event stream, AG-UI adapter, MCP tool adapter, telemetry, mission-control aggregation, audit trail primitives.
+- `packages/core`: model providers, model routing, Markdown memory, redaction middleware, agent event stream, AG-UI adapter, MCP tool adapter, telemetry, mission-control aggregation, audit trail primitives.
 - `packages/ui`: Lit `<edge-chat>` web component, approval prompts, EdgeView renderer, action forms, UI telemetry for app-owned form actions.
 - `packages/cli`: docs indexing utility.
 - `examples/ecommerce`: standalone retrofit workflow demo.
@@ -25,6 +25,9 @@ This repo is designed to be worked on by coding agents. Keep changes aligned wit
 - User actions: use `registerActions()` to turn tool results into fillable EdgeView forms.
 - AG-UI: use `createAgUiAgent({ endpoint })` or `createAgUiAgent({ run })`.
 - Hybrid routing: use `createHybridModelRouter()` with local and developer-provided model routes.
+- Supervisor routing: use `createSupervisorRouter()` for intent-pattern worker delegation while preserving the normal model-router contract.
+- Memory: use `createMarkdownMemoryStore()` as the simple inspectable default. Replace it with another store by implementing `search(query, context)` and optional `write(record, context)`.
+- Redaction: use `createPiiRedactor()` or custom `redactors` to sanitize sensitive tool results before UI, telemetry, or audit emission.
 - MCP: use `loadMcpTools()` or `mcpToolsFromDefinitions()` against a safe backend/proxy catalog.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `chat.configure()`.
 - Audit: pass `auditTrail: createAuditTrail(...)`; production compliance should provide a cryptographic hash/signing function and persist entries server-side.
@@ -63,6 +66,8 @@ After deploy, smoke `https://kevinmarmstrong.github.io/edgekit/` in a browser or
 - Do not make GitHub Pages depend on live provider secrets or a backend.
 - Do not connect browsers directly to broad MCP stdio servers, local filesystems, databases, or secret-bearing resources.
 - Do not put JWTs, cookies, API keys, or secret claims into `systemPrompt` or `stateProvider` summaries. Keep auth in tool execution context.
+- Do not store secrets, raw payment data, or regulated records in Markdown memory. Store only safe preferences, workflow notes, and summaries unless the host app has a compliance design.
+- Do not treat regex redaction as the only privacy control. Keep backend authorization, least-privilege tools, and prompt minimization in place.
 - Do not hide tool/action failures behind generic assistant text.
 - Do not add a hardcoded fix only for one demo when the problem belongs in core configuration or reusable component patterns.
 - Do not flatten the docs into marketing copy. Technical builders need exact APIs, commands, and boundaries.

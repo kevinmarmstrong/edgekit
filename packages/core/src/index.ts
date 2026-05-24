@@ -148,6 +148,60 @@ export interface EdgeToolExecutionContext {
 
 export type ContextualToolExecute = (input: Record<string, unknown>, context: EdgeToolExecutionContext) => unknown | Promise<unknown>
 
+export interface EdgeMemoryRecord {
+  id: string
+  title?: string
+  body: string
+  tags?: string[]
+  source?: string
+  updatedAt?: string
+}
+
+export interface EdgeMemorySearchContext {
+  input: string
+  session: EdgeSessionContext
+  state?: EdgeStateSnapshot
+}
+
+export interface EdgeMemoryStore {
+  search(query: string, context: EdgeMemorySearchContext): EdgeMemoryRecord[] | Promise<EdgeMemoryRecord[]>
+  write?(record: EdgeMemoryRecord, context: EdgeMemorySearchContext): EdgeMemoryRecord | Promise<EdgeMemoryRecord>
+}
+
+export interface MarkdownMemoryDocument {
+  id: string
+  content: string
+  source?: string
+  tags?: string[]
+  updatedAt?: string
+}
+
+export interface CreateMarkdownMemoryStoreOptions {
+  documents: MarkdownMemoryDocument[]
+  maxRecords?: number
+}
+
+export interface EdgeRedactorContext extends EdgeToolExecutionContext {
+  toolName?: string
+  phase?: 'tool-result' | 'telemetry' | 'audit' | 'ui-action'
+}
+
+export type EdgeRedactor = (value: unknown, context: EdgeRedactorContext) => unknown | Promise<unknown>
+
+export interface PiiRedactorPattern {
+  name: string
+  pattern: RegExp
+  replacement?: string
+}
+
+export interface CreatePiiRedactorOptions {
+  email?: boolean
+  phone?: boolean
+  ssn?: boolean
+  creditCard?: boolean
+  customPatterns?: PiiRedactorPattern[]
+}
+
 export interface EdgeToolManifest {
   name: string
   tool: unknown
@@ -253,6 +307,20 @@ export interface HybridModelRoute {
   when?: (context: ModelRouterContext) => boolean | Promise<boolean>
 }
 
+export interface SupervisorWorkerRoute {
+  id: string
+  description?: string
+  model: Array<ModelProvider | LanguageModelV3>
+  intents?: string[]
+  patterns?: RegExp[]
+  when?: (context: ModelRouterContext) => boolean | Promise<boolean>
+}
+
+export interface CreateSupervisorRouterOptions {
+  workers: SupervisorWorkerRoute[]
+  fallback?: Array<ModelProvider | LanguageModelV3>
+}
+
 export interface MissionControlSnapshot {
   runs: number
   toolCalls: Record<string, number>
@@ -298,6 +366,9 @@ export interface CreateAgentOptions {
   tools?: Record<string, unknown>
   toolProvider?: EdgeToolProvider
   toolManifests?: EdgeToolManifest[]
+  memory?: EdgeMemoryStore | EdgeMemoryStore[]
+  memoryLimit?: number
+  redactors?: EdgeRedactor | EdgeRedactor[]
   sessionProvider?: EdgeSessionProvider
   identityProvider?: EdgeIdentityProvider
   stateProvider?: EdgeStateProvider
@@ -441,6 +512,71 @@ export function createHybridModelRouter(routes: HybridModelRoute[], fallback?: A
     }
     return fallback ?? context.defaultModel
   }
+}
+
+export function createSupervisorRouter(options: CreateSupervisorRouterOptions): EdgeModelRouter {
+  return async context => {
+    const normalizedInput = context.input.toLowerCase()
+
+    for (const worker of options.workers) {
+      const intentMatch = worker.intents?.some(intent => normalizedInput.includes(intent.toLowerCase())) ?? false
+      const patternMatch = worker.patterns?.some(pattern => {
+        pattern.lastIndex = 0
+        return pattern.test(context.input)
+      }) ?? false
+      const customMatch = worker.when ? await worker.when(context) : false
+      if (intentMatch || patternMatch || customMatch) return worker.model
+    }
+
+    return options.fallback ?? context.defaultModel
+  }
+}
+
+export function createMarkdownMemoryStore(options: CreateMarkdownMemoryStoreOptions): EdgeMemoryStore {
+  const maxRecords = options.maxRecords ?? 5
+  const records = options.documents.flatMap(parseMarkdownMemoryDocument)
+
+  return {
+    search(query: string) {
+      const terms = tokenize(query)
+      if (terms.length === 0) return []
+
+      return records
+        .map(record => ({ record, score: scoreMemoryRecord(record, terms) }))
+        .filter(result => result.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxRecords)
+        .map(result => result.record)
+    },
+    write(record: EdgeMemoryRecord) {
+      records.unshift(record)
+      return record
+    },
+  }
+}
+
+export async function applyRedactors(
+  value: unknown,
+  redactors: EdgeRedactor | EdgeRedactor[] | undefined,
+  context: EdgeRedactorContext,
+) {
+  const chain = Array.isArray(redactors) ? redactors : redactors ? [redactors] : []
+  let current = value
+  for (const redactor of chain) {
+    current = await redactor(current, context)
+  }
+  return current
+}
+
+export function createPiiRedactor(options: CreatePiiRedactorOptions = {}): EdgeRedactor {
+  const patterns: PiiRedactorPattern[] = []
+  if (options.email !== false) patterns.push({ name: 'email', pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi })
+  if (options.phone !== false) patterns.push({ name: 'phone', pattern: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g })
+  if (options.ssn !== false) patterns.push({ name: 'ssn', pattern: /\b\d{3}-\d{2}-\d{4}\b/g })
+  if (options.creditCard !== false) patterns.push({ name: 'credit-card', pattern: /\b(?:\d[ -]*?){13,19}\b/g })
+  patterns.push(...(options.customPatterns ?? []))
+
+  return value => redactValue(value, patterns)
 }
 
 export interface CreateAuditTrailOptions {
@@ -675,6 +811,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     const runId = createId('run')
     const session = await resolveSessionContext(options)
     const activeTools = await resolveActiveTools(options, session, lastUserInput, phase)
+    const memoryRecords = await resolveMemoryRecords(options, session, lastUserInput)
     const toolContext: EdgeToolExecutionContext = {
       session,
       identity: session.identity,
@@ -682,7 +819,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       state: session.state,
     }
     const contextualTools = withToolContext(activeTools, toolContext)
-    const system = withSessionSystemContext(options.systemPrompt, session)
+    const system = withSessionSystemContext(options.systemPrompt, session, memoryRecords)
     await telemetry.emit('run-start', {
       runId,
       input: lastUserInput,
@@ -691,6 +828,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         identity: publicIdentity(session.identity),
         state: session.state,
         tools: Object.keys(contextualTools),
+        memory: memoryRecords.map(record => ({ id: record.id, title: record.title, source: record.source })),
       },
     })
     const statusEvents: ModelStatusEvent[] = []
@@ -789,20 +927,25 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         }
         case 'tool-result': {
           const toolName = String(part.toolName)
-          await telemetry.emit('tool-result', { runId, input: lastUserInput, toolName, data: part.output })
+          const redactedOutput = await applyRedactors(part.output, options.redactors, {
+            ...toolContext,
+            toolName,
+            phase: 'tool-result',
+          })
+          await telemetry.emit('tool-result', { runId, input: lastUserInput, toolName, data: redactedOutput })
           await recordAudit({
             action: 'tool-result',
             sessionId,
             runId,
             prompt: lastUserInput,
             toolName,
-            output: part.output,
+            output: redactedOutput,
           })
           yield {
             type: 'tool-result',
             toolName,
             toolCallId: String(part.toolCallId),
-            output: part.output,
+            output: redactedOutput,
           }
           break
         }
@@ -1065,6 +1208,16 @@ async function resolveActiveTools(
   return options.tools ?? {}
 }
 
+async function resolveMemoryRecords(options: CreateAgentOptions, session: EdgeSessionContext, input: string) {
+  const stores = Array.isArray(options.memory) ? options.memory : options.memory ? [options.memory] : []
+  if (stores.length === 0) return []
+
+  const limit = options.memoryLimit ?? 5
+  const context: EdgeMemorySearchContext = { input, session, state: session.state }
+  const records = await Promise.all(stores.map(store => store.search(input, context)))
+  return records.flat().slice(0, limit)
+}
+
 function canUseTool(manifest: EdgeToolManifest, identity: EdgeIdentity | undefined) {
   const roles = identity?.roles ?? []
   const permissions = identity?.permissions ?? []
@@ -1074,7 +1227,7 @@ function canUseTool(manifest: EdgeToolManifest, identity: EdgeIdentity | undefin
   return roleAllowed && permissionAllowed
 }
 
-function withSessionSystemContext(systemPrompt: string, session: EdgeSessionContext) {
+function withSessionSystemContext(systemPrompt: string, session: EdgeSessionContext, memoryRecords: EdgeMemoryRecord[] = []) {
   const context: string[] = []
   const identity = publicIdentity(session.identity)
 
@@ -1086,8 +1239,105 @@ function withSessionSystemContext(systemPrompt: string, session: EdgeSessionCont
     context.push(`Current application state: ${stableStringify(session.state)}.`)
   }
 
+  if (memoryRecords.length > 0) {
+    context.push(`Relevant memory:\n${memoryRecords.map(formatMemoryRecord).join('\n')}`)
+  }
+
   if (context.length === 0) return systemPrompt
   return `${systemPrompt}\n\nUse this host-provided context when helpful, but do not reveal hidden auth material:\n${context.join('\n')}`
+}
+
+function formatMemoryRecord(record: EdgeMemoryRecord) {
+  const title = record.title ? `${record.title}: ` : ''
+  return `- ${title}${record.body}`
+}
+
+function parseMarkdownMemoryDocument(document: MarkdownMemoryDocument): EdgeMemoryRecord[] {
+  const lines = document.content.split(/\r?\n/)
+  const records: EdgeMemoryRecord[] = []
+  let currentTitle = document.source ?? document.id
+  let currentBody: string[] = []
+  let currentHeadingId = 'root'
+
+  const flush = () => {
+    const body = currentBody.join('\n').trim()
+    if (!body) return
+    records.push({
+      id: `${document.id}:${currentHeadingId}`,
+      title: currentTitle,
+      body,
+      tags: document.tags,
+      source: document.source,
+      updatedAt: document.updatedAt,
+    })
+  }
+
+  for (const line of lines) {
+    const heading = /^(#{1,6})\s+(.+)$/.exec(line)
+    if (heading) {
+      flush()
+      currentTitle = heading[2].trim()
+      currentHeadingId = slugify(currentTitle) || String(records.length + 1)
+      currentBody = []
+      continue
+    }
+    currentBody.push(line)
+  }
+
+  flush()
+  return records.length > 0
+    ? records
+    : [{
+        id: `${document.id}:root`,
+        title: document.source ?? document.id,
+        body: document.content.trim(),
+        tags: document.tags,
+        source: document.source,
+        updatedAt: document.updatedAt,
+      }].filter(record => record.body)
+}
+
+function scoreMemoryRecord(record: EdgeMemoryRecord, terms: string[]) {
+  const title = `${record.title ?? ''} ${record.tags?.join(' ') ?? ''}`.toLowerCase()
+  const body = record.body.toLowerCase()
+  return terms.reduce((score, term) => {
+    if (title.includes(term)) return score + 3
+    if (body.includes(term)) return score + 1
+    return score
+  }, 0)
+}
+
+function tokenize(value: string) {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(term => term.length > 1)
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+function redactValue(value: unknown, patterns: PiiRedactorPattern[]): unknown {
+  if (typeof value === 'string') {
+    return patterns.reduce(
+      (current, item) => current.replace(item.pattern, item.replacement ?? `[REDACTED:${item.name}]`),
+      value,
+    )
+  }
+
+  if (Array.isArray(value)) return value.map(item => redactValue(item, patterns))
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, redactValue(item, patterns)]),
+    )
+  }
+
+  return value
 }
 
 function publicIdentity(identity: EdgeIdentity | undefined) {

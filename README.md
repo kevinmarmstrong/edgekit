@@ -82,6 +82,9 @@ Backend-served generative UI needs a hosted route or worker that can stream AG-U
 edgekit stays small by exposing contracts instead of shipping a required cloud service:
 
 - Hybrid routing: `createHybridModelRouter()` keeps simple work local and routes complex work to a developer-provided model.
+- Supervisor routing: `createSupervisorRouter()` gives teams a lightweight supervisor/worker pattern for intent-based delegation without adopting a full multi-agent framework.
+- Markdown memory: `createMarkdownMemoryStore()` hydrates relevant `.md` files into the agent context; replace it with IndexedDB, OPFS, vector, or server-backed stores by implementing the same `search()` contract.
+- Redaction middleware: `createPiiRedactor()` and custom redactors sanitize tool results before they reach UI events, telemetry, and audit trails.
 - MCP catalogs: `mcpToolsFromDefinitions()` and `loadMcpTools()` adapt safe MCP tool catalogs into normal Edgekit tools.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `<edge-chat>.configure()` to observe runs, tools, approvals, views, errors, and no-model fallbacks.
 - Mission control: `createMissionControl()` provides an in-memory dashboard aggregator; production apps can send the same events to OpenTelemetry, Datadog, PostHog, Supabase, or their own warehouse.
@@ -91,6 +94,10 @@ edgekit stays small by exposing contracts instead of shipping a required cloud s
 
 ```ts
 chat.configure({
+  memory: createMarkdownMemoryStore({
+    documents: [{ id: 'preferences', content: preferencesMarkdown }],
+  }),
+  redactors: createPiiRedactor(),
   identityProvider: () => ({
     id: currentUser.id,
     tenantId: currentTenant.id,

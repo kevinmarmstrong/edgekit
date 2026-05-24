@@ -2,11 +2,14 @@ import { css, html, LitElement } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import {
   actionsToEdgeView,
+  applyRedactors,
   createAgent,
+  resolveSessionContext,
   type AgentEvent,
   type EdgeAction,
   type EdgeActionContext,
   type EdgeField,
+  type EdgeToolExecutionContext,
   type CreateAgentOptions,
   type DownloadPromptEvent,
   type EdgeAgent,
@@ -601,13 +604,32 @@ export class EdgeChat extends LitElement {
         toolName: form.toolName,
         input,
       })
-      const output = await this.executeTool(form.toolName, input)
-      await this.emitUiTelemetry('tool-result', { toolName: form.toolName, data: output })
+      const session = await resolveSessionContext(this.config)
+      const toolContext: EdgeToolExecutionContext = {
+        session,
+        identity: session.identity,
+        auth: session.auth,
+        state: session.state,
+      }
+      const output = await this.executeTool(form.toolName, input, toolContext)
+      const redactedOutput = await applyRedactors(output, this.config.redactors, {
+        ...toolContext,
+        toolName: form.toolName,
+        phase: 'ui-action',
+      })
+      await this.emitUiTelemetry('tool-result', { toolName: form.toolName, data: redactedOutput })
+      await this.config.auditTrail?.record({
+        action: 'tool-result',
+        sessionId: this.config.sessionId ?? 'edge-chat',
+        toolName: form.toolName,
+        input,
+        output: redactedOutput,
+      })
       this.messages = [
         ...this.messages,
         {
           role: 'assistant',
-          text: this.formSuccessText(form, output, input),
+          text: this.formSuccessText(form, redactedOutput, input),
         },
       ]
     } catch (error) {
@@ -618,10 +640,12 @@ export class EdgeChat extends LitElement {
     }
   }
 
-  private async executeTool(toolName: string, input: Record<string, unknown>) {
-    const candidate = (this.tools ?? {})[toolName] as { execute?: (input: Record<string, unknown>) => unknown | Promise<unknown> }
+  private async executeTool(toolName: string, input: Record<string, unknown>, context: EdgeToolExecutionContext) {
+    const candidate = (this.tools ?? {})[toolName] as {
+      execute?: (input: Record<string, unknown>, context?: EdgeToolExecutionContext) => unknown | Promise<unknown>
+    }
     if (!candidate?.execute) throw new Error(`${toolName} is not executable.`)
-    return candidate.execute(input)
+    return candidate.execute(input, context)
   }
 
   private formSuccessText(form: EdgeFormView, output: unknown, input: Record<string, unknown>) {

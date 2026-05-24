@@ -8,8 +8,11 @@ import {
   createAgUiAgent,
   createAuditTrail,
   createHybridModelRouter,
+  createMarkdownMemoryStore,
   createMissionControl,
   createModelProvider,
+  createPiiRedactor,
+  createSupervisorRouter,
   filterToolManifestsForSession,
   loadMcpTools,
   mcpToolsFromDefinitions,
@@ -177,6 +180,100 @@ describe('resolveModel', () => {
     expect(system).not.toContain('do-not-inject')
   })
 
+  it('hydrates relevant markdown memory into model context', async () => {
+    const streamText = vi.fn((options: Record<string, unknown>) => ({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', delta: 'remembered' }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'remembered' }] }],
+      }),
+      options,
+    }))
+    const memory = createMarkdownMemoryStore({
+      documents: [
+        {
+          id: 'customer-notes',
+          content: `# Shopping preferences
+
+## Checkout
+The shopper prefers curbside pickup and size 11 shoes.`,
+        },
+      ],
+    })
+
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: {},
+      streamText: streamText as never,
+      memory,
+    })
+
+    for await (const _ of agent.send('what should I remember about checkout?')) {
+      // drain
+    }
+
+    const system = String(streamText.mock.calls[0][0].system)
+    expect(system).toContain('Relevant memory')
+    expect(system).toContain('curbside pickup')
+    expect(system).toContain('size 11')
+  })
+
+  it('redacts sensitive tool results before emitting events and telemetry', async () => {
+    const telemetry = createMissionControl()
+    const auditTrail = createAuditTrail()
+    const redactor = createPiiRedactor()
+    const streamText = vi.fn(() => ({
+      fullStream: (async function* () {
+        yield {
+          type: 'tool-result',
+          toolCallId: 'tool-1',
+          toolName: 'lookupAccount',
+          output: {
+            email: 'sam@example.com',
+            phone: '555-123-4567',
+            note: 'No sensitive content here.',
+          },
+        }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
+      }),
+    }))
+
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: { lookupAccount: {} },
+      streamText: streamText as never,
+      telemetry,
+      auditTrail,
+      redactors: redactor,
+    })
+
+    const events = []
+    for await (const event of agent.send('look up the account')) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual({
+      type: 'tool-result',
+      toolCallId: 'tool-1',
+      toolName: 'lookupAccount',
+      output: {
+        email: '[REDACTED:email]',
+        phone: '[REDACTED:phone]',
+        note: 'No sensitive content here.',
+      },
+    })
+    expect(telemetry.events().at(-1)?.data).not.toContain('sam@example.com')
+    expect(auditTrail.entries?.()[0]?.event.output).toMatchObject({
+      email: '[REDACTED:email]',
+      phone: '[REDACTED:phone]',
+    })
+  })
+
   it('filters dynamic tool manifests by identity roles and permissions', async () => {
     const userTool = { execute: vi.fn() }
     const adminTool = { execute: vi.fn() }
@@ -223,6 +320,72 @@ describe('resolveModel', () => {
       }),
     )
     expect(result).toMatchObject({ identity: { id: 'user-1' } })
+  })
+
+  it('routes through a supervisor router using intent patterns before fallback', async () => {
+    const localModel = { provider: 'local', modelId: 'local', specificationVersion: 'v3' } as LanguageModelV3
+    const analysisModel = { provider: 'analysis', modelId: 'analysis', specificationVersion: 'v3' } as LanguageModelV3
+    const router = createSupervisorRouter({
+      fallback: [localModel],
+      workers: [
+        {
+          id: 'analysis-worker',
+          model: [analysisModel],
+          patterns: [/synthesize/i],
+        },
+      ],
+    })
+
+    await expect(
+      router({
+        input: 'synthesize this account history',
+        messages: [],
+        tools: [],
+        session: {},
+        defaultModel: [localModel],
+        phase: 'send',
+      }),
+    ).resolves.toEqual([analysisModel])
+
+    await expect(
+      router({
+        input: 'open cart',
+        messages: [],
+        tools: [],
+        session: {},
+        defaultModel: [localModel],
+        phase: 'send',
+      }),
+    ).resolves.toEqual([localModel])
+  })
+})
+
+describe('createMarkdownMemoryStore', () => {
+  it('turns markdown headings into searchable memory records', async () => {
+    const store = createMarkdownMemoryStore({
+      documents: [
+        {
+          id: 'workflows',
+          tags: ['checkout'],
+          content: `# Checkout
+Use order lookup before refunds.
+
+## VIP handling
+Offer curbside pickup for preferred shoppers.`,
+        },
+      ],
+    })
+
+    const results = await store.search('preferred pickup', {
+      input: 'preferred pickup',
+      session: {},
+    })
+
+    expect(results[0]).toMatchObject({
+      title: 'VIP handling',
+      body: expect.stringContaining('curbside pickup'),
+      tags: ['checkout'],
+    })
   })
 })
 

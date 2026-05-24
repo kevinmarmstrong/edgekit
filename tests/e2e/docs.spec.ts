@@ -6,7 +6,7 @@ test('homepage links into the full documentation site', async ({ page }) => {
   await page.goto(siteURL)
 
   await expect(page.getByRole('heading', { name: 'Full documentation, not just a demo page.' })).toBeVisible()
-  await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(18)
+  await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(21)
   await expect(page.locator('.site-header nav').getByRole('link', { name: 'Admin' })).toHaveCount(0)
   await expect(page.locator('edge-chat')).toHaveCount(4)
   await expect(page.getByRole('heading', { name: 'Observe edge agents without centralizing the runtime.' })).toBeVisible()
@@ -101,4 +101,7 @@ test('docs pages expose core documentation sections and navigation', async ({ pa
   await expect(page.getByRole('heading', { name: 'Scalable integration primitives' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Identity and session context' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Hybrid routing' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Markdown memory stores' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Supervisor routing' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'PII/PHI redaction' })).toBeVisible()
 })

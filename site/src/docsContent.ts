@@ -195,6 +195,9 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
           '`chromeAI()`: provider helper for browser Chrome AI.',
           '`webLLM(options)`: provider helper for WebLLM.',
           '`createHybridModelRouter(routes)`: route simple work to local models and complex work to developer-provided models.',
+          '`createSupervisorRouter(options)`: route by lightweight intent patterns before falling back to the default model cascade.',
+          '`createMarkdownMemoryStore(options)`: hydrate relevant Markdown-backed memory into the run context.',
+          '`createPiiRedactor(options)`: mask common PII patterns before tool results are emitted to telemetry, audit, and UI events.',
           '`createAgUiAgent(options)`: wrap an AG-UI compatible event stream as an Edgekit agent.',
           '`agUiEventToAgentEvents(event)`: translate AG-UI events into Edgekit events.',
           '`actionsToEdgeView(actions)`: compile action metadata into declarative EdgeView cards/forms.',
@@ -309,6 +312,34 @@ const agent = createAgent({
         },
       },
       {
+        id: 'markdown-memory',
+        title: 'Markdown memory stores',
+        body: [
+          'Use `createMarkdownMemoryStore()` when an app needs persistent local memory without committing to a vector database on day one. Markdown files are easy for developers, coding agents, support teams, and vibe coders to inspect, review, diff, and ship with an app.',
+          'The built-in store treats Markdown headings as memory records and searches them with a lightweight term scorer. It is intentionally replaceable: any object with `search(query, context)` and optional `write(record, context)` can back Edgekit memory, including IndexedDB, OPFS, a vector store, or a server profile service.',
+          'Store preferences, workflow notes, and non-sensitive support history. Do not store raw secrets, access tokens, payment data, or regulated medical content unless your app has an explicit compliance design for that memory.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const memory = createMarkdownMemoryStore({
+  documents: [
+    {
+      id: 'local-preferences',
+      source: 'profile-memory.md',
+      content: await fetch('/memory/profile-memory.md').then(res => res.text()),
+    },
+  ],
+})
+
+const agent = createAgent({
+  systemPrompt,
+  tools,
+  memory,
+  memoryLimit: 3,
+})`,
+        },
+      },
+      {
         id: 'hybrid-routing',
         title: 'Hybrid routing',
         body: [
@@ -334,6 +365,30 @@ const agent = createAgent({
         },
       },
       {
+        id: 'supervisor-routing',
+        title: 'Supervisor routing',
+        body: [
+          '`createSupervisorRouter()` is a simpler route-by-intent layer for apps that want a supervisor/worker pattern without a heavy multi-agent framework. Keep navigation, filtering, and simple extraction on the local model; route synthesis, long planning, or account analysis to a developer-provided worker model.',
+          'The router can match explicit intent strings, regular expressions, or a custom `when(context)` predicate. Because it returns a normal `EdgeModelRouter`, teams can replace it later with a richer classifier without changing the sidecar integration.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const modelRouter = createSupervisorRouter({
+  fallback: [chromeAI(), webLLM()],
+  workers: [
+    {
+      id: 'analysis-worker',
+      model: [cloudAnalysisModel],
+      intents: ['compare accounts', 'explain churn'],
+      patterns: [/synthesize|multi-step|forecast/i],
+    },
+  ],
+})
+
+chat.configure({ modelRouter })`,
+        },
+      },
+      {
         id: 'mcp',
         title: 'MCP tool catalogs',
         body: [
@@ -352,6 +407,28 @@ const agent = createAgent({
 })
 
 chat.registerTools(tools)`,
+        },
+      },
+      {
+        id: 'redaction',
+        title: 'PII/PHI redaction',
+        body: [
+          'Use redactors to sanitize values before tool results are emitted back through the agent event stream, telemetry, or audit trail. `createPiiRedactor()` masks common emails, phone numbers, SSNs, and card-like numbers, and accepts custom regular expressions for app-specific identifiers.',
+          'This is a middleware hook, not a legal guarantee. Regulated deployments should add domain redactors, avoid placing sensitive fields in model prompts, and keep backend permission checks as the final authority.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const redactor = createPiiRedactor({
+  customPatterns: [
+    { name: 'patient-id', pattern: /PAT-[0-9]{6}/g },
+  ],
+})
+
+const agent = createAgent({
+  systemPrompt,
+  tools,
+  redactors: redactor,
+})`,
         },
       },
       {

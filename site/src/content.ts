@@ -92,6 +92,27 @@ export const docChunks: DocChunk[] = [
   },
   {
     slug: 'advanced',
+    title: 'Markdown Memory',
+    tags: ['memory', 'markdown', 'rag', 'local'],
+    body:
+      'createMarkdownMemoryStore turns app-provided Markdown into searchable memory records. It is the simple default for persistent local memory and can be replaced by IndexedDB, OPFS, vector stores, or server-backed profile memory.',
+  },
+  {
+    slug: 'advanced',
+    title: 'Supervisor Routing',
+    tags: ['supervisor', 'routing', 'workers', 'multi-agent'],
+    body:
+      'createSupervisorRouter provides a lightweight supervisor/worker routing pattern. Route simple UI tasks to local models and delegate synthesis, planning, or analysis to developer-provided workers.',
+  },
+  {
+    slug: 'advanced',
+    title: 'PII Redaction',
+    tags: ['pii', 'phi', 'redaction', 'privacy', 'compliance'],
+    body:
+      'createPiiRedactor and custom redactors sanitize tool results before they flow through telemetry, audit trails, and UI events. Use them with strict backend authorization and prompt hygiene.',
+  },
+  {
+    slug: 'advanced',
     title: 'Identity Bridge',
     tags: ['identity', 'session', 'auth', 'jwt'],
     body:
