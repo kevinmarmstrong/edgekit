@@ -30,14 +30,16 @@
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
-          <h1>Add an agent to your web app without adding an AI backend.</h1>
+          <p class="hero-kicker">browser-native agent runtime</p>
+          <h1>Agent UX belongs inside the app, under the app's authority.</h1>
           <p>
-            edgekit is a drop-in sidecar for product workflows. Register your app's existing
-            functions as tools, run the model in the browser when available, and require approval
-            before the agent changes important state.
+            edgekit is a local-first sidecar runtime for enterprise web apps. Register existing
+            functions as typed tools, hydrate identity and page state, run browser-native inference
+            when available, and require approval before the agent changes important data.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="docs/">Read the docs</a>
+            <a class="button secondary" href="llms.txt">Agent docs</a>
             <a class="button secondary" href="#demos">Try live demos</a>
           </div>
         </div>
@@ -65,26 +67,26 @@
 
       <section class="proof-grid" aria-label="edgekit principles">
         <article>
-          <strong>Embed the sidecar</strong>
-          <span>Use the web component or core runtime inside an existing app.</span>
+          <strong>Host app remains sovereign</strong>
+          <span>State, authorization, API boundaries, and final execution stay in the product.</span>
         </article>
         <article>
-          <strong>Register app tools</strong>
-          <span>Expose existing functions like search, cart, account updates, and docs lookup.</span>
+          <strong>Local-first, not local-only</strong>
+          <span>Use Chrome AI or WebLLM first, then explicit cloud routes when the app chooses.</span>
         </article>
         <article>
-          <strong>Gate risky actions</strong>
-          <span>Approval prompts appear before cart, admin, or other state-changing tools run.</span>
+          <strong>Governed agent actions</strong>
+          <span>Approval, audit, telemetry, offline queues, and policy limits are runtime primitives.</span>
         </article>
       </section>
 
       <section class="how-section" id="how-it-works">
         <div class="section-heading">
-          <p class="section-label">How it works</p>
-          <h2>The agent uses your app. It does not replace it.</h2>
+          <p class="section-label">First principles</p>
+          <h2>The agent uses your app. The app stays in control.</h2>
           <p>
-            edgekit gives the model a controlled surface area: tools you register, state your app
-            owns, and approvals your users can see.
+            Enterprise agent UX is not a detached chat panel. It is a governed interface over real
+            app capabilities: identity, state, tools, approval, audit, and recovery.
           </p>
         </div>
         <div class="steps-grid">
@@ -108,11 +110,11 @@
 
       <section class="docs-section" id="docs">
         <div class="section-heading">
-          <p class="section-label">Docs</p>
-          <h2>Full documentation, not just a demo page.</h2>
+          <p class="section-label">Documentation IA</p>
+          <h2>Start with the thesis, then jump to the implementation surface.</h2>
           <p>
-            The docs now cover embedding, concepts, API usage, the UI component, CLI indexing,
-            testing, model evals, and deployment. These cards open the full docs pages.
+            The public docs are split by job: overview, quick start, architecture, enterprise
+            controls, ecosystem integrations, API reference, interface, testing, and deployment.
           </p>
         </div>
         <div class="doc-card-grid" id="doc-card-grid"></div>

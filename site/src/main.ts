@@ -214,13 +214,13 @@ function renderDocCards() {
   const grid = document.querySelector<HTMLElement>('#doc-card-grid')
   if (!grid) return
 
-  grid.innerHTML = docChunks
+  grid.innerHTML = docsPages
     .map(
-      chunk => `
-        <a class="doc-card" href="${docsHref(chunk.slug)}">
-          <span>${chunk.tags[0]}</span>
-          <h3>${chunk.title}</h3>
-          <p>${chunk.body}</p>
+      page => `
+        <a class="doc-card" href="${docsHref(page.slug)}">
+          <span>${page.navLabel}</span>
+          <h3>${page.title}</h3>
+          <p>${page.summary}</p>
         </a>
       `,
     )

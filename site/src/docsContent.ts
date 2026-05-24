@@ -21,10 +21,25 @@ export const docsPages: DocsPage[] = [
   {
     slug: 'overview',
     navLabel: 'Overview',
-    title: 'What edgekit is',
+    title: 'Local-first agent sidecars',
     summary:
-      'edgekit is a browser-native agent runtime for embedding an AI sidecar into an existing web app.',
+      'edgekit is a first-principles runtime for adding an agent to an existing web app without surrendering app authority.',
     sections: [
+      {
+        id: 'first-principles',
+        title: 'First principles',
+        body: [
+          'Agent UX is moving from detached chat boxes into the product surface. In a real application, the agent must understand current state, call app capabilities, respect identity and RBAC, and pause before mutating important state.',
+          'edgekit starts from that constraint. The host app remains the authority for data, permissions, state, and final execution. The model is a sidecar that reasons over a narrow, typed surface the developer intentionally exposes.',
+        ],
+        bullets: [
+          'Local-first by default: use browser-native inference when available and route to cloud workers only when configured.',
+          'Tool-owned by the app: wrap existing product functions instead of duplicating business logic in an agent framework.',
+          'Human-gated mutations: approval, audit, telemetry, and recovery are part of the runtime contract.',
+          'Framework-neutral UI: ship a web component first, then idiomatic wrappers such as React on top.',
+          'Agent-readable docs: provide Markdown and llms exports so coding agents can implement against the project without scraping UI chrome.',
+        ],
+      },
       {
         id: 'purpose',
         title: 'Purpose',
@@ -57,8 +72,8 @@ export const docsPages: DocsPage[] = [
   },
   {
     slug: 'getting-started',
-    navLabel: 'Getting Started',
-    title: 'Install and embed edgekit',
+    navLabel: 'Quick Start',
+    title: 'Quick start',
     summary: 'Add the core package and web component, register tools, and mount the sidecar.',
     sections: [
       {
@@ -112,9 +127,9 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
   },
   {
     slug: 'concepts',
-    navLabel: 'Concepts',
-    title: 'Core concepts',
-    summary: 'Understand providers, fallback, tools, approvals, and the event stream.',
+    navLabel: 'Architecture',
+    title: 'Core architecture',
+    summary: 'Understand providers, fallback, tools, approvals, state, and the event stream.',
     sections: [
       {
         id: 'model-cascade',
@@ -182,9 +197,9 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
   },
   {
     slug: 'api',
-    navLabel: 'Core API',
-    title: 'Core runtime API',
-    summary: 'The core package exposes provider helpers, agent creation, and Vercel AI SDK tool helpers.',
+    navLabel: 'API Reference',
+    title: 'API reference',
+    summary: 'Typed runtime exports for providers, agents, memory, telemetry, audit, offline sync, and tool policy.',
     sections: [
       {
         id: 'exports',
@@ -257,9 +272,9 @@ const agent = createAgent({
   },
   {
     slug: 'advanced',
-    navLabel: 'Advanced',
-    title: 'Scalable integration primitives',
-    summary: 'Hybrid routing, MCP adapters, telemetry, audit trails, and coding-agent handoff patterns.',
+    navLabel: 'Enterprise',
+    title: 'Enterprise controls',
+    summary: 'Identity, RBAC, memory, audit, offline sync, tool policy, and observability primitives.',
     sections: [
       {
         id: 'identity',
@@ -685,8 +700,70 @@ const agent = createAgent({
     ],
   },
   {
+    slug: 'ecosystem',
+    navLabel: 'Ecosystem',
+    title: 'Ecosystem and integrations',
+    summary: 'Framework wrappers, AG-UI backends, MCP tool catalogs, CRDT adapters, and future isolation adapters.',
+    sections: [
+      {
+        id: 'frameworks',
+        title: 'Framework wrappers',
+        body: [
+          'The base UI is a standards-based web component, so it can run in any frontend. The ecosystem packages make that universal primitive idiomatic inside popular frameworks.',
+          '`@kevinmarmstrong/edgekit-react` is the first official wrapper. It exposes JSX and hooks while preserving the same core agent runtime and `<edge-chat>` renderer. Vue and Svelte wrappers are roadmap items once the React API shape settles.',
+        ],
+        code: {
+          language: 'tsx',
+          text: `import { EdgeChat, useEdgeAgent } from '@kevinmarmstrong/edgekit-react'
+
+function Assistant({ agent }) {
+  const edge = useEdgeAgent(agent)
+  return <EdgeChat onReady={chat => chat.useAgent?.(agent)} />
+}`,
+        },
+      },
+      {
+        id: 'ag-ui',
+        title: 'AG-UI providers',
+        body: [
+          'Use AG-UI when a backend agent already owns the reasoning loop. Edgekit can render the event stream inside the application and keep the same EdgeView component contract for forms, cards, tables, and charts.',
+          'Production AG-UI integrations need a hosted route or worker that can stream provider events, hold secrets, enforce rate limits, and call only the tools the app intentionally exposes.',
+        ],
+        bullets: [
+          'Use `createAgUiAgent({ endpoint })` for HTTP/SSE endpoints.',
+          'Use `createAgUiAgent({ run })` when adapting an event iterator from an existing agent client.',
+          'Keep public demos explicit when they use scripted streams instead of a real provider backend.',
+        ],
+      },
+      {
+        id: 'mcp',
+        title: 'MCP adapters',
+        body: [
+          'Edgekit adapts safe MCP catalogs with `loadMcpTools()` and `mcpToolsFromDefinitions()`. The browser should not connect directly to broad stdio servers, file systems, databases, or credential-bearing resources.',
+          'The enterprise pattern is a backend MCP proxy that exposes a least-privilege catalog for the current user and tenant, then lets Edgekit treat those capabilities as normal app tools.',
+        ],
+      },
+      {
+        id: 'offline-adapters',
+        title: 'Offline and CRDT adapters',
+        body: [
+          'Core owns the mutation journal contract: queue an approved idempotent mutation, replay it through the original app tool, and preserve conflict status when sync cannot be resolved automatically.',
+          'Yjs and Automerge belong as optional adapters on top of that journal, not as mandatory core dependencies. Use CRDTs for collaborative state and shared documents; use the built-in journals for simpler queued app actions.',
+        ],
+      },
+      {
+        id: 'isolation-adapters',
+        title: 'Worker and WASM isolation',
+        body: [
+          'Tool isolation is progressive. Start with `createToolPolicyExecutor()` for allowlists, timeouts, payload limits, and abort signals. Add a Worker adapter when client-side tools need to run off the main thread.',
+          'WASM is a future adapter for pure compute tools. It is not a substitute for backend authorization around MCP, SaaS, database, or filesystem access.',
+        ],
+      },
+    ],
+  },
+  {
     slug: 'ui',
-    navLabel: 'UI Component',
+    navLabel: 'Interface',
     title: 'The edge-chat component',
     summary: 'Use the Lit web component for the default sidecar UI, prompts, and approval controls.',
     sections: [
@@ -799,7 +876,7 @@ chat?.useAgent(agent)`,
   },
   {
     slug: 'cli',
-    navLabel: 'Docs CLI',
+    navLabel: 'Docs Indexing',
     title: 'Documentation index CLI',
     summary: 'Build a portable docs index and expose it as an edgekit search tool.',
     sections: [

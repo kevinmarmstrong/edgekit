@@ -5,15 +5,29 @@ const siteURL = 'http://127.0.0.1:4174/edgekit/'
 test('homepage links into the full documentation site', async ({ page }) => {
   await page.goto(siteURL)
 
-  await expect(page.getByRole('heading', { name: 'Full documentation, not just a demo page.' })).toBeVisible()
-  await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(31)
+  await expect(page.getByRole('heading', { name: 'Start with the thesis, then jump to the implementation surface.' })).toBeVisible()
+  await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(10)
   await expect(page.locator('.site-header nav').getByRole('link', { name: 'Admin' })).toHaveCount(0)
   await expect(page.locator('edge-chat')).toHaveCount(4)
   await expect(page.getByRole('heading', { name: 'Observe edge agents without centralizing the runtime.' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Read the docs' }).click()
   await expect(page).toHaveURL(/\/edgekit\/docs\/$/)
-  await expect(page.getByRole('heading', { name: 'What edgekit is' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Local-first agent sidecars' })).toBeVisible()
+})
+
+test('agent-readable documentation exports are available', async ({ page }) => {
+  const llms = await page.request.get(`${siteURL}llms.txt`)
+  expect(llms.ok()).toBeTruthy()
+  await expect(llms.text()).resolves.toContain('edgekit is a browser-native agent runtime')
+
+  const full = await page.request.get(`${siteURL}llms-full.txt`)
+  expect(full.ok()).toBeTruthy()
+  await expect(full.text()).resolves.toContain('# Local-first agent sidecars')
+
+  const advanced = await page.request.get(`${siteURL}docs/advanced.md`)
+  expect(advanced.ok()).toBeTruthy()
+  await expect(advanced.text()).resolves.toContain('## Offline mutation journal')
 })
 
 test('mission control dashboard aggregates public demo telemetry', async ({ page }) => {
@@ -87,7 +101,7 @@ test('public AG-UI demo can render a requested fillable form', async ({ page }) 
 test('docs pages expose core documentation sections and navigation', async ({ page }) => {
   await page.goto(`${siteURL}docs/api/`)
 
-  await expect(page.getByRole('heading', { name: 'Core runtime API' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'API reference' })).toBeVisible()
   await expect(page.getByText('createAgent(options)')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Approval resume' })).toBeVisible()
 
@@ -96,9 +110,9 @@ test('docs pages expose core documentation sections and navigation', async ({ pa
   await expect(page.getByRole('heading', { name: 'Testing agent workflows' })).toBeVisible()
   await expect(page.locator('pre code').filter({ hasText: 'pnpm eval:models' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Advanced' }).click()
+  await page.getByRole('link', { name: 'Enterprise' }).click()
   await expect(page).toHaveURL(/\/edgekit\/docs\/advanced\/$/)
-  await expect(page.getByRole('heading', { name: 'Scalable integration primitives' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Enterprise controls' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Identity and session context' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Hybrid routing' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Markdown memory stores' })).toBeVisible()
@@ -114,7 +128,12 @@ test('docs pages expose core documentation sections and navigation', async ({ pa
   await expect(page.getByRole('heading', { name: 'Roadmap' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'PII/PHI redaction' })).toBeVisible()
 
-  await page.locator('.docs-sidebar').getByRole('link', { name: 'UI Component', exact: true }).click()
+  await page.locator('.docs-sidebar').getByRole('link', { name: 'Ecosystem', exact: true }).click()
+  await expect(page).toHaveURL(/\/edgekit\/docs\/ecosystem\/$/)
+  await expect(page.getByRole('heading', { name: 'Ecosystem and integrations' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'MCP adapters' })).toBeVisible()
+
+  await page.locator('.docs-sidebar').getByRole('link', { name: 'Interface', exact: true }).click()
   await expect(page).toHaveURL(/\/edgekit\/docs\/ui\/$/)
   await expect(page.getByRole('heading', { name: 'React wrapper' })).toBeVisible()
 })
