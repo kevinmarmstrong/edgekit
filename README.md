@@ -43,6 +43,16 @@ const searchProducts = tool({
 
 const chat = document.querySelector('edge-chat')
 chat?.registerTools({ searchProducts })
+chat?.registerActions(({ toolName, output }) => {
+  if (toolName !== 'searchProducts' || !Array.isArray(output.results)) return []
+  return output.results.map(product => ({
+    id: `add-${product.id}`,
+    label: `Add ${product.name} to cart`,
+    toolName: 'addToCart',
+    input: { productId: product.id, quantity: 1 },
+    fields: [{ name: 'size', label: 'Size', type: 'select', options: product.sizes.map(size => ({ label: size, value: size })) }],
+  }))
+})
 ```
 
 ```html

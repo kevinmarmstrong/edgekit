@@ -231,6 +231,37 @@ chat?.registerTools({ searchProducts, addToCart })`,
         },
       },
       {
+        id: 'actions',
+        title: 'User actions',
+        body: [
+          'Use `registerActions()` to turn tool results into fillable CTAs. This keeps users out of unnecessary chat-confirmation turns: the agent can search, then the UI can render a size selector, plan picker, support-category menu, booking date field, or other app-specific form before running a registered tool.',
+          'Tool-call trace messages are hidden by default. Add the `show-tool-events` attribute when you want visible debugging markers.',
+        ],
+        code: {
+          language: 'ts',
+          text: `chat?.registerActions(({ toolName, output }) => {
+  if (toolName !== 'searchProducts' || !Array.isArray(output.results)) return []
+
+  return output.results.map(product => ({
+    id: \`add-\${product.id}\`,
+    label: \`Add \${product.name} to cart\`,
+    toolName: 'addToCart',
+    description: 'Choose required details before running the app action.',
+    input: { productId: product.id, quantity: 1 },
+    fields: [
+      {
+        name: 'size',
+        label: 'Size',
+        type: 'select',
+        required: true,
+        options: product.sizes.map(size => ({ label: size, value: size })),
+      },
+    ],
+  }))
+})`,
+        },
+      },
+      {
         id: 'states',
         title: 'Built-in states',
         body: ['The component renders the states expected in an embedded agent workflow.'],
@@ -238,7 +269,8 @@ chat?.registerTools({ searchProducts, addToCart })`,
           'Provider status: checking, downloading, ready, unavailable, error.',
           'Download prompt for local model setup when policy allows prompting.',
           'Approval prompt for guarded tools.',
-          'Tool-call markers so users can see when the agent is using app capabilities.',
+          'Optional tool-call markers when `show-tool-events` is enabled.',
+          'Action cards with select, text, and number fields from `registerActions()`.',
           'No-model fallback messages for browsers without local model support.',
         ],
       },

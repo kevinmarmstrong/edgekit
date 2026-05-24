@@ -17,13 +17,11 @@ test('admin scripted workflow upgrades an account after approval', async ({ page
   await admin.locator('[data-testid="chat-input"]').fill('upgrade Northwind to Enterprise')
   await admin.locator('[data-testid="send-button"]').click()
 
-  await expect(admin.locator('[data-testid="chat-messages"]')).toContainText('Tool: searchAccounts')
   await expect(admin.locator('[data-testid="approval-prompt"]')).toBeVisible()
   await expect(admin.locator('[data-testid="approval-prompt"]')).toContainText('updatePlan')
 
   await admin.locator('[data-testid="approve-button"]').click()
 
-  await expect(admin.locator('[data-testid="chat-messages"]')).toContainText('Tool: updatePlan')
   await expect(admin.locator('[data-testid="chat-messages"]')).toContainText('Updated Northwind Labs to Enterprise')
   await expect(page.getByTestId('plan-northwind')).toContainText('Enterprise')
   await expect(page.locator('#admin-activity')).toContainText('Updated Northwind Labs to Enterprise')

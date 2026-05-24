@@ -35,6 +35,25 @@ test('basic fallback narrows a white nike dunk request to matching products', as
   await expect(page.getByTestId('chat-messages')).not.toContainText('Adidas Ultraboost Light -')
 })
 
+test('scripted search renders a fillable product action instead of a chat confirmation step', async ({ page }) => {
+  await page.goto('/?agentMode=scripted')
+
+  await page.getByTestId('chat-input').fill('how much are Nike dunks and what sizes are carried?')
+  await page.getByTestId('send-button').click()
+
+  await expect(page.getByTestId('chat-messages')).toContainText('Nike Dunk Low')
+  await expect(page.getByTestId('chat-messages')).not.toContainText('Tool: searchProducts')
+  await expect(page.getByTestId('action-card')).toBeVisible()
+  await expect(page.getByTestId('action-card')).toContainText('Add Nike Dunk Low to cart')
+
+  await page.getByTestId('action-field-size').selectOption('11')
+  await page.getByTestId('action-run-button').click()
+
+  await expect(page.getByTestId('chat-messages')).toContainText('Added Nike Dunk Low to your cart')
+  await expect(page.locator('#cart-state')).toContainText('1x Nike Dunk Low (size 11)')
+  await expect(page.getByTestId('approval-prompt')).toHaveCount(0)
+})
+
 test('scripted workflow searches size nine white nike dunks and adds to cart after approval', async ({ page }) => {
   await page.goto('/?agentMode=scripted')
 
@@ -42,14 +61,12 @@ test('scripted workflow searches size nine white nike dunks and adds to cart aft
   await page.getByTestId('send-button').click()
 
   await expect(page.getByTestId('agent-status')).toContainText(/Scripted agent is ready|Waiting for approval/)
-  await expect(page.getByTestId('chat-messages')).toContainText('Tool: searchProducts')
   await expect(page.getByTestId('approval-prompt')).toBeVisible()
   await expect(page.getByTestId('approval-prompt')).toContainText('addToCart')
   await expect(page.getByTestId('approval-prompt')).toContainText('dunk')
 
   await page.getByTestId('approve-button').click()
 
-  await expect(page.getByTestId('chat-messages')).toContainText('Tool: addToCart')
   await expect(page.getByTestId('chat-messages')).toContainText('Added Nike Dunk Low to your cart')
   await expect(page.locator('#cart-state')).toContainText('1x Nike Dunk Low')
 })
@@ -73,7 +90,6 @@ test('scripted workflow handles search-only shopping assistance without approval
   await page.getByTestId('chat-input').fill('show running shoes under $100 size 10')
   await page.getByTestId('send-button').click()
 
-  await expect(page.getByTestId('chat-messages')).toContainText('Tool: searchProducts')
   await expect(page.getByTestId('chat-messages')).toContainText('Nike Air Zoom Pegasus')
   await expect(page.getByTestId('approval-prompt')).toHaveCount(0)
   await expect(page.locator('#cart-state')).toContainText('No items yet')

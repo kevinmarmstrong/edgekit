@@ -14,6 +14,12 @@ type Product = {
   support: string
 }
 
+type CartItem = {
+  productId: string
+  quantity: number
+  size?: string
+}
+
 const products: Product[] = [
   {
     id: 'pegasus',
@@ -62,7 +68,7 @@ const products: Product[] = [
   },
 ]
 
-const cart: Array<{ productId: string; quantity: number }> = []
+const cart: CartItem[] = []
 
 const searchProducts = tool({
   description: 'Search the product catalog by query, maximum price, size, and color.',
@@ -94,13 +100,14 @@ const addToCart = tool({
   inputSchema: z.object({
     productId: z.string().describe('The product id to add'),
     quantity: z.number().default(1).describe('Quantity to add'),
+    size: modelOptional(z.string()).describe('Selected shoe size'),
   }),
-  execute: async ({ productId, quantity }) => {
+  execute: async ({ productId, quantity, size }) => {
     const product = products.find(item => item.id === productId)
     if (!product) return { success: false, error: 'Product not found' }
-    cart.push({ productId, quantity })
+    cart.push({ productId, quantity, size })
     renderCart()
-    return { success: true, product: product.name, quantity }
+    return { success: true, product: product.name, quantity, size }
   },
   needsApproval: true,
 })
@@ -127,6 +134,27 @@ if (scriptedMode) {
   })
 }
 chat?.registerTools({ searchProducts, addToCart })
+chat?.registerActions(({ toolName, output }) => {
+  if (toolName !== 'searchProducts') return []
+  return extractProducts(output).map(product => ({
+    id: `add-${product.id}`,
+    label: `Add ${product.name} to cart`,
+    toolName: 'addToCart',
+    description: `$${product.price.toFixed(2)}. Choose a size and add it directly from the sidecar.`,
+    input: { productId: product.id, quantity: 1 },
+    fields: [
+      {
+        name: 'size',
+        label: 'Size',
+        type: 'select',
+        required: true,
+        options: product.sizes.map(size => ({ label: size, value: size })),
+      },
+    ],
+    successMessage: (_output, input) =>
+      `Added ${product.name} to your cart${input.size ? ` (size ${input.size})` : ''}.`,
+  }))
+})
 
 function commerceModelCascade(mode: string) {
   if (mode === 'webllm') return [webLLM({ modelSize: 'about 400 MB' })]
@@ -200,7 +228,8 @@ function renderCart() {
   cartState.textContent = cart
     .map(item => {
       const product = products.find(candidate => candidate.id === item.productId)
-      return `${item.quantity}x ${product?.name ?? item.productId}`
+      const size = item.size ? ` (size ${item.size})` : ''
+      return `${item.quantity}x ${product?.name ?? item.productId}${size}`
     })
     .join(', ')
 }
@@ -284,7 +313,7 @@ async function* createFullStream(
       type: 'tool-call',
       toolCallId: 'tool-add-to-cart',
       toolName: 'addToCart',
-      input: { productId: cartProduct?.id ?? 'dunk', quantity: 1 },
+      input: { productId: cartProduct?.id ?? 'dunk', quantity: 1, size: request.searchInput.size },
     },
   }
 }
@@ -310,7 +339,7 @@ function createShoppingStream(tools: Record<string, unknown>, request: ShoppingR
                     type: 'tool-call',
                     toolCallId: 'tool-add-to-cart',
                     toolName: 'addToCart',
-                    input: { productId: request.productId ?? 'dunk', quantity: 1 },
+                    input: { productId: request.productId ?? 'dunk', quantity: 1, size: request.searchInput.size },
                   },
                 },
               ]

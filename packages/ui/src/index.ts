@@ -26,6 +26,38 @@ type PendingApproval = {
   input: unknown
 }
 
+export type EdgeActionFieldOption = {
+  label: string
+  value: string
+}
+
+export type EdgeActionField = {
+  name: string
+  label: string
+  type: 'select' | 'text' | 'number'
+  options?: EdgeActionFieldOption[]
+  required?: boolean
+  value?: string | number
+}
+
+export type EdgeAction = {
+  id: string
+  label: string
+  toolName: string
+  description?: string
+  input?: Record<string, unknown>
+  fields?: EdgeActionField[]
+  successMessage?: string | ((output: unknown, input: Record<string, unknown>) => string)
+}
+
+export type EdgeActionContext = {
+  toolName: string
+  input: unknown
+  output: unknown
+}
+
+export type EdgeActionProvider = (context: EdgeActionContext) => EdgeAction[] | null | undefined
+
 @customElement('edge-chat')
 export class EdgeChat extends LitElement {
   static styles = css`
@@ -134,6 +166,53 @@ export class EdgeChat extends LitElement {
       gap: 8px;
     }
 
+    .action-card {
+      display: grid;
+      gap: 12px;
+      justify-self: start;
+      max-width: min(580px, 92%);
+      border: 1px solid #cfe0d8;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 14px;
+      box-shadow: 0 12px 28px rgb(29 43 38 / 8%);
+    }
+
+    .action-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .action-description {
+      color: #5f6f69;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .action-fields {
+      display: grid;
+      gap: 10px;
+    }
+
+    .action-field {
+      display: grid;
+      gap: 5px;
+      color: #42534d;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    select {
+      min-width: 0;
+      border: 1px solid #cdd9d4;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 9px 10px;
+      font: inherit;
+      font-size: 14px;
+    }
+
     form {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -182,6 +261,9 @@ export class EdgeChat extends LitElement {
   @property({ attribute: 'placeholder' })
   placeholder = 'Ask the agent...'
 
+  @property({ type: Boolean, attribute: 'show-tool-events' })
+  showToolEvents = false
+
   @state()
   private messages: ChatMessage[] = [
     {
@@ -202,7 +284,11 @@ export class EdgeChat extends LitElement {
   @state()
   private pendingApproval: PendingApproval | null = null
 
+  @state()
+  private suggestedActions: EdgeAction[] = []
+
   private tools: CreateAgentOptions['tools'] = {}
+  private actionProviders: EdgeActionProvider[] = []
   private config: Partial<CreateAgentOptions> = {}
   private agent: EdgeAgent | null = null
 
@@ -214,6 +300,11 @@ export class EdgeChat extends LitElement {
   registerTools(tools: CreateAgentOptions['tools']) {
     this.tools = tools
     this.agent = null
+  }
+
+  registerActions(provider: EdgeActionProvider | EdgeAction[]) {
+    const nextProvider = Array.isArray(provider) ? () => provider : provider
+    this.actionProviders = [...this.actionProviders, nextProvider]
   }
 
   protected render() {
@@ -264,6 +355,7 @@ export class EdgeChat extends LitElement {
                 </div>
               </div>`
             : null}
+          ${this.suggestedActions.map(action => this.renderAction(action))}
         </div>
         <form @submit=${this.submit}>
           <input
@@ -303,6 +395,7 @@ export class EdgeChat extends LitElement {
 
     if (input) input.value = ''
     this.busy = true
+    this.suggestedActions = []
     this.messages = [...this.messages, { role: 'user', text }, { role: 'assistant', text: '' }]
 
     try {
@@ -320,7 +413,7 @@ export class EdgeChat extends LitElement {
     if (event.type === 'text-delta') {
       this.appendToAssistant(event.text)
     } else if (event.type === 'tool-call') {
-      this.messages = [...this.messages, { role: 'tool', text: `Tool: ${event.toolName}` }]
+      if (this.showToolEvents) this.messages = [...this.messages, { role: 'tool', text: `Tool: ${event.toolName}` }]
     } else if (event.type === 'approval-request') {
       const toolCall = event.toolCall as { toolName?: string; input?: unknown } | undefined
       this.pendingApproval = {
@@ -333,6 +426,12 @@ export class EdgeChat extends LitElement {
       this.pendingPrompt = null
       this.appendToAssistant(event.message)
       this.statusText = event.message === 'AI is not available in this browser.' ? 'No local model' : 'Basic mode'
+    } else if (event.type === 'tool-result') {
+      this.addSuggestedActions({
+        toolName: event.toolName,
+        input: undefined,
+        output: event.output,
+      })
     } else if (event.type === 'error') {
       this.pendingPrompt = null
       this.pendingApproval = null
@@ -360,6 +459,107 @@ export class EdgeChat extends LitElement {
   private answerPrompt(accepted: boolean) {
     this.pendingPrompt?.resolve(accepted)
     this.pendingPrompt = null
+  }
+
+  private renderAction(action: EdgeAction) {
+    return html`<div class="action-card" data-testid="action-card">
+      <div>
+        <div class="action-title">${action.label}</div>
+        ${action.description ? html`<div class="action-description">${action.description}</div>` : null}
+      </div>
+      ${action.fields?.length
+        ? html`<div class="action-fields">
+            ${action.fields.map(field => this.renderActionField(action, field))}
+          </div>`
+        : null}
+      <div class="prompt-actions">
+        <button type="button" data-testid="action-run-button" @click=${() => this.runAction(action)}>
+          ${action.label}
+        </button>
+      </div>
+    </div>`
+  }
+
+  private renderActionField(action: EdgeAction, field: EdgeActionField) {
+    const id = `${action.id}-${field.name}`
+    return html`<label class="action-field" for=${id}>
+      ${field.label}
+      ${field.type === 'select'
+        ? html`<select
+            id=${id}
+            data-testid=${`action-field-${field.name}`}
+            data-action-id=${action.id}
+            data-field-name=${field.name}
+          >
+            ${field.options?.map(
+              option => html`<option value=${option.value} ?selected=${option.value === String(field.value ?? '')}>
+                ${option.label}
+              </option>`,
+            )}
+          </select>`
+        : html`<input
+            id=${id}
+            data-testid=${`action-field-${field.name}`}
+            data-action-id=${action.id}
+            data-field-name=${field.name}
+            type=${field.type}
+            .value=${String(field.value ?? '')}
+            ?required=${field.required}
+          />`}
+    </label>`
+  }
+
+  private addSuggestedActions(context: EdgeActionContext) {
+    if (this.actionProviders.length === 0) return
+    const actions = this.actionProviders.flatMap(provider => provider(context) ?? [])
+    if (actions.length === 0) return
+    const existingIds = new Set(this.suggestedActions.map(action => action.id))
+    this.suggestedActions = [...this.suggestedActions, ...actions.filter(action => !existingIds.has(action.id))]
+  }
+
+  private async runAction(action: EdgeAction) {
+    const input = { ...(action.input ?? {}) }
+    for (const field of action.fields ?? []) {
+      const selector = `[data-action-id="${action.id}"][data-field-name="${field.name}"]`
+      const element = this.renderRoot.querySelector<HTMLInputElement | HTMLSelectElement>(selector)
+      const rawValue = element?.value ?? ''
+      if (field.required && rawValue.length === 0) {
+        this.statusText = `${field.label} is required.`
+        return
+      }
+      if (rawValue.length > 0) {
+        input[field.name] = field.type === 'number' ? Number(rawValue) : rawValue
+      }
+    }
+
+    this.busy = true
+    this.suggestedActions = this.suggestedActions.filter(candidate => candidate.id !== action.id)
+    try {
+      const output = await this.executeTool(action.toolName, input)
+      this.messages = [
+        ...this.messages,
+        {
+          role: 'assistant',
+          text: this.actionSuccessText(action, output, input),
+        },
+      ]
+    } catch (error) {
+      this.messages = [...this.messages, { role: 'assistant', text: `Something went wrong: ${String(error)}` }]
+    } finally {
+      this.busy = false
+    }
+  }
+
+  private async executeTool(toolName: string, input: Record<string, unknown>) {
+    const candidate = this.tools[toolName] as { execute?: (input: Record<string, unknown>) => unknown | Promise<unknown> }
+    if (!candidate?.execute) throw new Error(`${toolName} is not executable.`)
+    return candidate.execute(input)
+  }
+
+  private actionSuccessText(action: EdgeAction, output: unknown, input: Record<string, unknown>) {
+    if (typeof action.successMessage === 'function') return action.successMessage(output, input)
+    if (action.successMessage) return action.successMessage
+    return `${action.label} complete.`
   }
 
   private async answerApproval(approved: boolean) {

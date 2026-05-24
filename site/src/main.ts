@@ -17,6 +17,12 @@ type Product = {
   support: string
 }
 
+type CartItem = {
+  productId: string
+  quantity: number
+  size?: string
+}
+
 const products: Product[] = [
   {
     id: 'pegasus',
@@ -65,7 +71,7 @@ const products: Product[] = [
   },
 ]
 
-const cart: Array<{ productId: string; quantity: number }> = []
+const cart: CartItem[] = []
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
 
 const searchDocsTool = tool({
@@ -109,13 +115,14 @@ const addToCart = tool({
   inputSchema: z.object({
     productId: z.string().describe('The product id to add'),
     quantity: z.number().default(1).describe('Quantity to add'),
+    size: modelOptional(z.string()).describe('Selected shoe size'),
   }),
-  execute: async ({ productId, quantity }) => {
+  execute: async ({ productId, quantity, size }) => {
     const product = products.find(item => item.id === productId)
     if (!product) return { success: false, error: 'Product not found' }
-    cart.push({ productId, quantity })
+    cart.push({ productId, quantity, size })
     renderCart()
-    return { success: true, product: product.name, quantity }
+    return { success: true, product: product.name, quantity, size }
   },
   needsApproval: true,
 })
@@ -134,6 +141,27 @@ commerceChat?.configure({
   onNoModel: ({ input }) => answerFromCatalog(input),
 })
 commerceChat?.registerTools({ searchProducts, addToCart })
+commerceChat?.registerActions(({ toolName, output }) => {
+  if (toolName !== 'searchProducts') return []
+  return extractProducts(output).map(product => ({
+    id: `add-${product.id}`,
+    label: `Add ${product.name} to cart`,
+    toolName: 'addToCart',
+    description: `$${product.price.toFixed(2)}. Choose a size and add it directly from the sidecar.`,
+    input: { productId: product.id, quantity: 1 },
+    fields: [
+      {
+        name: 'size',
+        label: 'Size',
+        type: 'select',
+        required: true,
+        options: product.sizes.map(size => ({ label: size, value: size })),
+      },
+    ],
+    successMessage: (_output, input) =>
+      `Added ${product.name} to your cart${input.size ? ` (size ${input.size})` : ''}.`,
+  }))
+})
 
 renderDocCards()
 renderCatalog()
@@ -248,9 +276,21 @@ function renderCart() {
   cartState.textContent = cart
     .map(item => {
       const product = products.find(candidate => candidate.id === item.productId)
-      return `${item.quantity}x ${product?.name ?? item.productId}`
+      const size = item.size ? ` (size ${item.size})` : ''
+      return `${item.quantity}x ${product?.name ?? item.productId}${size}`
     })
     .join(', ')
+}
+
+function extractProducts(output: unknown): Product[] {
+  if (!isRecord(output) || !Array.isArray(output.results)) return []
+  return output.results.filter((item): item is Product => {
+    return isRecord(item) && typeof item.id === 'string' && typeof item.name === 'string'
+  })
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function extractSize(input: string) {
