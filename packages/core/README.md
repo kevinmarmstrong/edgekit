@@ -33,3 +33,4 @@ Use `chromeAI()` and `webLLM()` for the default local model cascade, or pass any
 Use `modelOptional(schema)` for optional tool fields so browser models can omit a value or send `null` without causing a visible schema-retry loop.
 Use `createAgUiAgent({ endpoint })` to connect an AG-UI compatible event stream, and `actionsToEdgeView()` when you want tool results to render as declarative cards/forms.
 Use `createHybridModelRouter()`, `mcpToolsFromDefinitions()`, `createMissionControl()`, and `createAuditTrail()` when an app needs cloud fallback, MCP-backed tools, telemetry, or approval audit logging without replacing the browser-native runtime.
+Use `identityProvider`, `sessionProvider`, `stateProvider`, `toolManifests`, and `withToolContext()` to bind tools to the host app identity, RBAC permissions, auth context, and current app state.

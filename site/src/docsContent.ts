@@ -198,6 +198,9 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
           '`createAgUiAgent(options)`: wrap an AG-UI compatible event stream as an Edgekit agent.',
           '`agUiEventToAgentEvents(event)`: translate AG-UI events into Edgekit events.',
           '`actionsToEdgeView(actions)`: compile action metadata into declarative EdgeView cards/forms.',
+          '`resolveSessionContext(options)`: combine host session, identity, and app-state providers.',
+          '`filterToolManifestsForSession(manifests, session)`: apply role and permission filters to dynamic tools.',
+          '`withToolContext(tools, context)`: pass identity, auth, and state into tool execution without adding secrets to the prompt.',
           '`mcpToolsFromDefinitions(definitions, client)`: convert a safe MCP tool catalog into Edgekit tools.',
           '`loadMcpTools(client)`: load tools from an MCP client that exposes `listTools()` and `callTool()`.',
           '`createMissionControl()`: aggregate telemetry events for dashboards or analytics adapters.',
@@ -244,6 +247,67 @@ const agent = createAgent({
     title: 'Scalable integration primitives',
     summary: 'Hybrid routing, MCP adapters, telemetry, audit trails, and coding-agent handoff patterns.',
     sections: [
+      {
+        id: 'identity',
+        title: 'Identity and session context',
+        body: [
+          'Use `sessionProvider`, `identityProvider`, and `stateProvider` to bridge the host app session into Edgekit. The model receives only a safe public identity summary and app-state summary; auth headers, cookies, and tokens stay in the tool execution context.',
+          'This lets registered tools and MCP proxies enforce the same user, tenant, and permission checks your backend already uses.',
+        ],
+        code: {
+          language: 'ts',
+          text: `chat.configure({
+  sessionProvider: () => ({
+    identity: {
+      id: currentUser.id,
+      tenantId: currentTenant.id,
+      roles: currentUser.roles,
+      permissions: currentUser.permissions,
+    },
+    auth: {
+      headers: { authorization: 'Bearer ' + appJwt },
+      credentials: 'include',
+    },
+  }),
+})`,
+        },
+      },
+      {
+        id: 'rbac',
+        title: 'Dynamic RBAC tools',
+        body: [
+          'Use `toolManifests` when the available agent tools depend on the signed-in user. Edgekit filters the manifest each run, so a customer can see customer tools while an admin session can hydrate elevated account-management tools.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const agent = createAgent({
+  systemPrompt,
+  identityProvider: getCurrentIdentity,
+  toolManifests: [
+    { name: 'searchOrders', tool: searchOrders, permissions: ['orders:read'] },
+    { name: 'suspendAccount', tool: suspendAccount, roles: ['admin'], permissions: ['accounts:suspend'] },
+  ],
+})`,
+        },
+      },
+      {
+        id: 'state-hydration',
+        title: 'State hydration',
+        body: [
+          'Use `stateProvider` to give the model a concise, host-owned view of the current page or workflow before the user asks anything. This reduces wasted tool calls and helps the sidecar act like it belongs inside the app.',
+        ],
+        code: {
+          language: 'ts',
+          text: `chat.configure({
+  stateProvider: () => ({
+    route: location.pathname,
+    view: 'Checkout',
+    summary: 'Cart contains 2 items. User is choosing shipping.',
+    data: { cartItems: 2, step: 'shipping' },
+  }),
+})`,
+        },
+      },
       {
         id: 'hybrid-routing',
         title: 'Hybrid routing',

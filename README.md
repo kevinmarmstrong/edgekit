@@ -86,7 +86,24 @@ edgekit stays small by exposing contracts instead of shipping a required cloud s
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `<edge-chat>.configure()` to observe runs, tools, approvals, views, errors, and no-model fallbacks.
 - Mission control: `createMissionControl()` provides an in-memory dashboard aggregator; production apps can send the same events to OpenTelemetry, Datadog, PostHog, Supabase, or their own warehouse.
 - Audit trails: `createAuditTrail()` records tool calls, approval requests, approval decisions, UI actions, and errors in a hash chain. Bring your own signing or cryptographic hash for strict compliance environments.
+- Identity and RBAC: `sessionProvider`, `identityProvider`, `stateProvider`, `toolManifests`, `filterToolManifestsForSession()`, and `withToolContext()` bridge app identity and state into Edgekit without putting auth secrets in the model prompt.
 - Coding-agent handoff: `AGENTS.md` documents the architecture, commands, and guardrails for implementation agents.
+
+```ts
+chat.configure({
+  identityProvider: () => ({
+    id: currentUser.id,
+    tenantId: currentTenant.id,
+    roles: currentUser.roles,
+    permissions: currentUser.permissions,
+  }),
+  stateProvider: () => ({
+    route: location.pathname,
+    view: 'Checkout',
+    summary: 'Cart contains 2 items. User is choosing shipping.',
+  }),
+})
+```
 
 ## Packages
 

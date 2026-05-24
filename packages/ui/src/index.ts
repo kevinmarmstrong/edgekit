@@ -619,7 +619,7 @@ export class EdgeChat extends LitElement {
   }
 
   private async executeTool(toolName: string, input: Record<string, unknown>) {
-    const candidate = this.tools[toolName] as { execute?: (input: Record<string, unknown>) => unknown | Promise<unknown> }
+    const candidate = (this.tools ?? {})[toolName] as { execute?: (input: Record<string, unknown>) => unknown | Promise<unknown> }
     if (!candidate?.execute) throw new Error(`${toolName} is not executable.`)
     return candidate.execute(input)
   }

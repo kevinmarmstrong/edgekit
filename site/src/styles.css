@@ -430,6 +430,32 @@ input {
   text-align: left;
 }
 
+.context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.context-grid article {
+  border: 1px solid #d8e5df;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.context-grid span {
+  color: #177e58;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.context-grid p {
+  margin: 8px 0 0;
+  color: #60736b;
+  line-height: 1.5;
+}
+
 .steps-grid article {
   display: grid;
   gap: 10px;
@@ -788,7 +814,8 @@ pre code {
   .doc-card-grid,
   .steps-grid,
   .catalog,
-  .mission-grid {
+  .mission-grid,
+  .context-grid {
     grid-template-columns: 1fr;
   }
 

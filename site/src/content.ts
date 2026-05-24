@@ -92,6 +92,27 @@ export const docChunks: DocChunk[] = [
   },
   {
     slug: 'advanced',
+    title: 'Identity Bridge',
+    tags: ['identity', 'session', 'auth', 'jwt'],
+    body:
+      'sessionProvider, identityProvider, and stateProvider bridge the host app session into Edgekit. Public identity and app state can inform the model, while auth headers and credentials remain available only to tool execution.',
+  },
+  {
+    slug: 'advanced',
+    title: 'RBAC Tool Manifests',
+    tags: ['rbac', 'roles', 'permissions', 'tools'],
+    body:
+      'toolManifests let a SaaS app expose different tools to customers, support users, and admins. Edgekit filters tools by roles and permissions on each run.',
+  },
+  {
+    slug: 'advanced',
+    title: 'State Hydration',
+    tags: ['state', 'context', 'dom', 'workflow'],
+    body:
+      'stateProvider injects a concise route, view, and workflow summary so the model starts with page context instead of spending tokens asking tools where the user is.',
+  },
+  {
+    slug: 'advanced',
     title: 'MCP Adapter',
     tags: ['mcp', 'tools', 'integration'],
     body:

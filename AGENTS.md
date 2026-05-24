@@ -28,6 +28,9 @@ This repo is designed to be worked on by coding agents. Keep changes aligned wit
 - MCP: use `loadMcpTools()` or `mcpToolsFromDefinitions()` against a safe backend/proxy catalog.
 - Telemetry: pass `telemetry` to `createAgent()`, `createAgUiAgent()`, or `chat.configure()`.
 - Audit: pass `auditTrail: createAuditTrail(...)`; production compliance should provide a cryptographic hash/signing function and persist entries server-side.
+- Identity: use `identityProvider`/`sessionProvider` to pass public user, tenant, roles, and permissions into Edgekit.
+- RBAC: use `toolManifests` for role/permission-filtered dynamic tool exposure.
+- State hydration: use `stateProvider` for concise current-page/workflow context. Do not place auth tokens or secret claims in state summaries.
 
 ## Verification Commands
 
@@ -59,6 +62,7 @@ After deploy, smoke `https://kevinmarmstrong.github.io/edgekit/` in a browser or
 
 - Do not make GitHub Pages depend on live provider secrets or a backend.
 - Do not connect browsers directly to broad MCP stdio servers, local filesystems, databases, or secret-bearing resources.
+- Do not put JWTs, cookies, API keys, or secret claims into `systemPrompt` or `stateProvider` summaries. Keep auth in tool execution context.
 - Do not hide tool/action failures behind generic assistant text.
 - Do not add a hardcoded fix only for one demo when the problem belongs in core configuration or reusable component patterns.
 - Do not flatten the docs into marketing copy. Technical builders need exact APIs, commands, and boundaries.

@@ -109,6 +109,63 @@ export interface NoModelEvent {
   message: string
 }
 
+export interface EdgeIdentity {
+  id: string
+  tenantId?: string
+  roles?: string[]
+  permissions?: string[]
+  claims?: Record<string, unknown>
+}
+
+export interface EdgeAuthContext {
+  headers?: Record<string, string>
+  credentials?: RequestCredentials
+}
+
+export interface EdgeStateSnapshot {
+  route?: string
+  view?: string
+  summary: string
+  data?: Record<string, unknown>
+}
+
+export interface EdgeSessionContext {
+  identity?: EdgeIdentity
+  auth?: EdgeAuthContext
+  state?: EdgeStateSnapshot
+}
+
+export type EdgeSessionProvider = () => EdgeSessionContext | Promise<EdgeSessionContext>
+export type EdgeIdentityProvider = () => EdgeIdentity | null | undefined | Promise<EdgeIdentity | null | undefined>
+export type EdgeStateProvider = () => EdgeStateSnapshot | null | undefined | Promise<EdgeStateSnapshot | null | undefined>
+
+export interface EdgeToolExecutionContext {
+  session: EdgeSessionContext
+  identity?: EdgeIdentity
+  auth?: EdgeAuthContext
+  state?: EdgeStateSnapshot
+}
+
+export type ContextualToolExecute = (input: Record<string, unknown>, context: EdgeToolExecutionContext) => unknown | Promise<unknown>
+
+export interface EdgeToolManifest {
+  name: string
+  tool: unknown
+  description?: string
+  roles?: string[]
+  permissions?: string[]
+}
+
+export interface EdgeToolProviderContext {
+  session: EdgeSessionContext
+  input: string
+  phase: 'send' | 'approval'
+}
+
+export type EdgeToolProvider = (
+  context: EdgeToolProviderContext,
+) => Record<string, unknown> | Promise<Record<string, unknown>>
+
 export type EdgeTelemetryEventName =
   | 'run-start'
   | 'run-finish'
@@ -180,6 +237,7 @@ export interface ModelRouterContext {
   input: string
   messages: ModelMessage[]
   tools: string[]
+  session: EdgeSessionContext
   defaultModel: Array<ModelProvider | LanguageModelV3>
   phase: 'send' | 'approval'
 }
@@ -237,7 +295,12 @@ type StreamTextFn = typeof aiStreamText
 
 export interface CreateAgentOptions {
   systemPrompt: string
-  tools: Record<string, unknown>
+  tools?: Record<string, unknown>
+  toolProvider?: EdgeToolProvider
+  toolManifests?: EdgeToolManifest[]
+  sessionProvider?: EdgeSessionProvider
+  identityProvider?: EdgeIdentityProvider
+  stateProvider?: EdgeStateProvider
   model?: Array<ModelProvider | LanguageModelV3>
   modelRouter?: EdgeModelRouter
   downloadPolicy?: DownloadPolicy
@@ -464,6 +527,45 @@ export function createMissionControl() {
   }
 }
 
+export function filterToolManifestsForSession(manifests: EdgeToolManifest[], session: EdgeSessionContext): EdgeToolManifest[] {
+  return manifests.filter(manifest => canUseTool(manifest, session.identity))
+}
+
+export function toolsFromManifests(manifests: EdgeToolManifest[]): Record<string, unknown> {
+  return Object.fromEntries(manifests.map(manifest => [manifest.name, manifest.tool]))
+}
+
+export async function resolveSessionContext(options: {
+  sessionProvider?: EdgeSessionProvider
+  identityProvider?: EdgeIdentityProvider
+  stateProvider?: EdgeStateProvider
+}): Promise<EdgeSessionContext> {
+  const provided = await options.sessionProvider?.()
+  const identity = await options.identityProvider?.()
+  const state = await options.stateProvider?.()
+  return {
+    ...(provided ?? {}),
+    identity: identity ?? provided?.identity,
+    state: state ?? provided?.state,
+  }
+}
+
+export function withToolContext(tools: Record<string, unknown>, context: EdgeToolExecutionContext): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, candidate]) => {
+      if (!isRecord(candidate) || typeof candidate.execute !== 'function') return [name, candidate]
+      return [
+        name,
+        {
+          ...candidate,
+          execute: (input: Record<string, unknown>) =>
+            (candidate.execute as ContextualToolExecute)(input, context),
+        },
+      ]
+    }),
+  )
+}
+
 export type McpToolDefinition = {
   name: string
   description?: string
@@ -472,14 +574,14 @@ export type McpToolDefinition = {
 
 export interface McpToolClient {
   listTools?: () => Promise<McpToolDefinition[] | { tools: McpToolDefinition[] }>
-  callTool: (name: string, input: Record<string, unknown>) => Promise<unknown> | unknown
+  callTool: (name: string, input: Record<string, unknown>, context?: EdgeToolExecutionContext) => Promise<unknown> | unknown
 }
 
 export function mcpToolsFromDefinitions(definitions: McpToolDefinition[], client: McpToolClient): Record<string, unknown> {
   const createTool = tool as never as (options: {
     description: string
     inputSchema: z.ZodType
-    execute: (input: Record<string, unknown>) => Promise<unknown>
+    execute: ContextualToolExecute
   }) => unknown
   return Object.fromEntries(
     definitions.map(definition => [
@@ -487,7 +589,8 @@ export function mcpToolsFromDefinitions(definitions: McpToolDefinition[], client
       createTool({
         description: definition.description ?? `Call MCP tool ${definition.name}.`,
         inputSchema: jsonSchemaToZod(definition.inputSchema),
-        execute: async (input: Record<string, unknown>) => client.callTool(definition.name, input),
+        execute: async (input: Record<string, unknown>, context: EdgeToolExecutionContext) =>
+          client.callTool(definition.name, input, context),
       }),
     ]),
   )
@@ -570,7 +673,26 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
 
   const run = async function* (phase: 'send' | 'approval'): AsyncGenerator<AgentEvent> {
     const runId = createId('run')
-    await telemetry.emit('run-start', { runId, input: lastUserInput, data: { phase } })
+    const session = await resolveSessionContext(options)
+    const activeTools = await resolveActiveTools(options, session, lastUserInput, phase)
+    const toolContext: EdgeToolExecutionContext = {
+      session,
+      identity: session.identity,
+      auth: session.auth,
+      state: session.state,
+    }
+    const contextualTools = withToolContext(activeTools, toolContext)
+    const system = withSessionSystemContext(options.systemPrompt, session)
+    await telemetry.emit('run-start', {
+      runId,
+      input: lastUserInput,
+      data: {
+        phase,
+        identity: publicIdentity(session.identity),
+        state: session.state,
+        tools: Object.keys(contextualTools),
+      },
+    })
     const statusEvents: ModelStatusEvent[] = []
     const drainStatus = function* () {
       while (statusEvents.length > 0) {
@@ -582,7 +704,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       ? await options.modelRouter({
           input: lastUserInput,
           messages: [...messages],
-          tools: Object.keys(options.tools),
+          tools: Object.keys(contextualTools),
+          session,
           defaultModel: providers,
           phase,
         })
@@ -609,11 +732,11 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     if (!resolved) {
       const defaultMessage = 'AI is not available in this browser.'
       const message = options.onNoModel?.({
-        availableTools: Object.keys(options.tools),
+        availableTools: Object.keys(contextualTools),
         input: lastUserInput,
         message: defaultMessage,
       }) ?? defaultMessage
-      await telemetry.emit('model-unavailable', { runId, input: lastUserInput, data: { availableTools: Object.keys(options.tools) } })
+      await telemetry.emit('model-unavailable', { runId, input: lastUserInput, data: { availableTools: Object.keys(contextualTools) } })
       yield { type: 'no-model', message }
       await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { noModel: true } })
       return
@@ -629,9 +752,9 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     let text = ''
     const result = (streamText as never as (options: Record<string, unknown>) => ReturnType<StreamTextFn>)({
       model: resolved.model,
-      system: options.systemPrompt,
+      system,
       messages: [...messages],
-      tools: options.tools,
+      tools: contextualTools,
       stopWhen: stepCountIs(maxSteps),
     })
 
@@ -928,6 +1051,52 @@ function agentEventToTelemetryName(event: AgentEvent): EdgeTelemetryEventName | 
       return 'model-unavailable'
     default:
       return null
+  }
+}
+
+async function resolveActiveTools(
+  options: CreateAgentOptions,
+  session: EdgeSessionContext,
+  input: string,
+  phase: 'send' | 'approval',
+): Promise<Record<string, unknown>> {
+  if (options.toolProvider) return options.toolProvider({ session, input, phase })
+  if (options.toolManifests) return toolsFromManifests(filterToolManifestsForSession(options.toolManifests, session))
+  return options.tools ?? {}
+}
+
+function canUseTool(manifest: EdgeToolManifest, identity: EdgeIdentity | undefined) {
+  const roles = identity?.roles ?? []
+  const permissions = identity?.permissions ?? []
+  const roleAllowed = !manifest.roles?.length || manifest.roles.some(role => roles.includes(role))
+  const permissionAllowed =
+    !manifest.permissions?.length || manifest.permissions.every(permission => permissions.includes(permission))
+  return roleAllowed && permissionAllowed
+}
+
+function withSessionSystemContext(systemPrompt: string, session: EdgeSessionContext) {
+  const context: string[] = []
+  const identity = publicIdentity(session.identity)
+
+  if (identity) {
+    context.push(`Current user: ${stableStringify(identity)}.`)
+  }
+
+  if (session.state) {
+    context.push(`Current application state: ${stableStringify(session.state)}.`)
+  }
+
+  if (context.length === 0) return systemPrompt
+  return `${systemPrompt}\n\nUse this host-provided context when helpful, but do not reveal hidden auth material:\n${context.join('\n')}`
+}
+
+function publicIdentity(identity: EdgeIdentity | undefined) {
+  if (!identity) return undefined
+  return {
+    id: identity.id,
+    tenantId: identity.tenantId,
+    roles: identity.roles ?? [],
+    permissions: identity.permissions ?? [],
   }
 }
 

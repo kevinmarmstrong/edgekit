@@ -10,10 +10,14 @@ import {
   createHybridModelRouter,
   createMissionControl,
   createModelProvider,
+  filterToolManifestsForSession,
   loadMcpTools,
   mcpToolsFromDefinitions,
   modelOptional,
+  resolveSessionContext,
   resolveModel,
+  toolsFromManifests,
+  withToolContext,
 } from '../src/index'
 
 const fakeModel = { provider: 'fake', modelId: 'fake-model', specificationVersion: 'v3' } as LanguageModelV3
@@ -132,6 +136,93 @@ describe('resolveModel', () => {
     })
     expect(auditTrail.entries?.().map(entry => entry.event.action)).toContain('approval-decision')
     expect(auditTrail.entries?.()[0]?.previousHash).toBe('genesis')
+  })
+
+  it('hydrates identity and app state into model context while keeping auth in tools', async () => {
+    const streamText = vi.fn((options: Record<string, unknown>) => ({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', delta: 'state-aware' }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'state-aware' }] }],
+      }),
+      options,
+    }))
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [fakeModel],
+      tools: {},
+      streamText: streamText as never,
+      identityProvider: () => ({
+        id: 'user-1',
+        tenantId: 'tenant-1',
+        roles: ['admin'],
+        permissions: ['accounts:read'],
+        claims: { token: 'do-not-inject' },
+      }),
+      stateProvider: () => ({
+        route: '/checkout',
+        view: 'Checkout',
+        summary: 'Cart contains 2 items.',
+      }),
+    })
+
+    for await (const _ of agent.send('where am I?')) {
+      // drain
+    }
+
+    const system = String(streamText.mock.calls[0][0].system)
+    expect(system).toContain('Cart contains 2 items.')
+    expect(system).toContain('roles')
+    expect(system).not.toContain('do-not-inject')
+  })
+
+  it('filters dynamic tool manifests by identity roles and permissions', async () => {
+    const userTool = { execute: vi.fn() }
+    const adminTool = { execute: vi.fn() }
+    const manifests = [
+      { name: 'searchOrders', tool: userTool, permissions: ['orders:read'] },
+      { name: 'suspendAccount', tool: adminTool, roles: ['admin'], permissions: ['accounts:suspend'] },
+    ]
+
+    const session = await resolveSessionContext({
+      identityProvider: () => ({
+        id: 'user-1',
+        roles: ['support'],
+        permissions: ['orders:read'],
+      }),
+    })
+
+    const allowed = filterToolManifestsForSession(manifests, session)
+    expect(toolsFromManifests(allowed)).toEqual({ searchOrders: userTool })
+  })
+
+  it('passes session auth and identity into contextual tool execution', async () => {
+    const execute = vi.fn((_input, context) => context)
+    const wrapped = withToolContext(
+      {
+        searchAccountData: { execute },
+      },
+      {
+        session: {
+          identity: { id: 'user-1', roles: ['admin'] },
+          auth: { headers: { authorization: 'Bearer test' } },
+        },
+        identity: { id: 'user-1', roles: ['admin'] },
+        auth: { headers: { authorization: 'Bearer test' } },
+      },
+    )
+
+    const result = await (wrapped.searchAccountData as { execute: (input: Record<string, unknown>) => Promise<unknown> }).execute({})
+
+    expect(execute).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        identity: { id: 'user-1', roles: ['admin'] },
+        auth: { headers: { authorization: 'Bearer test' } },
+      }),
+    )
+    expect(result).toMatchObject({ identity: { id: 'user-1' } })
   })
 })
 
