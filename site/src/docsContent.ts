@@ -159,7 +159,8 @@ document.querySelector('edge-chat')?.registerTools({ searchProducts })`,
         id: 'approval',
         title: 'Human approval',
         body: [
-          'Set `needsApproval: true` on tools that change important state. edgekit emits an approval request, the UI renders approve/reject controls, and `respondToApproval()` resumes the agent turn with the approval decision.',
+          'Set `needsApproval: true` on tools that change important state. edgekit emits an approval request, the UI renders approve/reject controls, and `respondToApproval()` resumes the agent turn with the approval decision plus the original approved tool call.',
+          'Custom providers and deterministic test harnesses should continue from that approved tool call instead of reconstructing the mutation from user text. That keeps fields such as selected size, account id, plan, quantity, or reason intact across the approval boundary.',
         ],
       },
       {
@@ -264,7 +265,10 @@ const agent = createAgent({
       {
         id: 'approval-resume',
         title: 'Approval resume',
-        body: ['When a tool needs approval, call `respondToApproval` with the approval id and decision.'],
+        body: [
+          'When a tool needs approval, call `respondToApproval` with the approval id and decision. The resumed model message includes a `tool-approval-response` part with `approvalId`, `approved`, `reason`, and the original `toolCall` payload.',
+          'Use that `toolCall` as the source of truth for approved mutations in scripted providers, AG-UI bridges, and test doubles.',
+        ],
         code: {
           language: 'ts',
           text: `for await (const event of agent.respondToApproval(approvalId, true)) {
@@ -919,6 +923,7 @@ chat?.useAgent(agent)`,
         title: 'Deterministic workflow tests',
         body: [
           'The ecommerce and admin demos include scripted provider modes. They are not the user-facing model path. They exist so CI can prove tool calling, approval prompts, rejection, and state mutation without depending on local model availability.',
+          'Scripted providers should validate EdgeKit contracts rather than patch a fixture. In particular, approval-loop tests should assert that the exact approved tool input survives resume, not just that the demo happens to add a known product or update a known account.',
         ],
         code: {
           language: 'bash',

@@ -1430,6 +1430,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
   const sessionId = options.sessionId ?? createId('session')
   const telemetry = createTelemetryDispatcher(options.telemetry, sessionId)
   const messages: ModelMessage[] = []
+  const pendingApprovalToolCalls = new Map<string, unknown>()
   let lastUserInput = ''
 
   const emitStatus = (event: ModelStatusEvent): ModelStatusEvent => {
@@ -1667,6 +1668,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           }
           case 'tool-approval-request': {
             const toolCall = part.toolCall as { toolName?: string; input?: unknown } | undefined
+            const approvalId = String(part.approvalId)
+            pendingApprovalToolCalls.set(approvalId, part.toolCall)
             usedTools = true
             yield await makeActivity('Waiting for approval', 'started', { toolName: toolCall?.toolName })
             await telemetry.emit('approval-request', {
@@ -1685,7 +1688,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
             })
             yield {
               type: 'approval-request',
-              approvalId: String(part.approvalId),
+              approvalId,
               toolCall: part.toolCall,
             }
             break
@@ -1754,10 +1757,12 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       yield* run('send')
     },
     async *respondToApproval(approvalId: string, approved: boolean, reason?: string): AsyncGenerator<AgentEvent> {
+      const toolCall = pendingApprovalToolCalls.get(approvalId)
+      pendingApprovalToolCalls.delete(approvalId)
       await telemetry.emit('approval-decision', {
         input: lastUserInput,
         approved,
-        data: { approvalId, reason },
+        data: { approvalId, reason, toolCall },
       })
       await recordAudit({
         action: 'approval-decision',
@@ -1774,9 +1779,10 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
             approvalId,
             approved,
             reason,
+            toolCall,
           },
         ],
-      })
+      } as unknown as ModelMessage)
       yield* run('approval')
     },
     reset() {

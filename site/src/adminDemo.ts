@@ -192,7 +192,7 @@ function createScriptedAdminStream() {
 
     if (approval) {
       if (!approval.approved) return rejectedAdminStream(request)
-      return approvedAdminStream(options.tools ?? {}, request)
+      return approvedAdminStream(options.tools ?? {}, request, approval.toolCall)
     }
 
     return initialAdminStream(options.tools ?? {}, request)
@@ -230,18 +230,17 @@ function initialAdminStream(tools: Record<string, unknown>, request: AdminReques
   }
 }
 
-function approvedAdminStream(tools: Record<string, unknown>, request: AdminRequest) {
-  const toolCall = approvalToolCall(request)
+function approvedAdminStream(tools: Record<string, unknown>, request: AdminRequest, approvedToolCall: ApprovalToolCall | null) {
+  const toolCall = approvedToolCall ?? approvalToolCall(request)
   return {
     fullStream: (async function* () {
       yield toolCall
       const output = await executeTool(tools[toolCall.toolName], toolCall.input)
       yield { type: 'tool-result', toolCallId: toolCall.toolCallId, toolName: toolCall.toolName, output }
+      const successText = formatAdminSuccess(toolCall, output, request)
       yield {
         type: 'text-delta',
-        delta: request.action === 'update-plan'
-          ? `Updated ${request.accountName} to Enterprise.`
-          : `Suspended ${request.accountName}.`,
+        delta: successText,
       }
     })(),
     response: Promise.resolve({
@@ -251,15 +250,28 @@ function approvedAdminStream(tools: Record<string, unknown>, request: AdminReque
           content: [
             {
               type: 'text',
-              text: request.action === 'update-plan'
-                ? `Updated ${request.accountName} to Enterprise.`
-                : `Suspended ${request.accountName}.`,
+              text: formatAdminSuccess(toolCall, undefined, request),
             },
           ],
         },
       ],
     }),
   }
+}
+
+function formatAdminSuccess(toolCall: ApprovalToolCall, output: unknown, request: AdminRequest) {
+  const outputRecord = isRecord(output) ? output : undefined
+  const account = typeof outputRecord?.account === 'string' ? outputRecord.account : request.accountName
+  if (toolCall.toolName === 'updatePlan') {
+    const plan = typeof outputRecord?.plan === 'string'
+      ? outputRecord.plan
+      : typeof toolCall.input.plan === 'string'
+        ? toolCall.input.plan
+        : 'the requested plan'
+    return `Updated ${account} to ${plan}.`
+  }
+  if (toolCall.toolName === 'suspendAccount') return `Suspended ${account}.`
+  return `Completed ${toolCall.toolName}.`
 }
 
 function rejectedAdminStream(request: AdminRequest) {
@@ -323,6 +335,13 @@ function approvalToolCall(request: AdminRequest) {
   }
 }
 
+type ApprovalToolCall = {
+  type?: string
+  toolCallId: string
+  toolName: string
+  input: Record<string, unknown>
+}
+
 function latestUserInput(messages: unknown[]) {
   const userMessage = [...messages]
     .reverse()
@@ -335,10 +354,24 @@ function findLatestApprovalResponse(messages: unknown[]) {
     .reverse()
     .find((message): message is { role: string; content: unknown } => isRecord(message) && message.role === 'tool')
   const content = Array.isArray(toolMessage?.content) ? toolMessage.content : []
-  return content.find(
-    (part): part is { approved: boolean } =>
+  const approval = content.find(
+    (part): part is { approved: boolean; toolCall?: unknown } =>
       isRecord(part) && part.type === 'tool-approval-response' && typeof part.approved === 'boolean',
   )
+  return approval ? { ...approval, toolCall: normalizeToolCall(approval.toolCall) } : undefined
+}
+
+function normalizeToolCall(value: unknown): ApprovalToolCall | null {
+  if (!isRecord(value)) return null
+  if (typeof value.toolCallId !== 'string') return null
+  if (typeof value.toolName !== 'string') return null
+  if (!isRecord(value.input)) return null
+  return {
+    type: typeof value.type === 'string' ? value.type : undefined,
+    toolCallId: value.toolCallId,
+    toolName: value.toolName,
+    input: value.input,
+  }
 }
 
 async function executeTool(toolDefinition: unknown, input: Record<string, unknown>) {

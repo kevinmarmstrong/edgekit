@@ -258,8 +258,8 @@ function createScriptedCommerceStream() {
 
     if (approval) {
       return approval.approved
-        ? createApprovedCartStream(options.tools ?? {})
-        : createRejectedCartStream()
+        ? createApprovedCartStream(options.tools ?? {}, approval.toolCall)
+        : createRejectedCartStream(approval.toolCall)
     }
 
     const input = latestUserInput(messages)
@@ -304,10 +304,18 @@ async function* createFullStream(
     return
   }
 
-  const cartProduct = product ?? products.find(item => item.id === 'dunk')
+  const cartProduct = product ?? results[0]
+  if (!cartProduct) {
+    yield {
+      type: 'text-delta',
+      delta: 'I could not find a matching product to add to your cart.',
+    }
+    return
+  }
+
   yield {
     type: 'text-delta',
-    delta: `I found ${cartProduct?.name ?? 'a matching product'}. Approval is required before adding it to your cart.`,
+    delta: `I found ${cartProduct.name}. Approval is required before adding it to your cart.`,
   }
   yield {
     type: 'tool-approval-request',
@@ -316,14 +324,17 @@ async function* createFullStream(
       type: 'tool-call',
       toolCallId: 'tool-add-to-cart',
       toolName: 'addToCart',
-      input: { productId: cartProduct?.id ?? 'dunk', quantity: 1, size: request.searchInput.size },
+      input: { productId: cartProduct.id, quantity: 1, size: request.searchInput.size },
     },
   }
 }
 
 function createShoppingStream(tools: Record<string, unknown>, request: ShoppingRequest) {
+  const previewProduct = selectProductForRequest(request)
   const responseText = request.addToCart
-    ? 'I found Nike Dunk Low. Approval is required before adding it to your cart.'
+    ? previewProduct
+      ? `I found ${previewProduct.name}. Approval is required before adding it to your cart.`
+      : 'I could not find a matching product to add to your cart.'
     : 'I searched the catalog and returned matching products.'
 
   return {
@@ -332,7 +343,7 @@ function createShoppingStream(tools: Record<string, unknown>, request: ShoppingR
       messages: [
         {
           role: 'assistant',
-          content: request.addToCart
+          content: request.addToCart && previewProduct
             ? [
                 { type: 'text', text: responseText },
                 {
@@ -342,7 +353,7 @@ function createShoppingStream(tools: Record<string, unknown>, request: ShoppingR
                     type: 'tool-call',
                     toolCallId: 'tool-add-to-cart',
                     toolName: 'addToCart',
-                    input: { productId: request.productId ?? 'dunk', quantity: 1, size: request.searchInput.size },
+                    input: { productId: previewProduct.id, quantity: 1, size: request.searchInput.size },
                   },
                 },
               ]
@@ -353,48 +364,71 @@ function createShoppingStream(tools: Record<string, unknown>, request: ShoppingR
   }
 }
 
-function createApprovedCartStream(tools: Record<string, unknown>) {
+function createApprovedCartStream(tools: Record<string, unknown>, approvedToolCall: ApprovalToolCall | null) {
+  const toolCall = approvedToolCall ?? {
+    type: 'tool-call',
+    toolCallId: 'tool-add-to-cart',
+    toolName: 'addToCart',
+    input: {},
+  }
+  const productId = typeof toolCall.input.productId === 'string' ? toolCall.input.productId : undefined
+  const product = products.find(item => item.id === productId)
+  const size = typeof toolCall.input.size === 'string' ? toolCall.input.size : undefined
+  const addedText = product
+    ? `Added ${product.name} to your cart${size ? ` (size ${size})` : ''}.`
+    : 'Added the approved product to your cart.'
+
   return {
     fullStream: (async function* () {
-      const input = { productId: 'dunk', quantity: 1 }
       yield {
         type: 'tool-call',
-        toolCallId: 'tool-add-to-cart',
-        toolName: 'addToCart',
-        input,
+        toolCallId: toolCall.toolCallId,
+        toolName: toolCall.toolName,
+        input: toolCall.input,
       }
-      const output = await executeTool(tools.addToCart, input)
+      const output = await executeTool(tools[toolCall.toolName], toolCall.input)
       yield {
         type: 'tool-result',
-        toolCallId: 'tool-add-to-cart',
-        toolName: 'addToCart',
+        toolCallId: toolCall.toolCallId,
+        toolName: toolCall.toolName,
         output,
       }
       yield {
         type: 'text-delta',
-        delta: 'Added Nike Dunk Low to your cart.',
+        delta: addedText,
       }
     })(),
     response: Promise.resolve({
-      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Added Nike Dunk Low to your cart.' }] }],
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: addedText }] }],
     }),
   }
 }
 
-function createRejectedCartStream() {
+function createRejectedCartStream(rejectedToolCall: ApprovalToolCall | null) {
+  const productId = typeof rejectedToolCall?.input.productId === 'string' ? rejectedToolCall.input.productId : undefined
+  const product = products.find(item => item.id === productId)
+  const rejectedText = product
+    ? `I did not add ${product.name} to your cart.`
+    : 'I did not run the approved cart action.'
+
   return {
     fullStream: (async function* () {
       yield {
         type: 'text-delta',
-        delta: 'I did not add Nike Dunk Low to your cart.',
+        delta: rejectedText,
       }
     })(),
     response: Promise.resolve({
-      messages: [
-        { role: 'assistant', content: [{ type: 'text', text: 'I did not add Nike Dunk Low to your cart.' }] },
-      ],
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: rejectedText }] }],
     }),
   }
+}
+
+type ApprovalToolCall = {
+  type?: string
+  toolCallId: string
+  toolName: string
+  input: Record<string, unknown>
 }
 
 type ShoppingRequest = {
@@ -428,6 +462,27 @@ function parseShoppingRequest(input: string): ShoppingRequest {
   }
 }
 
+function selectProductForRequest(request: ShoppingRequest) {
+  return products.find(product => {
+    const productName = product.name.toLowerCase()
+    const productCategory = product.category.toLowerCase()
+    const query = request.searchInput.query.toLowerCase()
+    const matchesQuery =
+      product.id === request.productId ||
+      productName.includes(query) ||
+      productCategory.includes(query) ||
+      query
+        .split(/\s+/)
+        .filter(Boolean)
+        .every(term => productName.includes(term) || productCategory.includes(term))
+    const matchesPrice = request.searchInput.maxPrice == null || product.price <= request.searchInput.maxPrice
+    const matchesSize = request.searchInput.size == null || product.sizes.includes(request.searchInput.size)
+    const matchesColor =
+      request.searchInput.color == null || product.color.toLowerCase().includes(request.searchInput.color)
+    return matchesQuery && matchesPrice && matchesSize && matchesColor
+  })
+}
+
 function latestUserInput(messages: unknown[]) {
   const userMessage = [...messages]
     .reverse()
@@ -444,10 +499,24 @@ function findLatestApprovalResponse(messages: unknown[]) {
       return isRecord(message) && message.role === 'tool'
     })
   const content = Array.isArray(toolMessage?.content) ? toolMessage.content : []
-  return content.find(
-    (part): part is { type: string; approved: boolean } =>
+  const approval = content.find(
+    (part): part is { type: string; approved: boolean; toolCall?: unknown } =>
       isRecord(part) && part.type === 'tool-approval-response' && typeof part.approved === 'boolean',
   )
+  return approval ? { ...approval, toolCall: normalizeToolCall(approval.toolCall) } : undefined
+}
+
+function normalizeToolCall(value: unknown): ApprovalToolCall | null {
+  if (!isRecord(value)) return null
+  if (typeof value.toolCallId !== 'string') return null
+  if (typeof value.toolName !== 'string') return null
+  if (!isRecord(value.input)) return null
+  return {
+    type: typeof value.type === 'string' ? value.type : undefined,
+    toolCallId: value.toolCallId,
+    toolName: value.toolName,
+    input: value.input,
+  }
 }
 
 async function executeTool(toolDefinition: unknown, input: Record<string, unknown>) {

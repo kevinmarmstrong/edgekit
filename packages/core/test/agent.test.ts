@@ -140,6 +140,19 @@ describe('resolveModel', () => {
       // drain
     }
 
+    expect(streamText.mock.calls[1]?.[0].messages).toContainEqual(
+      expect.objectContaining({
+        role: 'tool',
+        content: [
+          expect.objectContaining({
+            type: 'tool-approval-response',
+            approvalId: 'approval-1',
+            approved: false,
+            toolCall: { toolName: 'addToCart', input: { productId: 'dunk' } },
+          }),
+        ],
+      }),
+    )
     expect(telemetry.snapshot()).toMatchObject({
       runs: 2,
       toolCalls: { addToCart: 2 },

@@ -68,7 +68,7 @@ test('scripted workflow searches size nine white nike dunks and adds to cart aft
   await page.getByTestId('approve-button').click()
 
   await expect(page.getByTestId('chat-messages')).toContainText('Added Nike Dunk Low to your cart')
-  await expect(page.locator('#cart-state')).toContainText('1x Nike Dunk Low')
+  await expect(page.locator('#cart-state')).toContainText('1x Nike Dunk Low (size 9)')
 })
 
 test('scripted workflow can reject an irreversible cart action', async ({ page }) => {
