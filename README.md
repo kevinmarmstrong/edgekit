@@ -185,13 +185,14 @@ pnpm research:env
 pnpm research:suite
 pnpm research:full
 pnpm chrome:profile
+pnpm test:routes
 EDGEKIT_SUITE_TARGET=live pnpm research:suite
 EDGEKIT_SUITE_PROMPT_LIMIT=2 pnpm research:suite
 EDGEKIT_SUITE_SEED=42 pnpm research:suite
 EDGEKIT_SUITE_HEADLESS=0 pnpm research:suite
 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full
 EDGEKIT_CHROME_USER_DATA_DIR="$HOME/.edgekit/chrome-profile" EDGEKIT_SUITE_HEADLESS=0 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full
-EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full
+EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_SUITE_CLOUD_ROUTE_URL=http://127.0.0.1:4198/api/edgekit/cloud-route EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full
 ```
 
 Use `research:agents` as the fast public-surface check, `research:suite` as the expandable tuning loop, and `research:full` when you want build + environment preflight + outcome matrix in one pass. Add new prompt variants or scenario packs before adding narrow code fixes. The rubric currently requires no required failures, no required skips, an average score of at least `0.98`, and category confidence ratings at or above their thresholds.

@@ -22,6 +22,7 @@
     "research:env": "node scripts/research-env.mjs",
     "research:full": "node scripts/research-env.mjs && pnpm research:suite",
     "chrome:profile": "node scripts/launch-chrome-profile.mjs",
+    "test:routes": "node scripts/serve-test-routes.mjs",
     "deploy:cloudflare": "pnpm build && pnpm --dir site dlx wrangler pages deploy dist --project-name edgekit",
     "dev:ecommerce": "pnpm --filter @edgekit/ecommerce-demo dev",
     "dev:site": "pnpm --filter @edgekit/site dev",

@@ -142,7 +142,7 @@ async function runEnvironmentProbe(browser) {
   let notes = ''
   try {
     await page.goto(probeServer.url, { waitUntil: 'domcontentloaded' })
-    const capabilities = await page.evaluate(() => {
+    const capabilities = await page.evaluate(async () => {
       const scope = globalThis
       return {
         userAgent: navigator.userAgent,
@@ -151,7 +151,22 @@ async function runEnvironmentProbe(browser) {
         serviceWorker: 'serviceWorker' in navigator,
         languageModel: 'LanguageModel' in scope,
         aiLanguageModel: Boolean(scope.ai?.languageModel),
+        languageModelAvailability: await localLanguageModelAvailability(scope),
         crossOriginIsolated: scope.crossOriginIsolated,
+      }
+
+      async function localLanguageModelAvailability(scope) {
+        try {
+          if (typeof scope.LanguageModel?.availability === 'function') {
+            return await scope.LanguageModel.availability()
+          }
+          if (typeof scope.ai?.languageModel?.capabilities === 'function') {
+            return (await scope.ai.languageModel.capabilities())?.available ?? 'unknown'
+          }
+        } catch (error) {
+          return `error:${error instanceof Error ? error.message : String(error)}`
+        }
+        return 'missing'
       }
     })
     addCheck(checks, 'environment', 'browser automation is available', true, capabilities.userAgent)
@@ -166,8 +181,15 @@ async function runEnvironmentProbe(browser) {
     addCheck(
       checks,
       'environment',
-      'cloud route env is configured when real provider routing is required',
-      !requireRealProviders || Boolean(process.env.EDGEKIT_SUITE_CLOUD_ROUTE_URL),
+      'Chrome AI/Nano model is available when real local providers are required',
+      !requireRealProviders || capabilities.languageModelAvailability === 'available' || capabilities.languageModelAvailability === 'readily',
+      `availability=${capabilities.languageModelAvailability}`,
+    )
+    addCheck(
+      checks,
+      'environment',
+      'cloud route env is reachable when real provider routing is required',
+      !requireRealProviders || await canFetch(process.env.EDGEKIT_SUITE_CLOUD_ROUTE_URL),
     )
     transcript = JSON.stringify(capabilities, null, 2)
   } catch (error) {
@@ -211,6 +233,16 @@ async function startCapabilityProbeServer() {
   return {
     url: `http://127.0.0.1:${address.port}`,
     close: () => new Promise(resolveClose => server.close(resolveClose)),
+  }
+}
+
+async function canFetch(url) {
+  if (!url) return false
+  try {
+    const response = await fetch(url, { method: 'GET' })
+    return response.ok
+  } catch {
+    return false
   }
 }
 

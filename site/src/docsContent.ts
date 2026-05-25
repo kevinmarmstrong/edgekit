@@ -962,7 +962,7 @@ chat?.useAgent(agent)`,
         ],
         code: {
           language: 'bash',
-          text: 'pnpm research:env\npnpm research:suite\npnpm research:full\npnpm chrome:profile\nEDGEKIT_SUITE_TARGET=live pnpm research:suite\nEDGEKIT_SUITE_PROMPT_LIMIT=2 pnpm research:suite\nEDGEKIT_SUITE_SEED=42 pnpm research:suite\nEDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full\nEDGEKIT_CHROME_USER_DATA_DIR="$HOME/.edgekit/chrome-profile" EDGEKIT_SUITE_HEADLESS=0 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full\nEDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full',
+          text: 'pnpm research:env\npnpm research:suite\npnpm research:full\npnpm chrome:profile\npnpm test:routes\nEDGEKIT_SUITE_TARGET=live pnpm research:suite\nEDGEKIT_SUITE_PROMPT_LIMIT=2 pnpm research:suite\nEDGEKIT_SUITE_SEED=42 pnpm research:suite\nEDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full\nEDGEKIT_CHROME_USER_DATA_DIR="$HOME/.edgekit/chrome-profile" EDGEKIT_SUITE_HEADLESS=0 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full\nEDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_SUITE_CLOUD_ROUTE_URL=http://127.0.0.1:4198/api/edgekit/cloud-route EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:full',
         },
       },
       {

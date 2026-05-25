@@ -45,7 +45,7 @@ await checkCommand('pnpm is available', 'pnpm', ['--version'], value => {
 
 await checkBrowserCapabilities()
 
-addCheck('environment', 'cloud route env is optional and currently configured only when explicit', !requireRealProviders || Boolean(process.env.EDGEKIT_SUITE_CLOUD_ROUTE_URL), {
+addCheck('environment', 'cloud route env is reachable when real providers are required', !requireRealProviders || await canFetch(process.env.EDGEKIT_SUITE_CLOUD_ROUTE_URL), {
   required: requireRealProviders,
   details: requireRealProviders ? 'EDGEKIT_REQUIRE_REAL_PROVIDERS=1 expects EDGEKIT_SUITE_CLOUD_ROUTE_URL for cloud-route quality loops.' : '',
 })
@@ -92,9 +92,24 @@ async function checkBrowserCapabilities() {
         webGpu: 'gpu' in navigator,
         languageModel: 'LanguageModel' in globalScope,
         aiLanguageModel: Boolean(globalScope.ai?.languageModel),
+        languageModelAvailability: await localLanguageModelAvailability(globalScope),
         indexedDb: 'indexedDB' in globalScope,
         serviceWorker: 'serviceWorker' in navigator,
         crossOriginIsolated: globalScope.crossOriginIsolated,
+      }
+
+      async function localLanguageModelAvailability(scope) {
+        try {
+          if (typeof scope.LanguageModel?.availability === 'function') {
+            return await scope.LanguageModel.availability()
+          }
+          if (typeof scope.ai?.languageModel?.capabilities === 'function') {
+            return (await scope.ai.languageModel.capabilities())?.available ?? 'unknown'
+          }
+        } catch (error) {
+          return `error:${error instanceof Error ? error.message : String(error)}`
+        }
+        return 'missing'
       }
     })
     environment.browser = capabilities
@@ -106,6 +121,12 @@ async function checkBrowserCapabilities() {
       'Chrome AI/Nano browser API is detectable when real providers are required',
       capabilities.languageModel || capabilities.aiLanguageModel,
       { required: requireRealProviders },
+    )
+    addCheck(
+      'environment',
+      'Chrome AI/Nano model is available when real providers are required',
+      isAvailable(capabilities.languageModelAvailability),
+      { required: requireRealProviders, details: `availability=${capabilities.languageModelAvailability}` },
     )
   } catch (error) {
     addCheck('environment', 'Playwright Chromium launches', false, { details: readableError(error) })
@@ -196,4 +217,18 @@ function readableError(error) {
 
 function round(value) {
   return Math.round(value * 1000) / 1000
+}
+
+function isAvailable(value) {
+  return value === 'available' || value === 'readily'
+}
+
+async function canFetch(url) {
+  if (!url) return false
+  try {
+    const response = await fetch(url, { method: 'GET' })
+    return response.ok
+  } catch {
+    return false
+  }
 }
