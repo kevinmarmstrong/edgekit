@@ -8,8 +8,10 @@ import {
   resolveSessionContext,
   validateMissionProfile as validateEdgeMissionProfile,
   type AgentEvent,
+  type CascadeReadinessSnapshot,
   type EdgeActivityEvent,
   type EdgeAction,
+  type EdgeCascadeReadinessController,
   type EdgeMissionProfile,
   type EdgeProfileValidationResult,
   type EdgeActionContext,
@@ -44,6 +46,249 @@ type PendingApproval = {
 export type EdgeActionProvider = (context: EdgeActionContext) => EdgeAction[] | null | undefined
 
 type EdgeFormView = Extract<EdgeViewNode, { type: 'form' }>
+
+@customElement('edge-cascade-wizard')
+export class EdgeCascadeWizard extends LitElement {
+  static styles = css`
+    :host {
+      display: block;
+      color: #15201d;
+      font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .wizard {
+      display: grid;
+      gap: 12px;
+      border: 1px solid #d9e2de;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 14px;
+      box-shadow: 0 14px 34px rgb(29 43 38 / 8%);
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .eyebrow {
+      color: #5f6f69;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    h3 {
+      margin: 4px 0 0;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+
+    p {
+      margin: 0;
+      color: #42534d;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mode {
+      border-radius: 999px;
+      background: #edf6f2;
+      color: #176247;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .providers,
+    .capabilities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .pill {
+      border: 1px solid #d9e2de;
+      border-radius: 999px;
+      padding: 5px 8px;
+      background: #f8fbf9;
+      color: #42534d;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .pill.ready {
+      border-color: #b7dac9;
+      background: #edf8f3;
+      color: #176247;
+    }
+
+    .pill.blocked {
+      border-color: #edd8d4;
+      background: #fff5f3;
+      color: #9b392e;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 11px;
+      color: #ffffff;
+      background: #177e58;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      color: #24453a;
+      background: #dcebe5;
+    }
+  `
+
+  @property({ attribute: false })
+  controller: EdgeCascadeReadinessController | null = null
+
+  @state()
+  private snapshot: CascadeReadinessSnapshot | null = null
+
+  private unsubscribe: (() => void) | null = null
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.bindController()
+  }
+
+  disconnectedCallback() {
+    this.unsubscribe?.()
+    this.unsubscribe = null
+    super.disconnectedCallback()
+  }
+
+  updated(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('controller')) this.bindController()
+  }
+
+  configure(controller: EdgeCascadeReadinessController) {
+    this.controller = controller
+  }
+
+  protected render() {
+    const snapshot = this.snapshot
+    if (!snapshot) return html`<section class="wizard"><p>Checking agent capabilities...</p></section>`
+
+    return html`
+      <section class="wizard" data-testid="cascade-wizard" data-mode=${snapshot.mode}>
+        <div class="topline">
+          <div>
+            <div class="eyebrow">Cascade readiness</div>
+            <h3>${snapshot.recommendedAction.label}</h3>
+          </div>
+          <div class="mode">${snapshot.mode}</div>
+        </div>
+        <p>${snapshot.message}</p>
+        <div class="providers" aria-label="Provider status">
+          ${snapshot.providers.length === 0
+            ? html`<span class="pill">No provider check yet</span>`
+            : snapshot.providers.map(
+                provider => html`<span class="pill ${this.providerClass(provider.status)}">
+                  ${provider.label}: ${provider.status}${provider.progress != null
+                    ? ` ${Math.round(provider.progress * 100)}%`
+                    : ''}
+                </span>`,
+              )}
+        </div>
+        <div class="capabilities" aria-label="Capabilities">
+          ${snapshot.requiredCapabilities.length > 0
+            ? snapshot.requiredCapabilities.map(
+                capability => html`<span
+                  class="pill ${snapshot.missingCapabilities.includes(capability) ? 'blocked' : 'ready'}"
+                >
+                  ${capability}
+                </span>`,
+              )
+            : html`<span class="pill">No required capability gate</span>`}
+        </div>
+        <div class="actions">
+          ${this.renderPrimaryAction(snapshot)}
+          <button class="secondary" type="button" @click=${() => this.controller?.retry()}>Recheck</button>
+          <button class="secondary" type="button" @click=${() => this.hide()}>Hide agent</button>
+        </div>
+      </section>
+    `
+  }
+
+  private bindController() {
+    this.unsubscribe?.()
+    this.unsubscribe = null
+    if (!this.controller) return
+    this.unsubscribe = this.controller.subscribe(snapshot => {
+      this.snapshot = snapshot
+      this.dispatchEvent(new CustomEvent('edgekit-cascade-snapshot', {
+        detail: { snapshot },
+        bubbles: true,
+        composed: true,
+      }))
+    })
+  }
+
+  private renderPrimaryAction(snapshot: CascadeReadinessSnapshot) {
+    const action = snapshot.recommendedAction
+    if (action.type === 'prompt') {
+      return html`<button type="button" @click=${() => this.promptDownload(action.provider)}>
+        ${action.label}
+      </button>`
+    }
+    if (action.type === 'fallback') {
+      return html`<button type="button" @click=${() => this.useFallback()}>${action.label}</button>`
+    }
+    if (action.type === 'retry') {
+      return html`<button type="button" @click=${() => this.controller?.retry()}>${action.label}</button>`
+    }
+    return html`<button type="button" @click=${() => this.dispatchAction(action.type)}>${action.label}</button>`
+  }
+
+  private async promptDownload(provider?: string) {
+    await this.controller?.promptDownload(provider)
+    this.dispatchAction('prompt')
+  }
+
+  private useFallback() {
+    this.controller?.useFallback()
+    this.dispatchAction('fallback')
+  }
+
+  private hide() {
+    this.controller?.hideAgent()
+    this.dispatchAction('hide')
+  }
+
+  private dispatchAction(type: string) {
+    this.dispatchEvent(new CustomEvent('edgekit-cascade-action', {
+      detail: { type, snapshot: this.snapshot },
+      bubbles: true,
+      composed: true,
+    }))
+  }
+
+  private providerClass(status: CascadeReadinessSnapshot['providers'][number]['status']) {
+    if (status === 'ready') return 'ready'
+    if (status === 'error' || status === 'unavailable' || status === 'denied' || status === 'skipped') return 'blocked'
+    return ''
+  }
+}
 
 @customElement('edge-chat')
 export class EdgeChat extends LitElement {
@@ -386,6 +631,10 @@ export class EdgeChat extends LitElement {
   useAgent(agent: EdgeAgent) {
     this.agent = agent
     this.agentIsExternal = true
+  }
+
+  useCascadeReadiness(controller: EdgeCascadeReadinessController) {
+    this.configure({ cascadeReadiness: controller })
   }
 
   registerActions(provider: EdgeActionProvider | EdgeAction[]) {
@@ -808,6 +1057,7 @@ export function mountChat(target: string | HTMLElement, options: Partial<CreateA
 
 declare global {
   interface HTMLElementTagNameMap {
+    'edge-cascade-wizard': EdgeCascadeWizard
     'edge-chat': EdgeChat
   }
 }

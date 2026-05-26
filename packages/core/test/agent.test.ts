@@ -7,6 +7,7 @@ import {
   createAgent,
   createAgUiAgent,
   createAuditTrail,
+  createCascadeReadinessController,
   createHandoffEnvelope,
   createHybridModelRouter,
   createKnowledgeSkill,
@@ -736,10 +737,125 @@ describe('knowledge access helpers', () => {
   })
 })
 
+describe('createCascadeReadinessController', () => {
+  it('reports local-ready when a provider resolves', async () => {
+    const controller = createCascadeReadinessController({
+      providers: [
+        createModelProvider({
+          id: 'chrome-ai',
+          label: 'Chrome AI',
+          resolve: async () => fakeModel,
+        }),
+      ],
+      downloadPolicy: 'never',
+      requiredCapabilities: ['local-model', 'tools', 'approvals'],
+      requiredTools: ['searchDocs'],
+      tools: { searchDocs: {} },
+      now: () => '2026-05-26T00:00:00.000Z',
+    })
+
+    const snapshot = await controller.check()
+
+    expect(snapshot).toMatchObject({
+      mode: 'local-ready',
+      canRunAgent: true,
+      recommendedAction: {
+        type: 'continue',
+        label: 'Use local agent',
+        provider: 'chrome-ai',
+      },
+      missingCapabilities: [],
+    })
+    expect(snapshot.capabilities).toEqual(expect.arrayContaining(['local-model', 'chrome-ai', 'tools', 'approvals']))
+  })
+
+  it('marks a provider as downloadable and recommends prompting when downloads are allowed', async () => {
+    const controller = createCascadeReadinessController({
+      providers: [
+        createModelProvider({
+          id: 'chrome-ai',
+          label: 'Chrome AI',
+          resolve: async context => {
+            const accepted = await context.requestDownload({
+              provider: 'chrome-ai',
+              message: 'Enable built-in browser AI?',
+            })
+            return accepted ? fakeModel : null
+          },
+        }),
+      ],
+      downloadPolicy: 'prompt',
+    })
+
+    const snapshot = await controller.check()
+
+    expect(snapshot.mode).toBe('downloadable')
+    expect(snapshot.recommendedAction).toMatchObject({
+      type: 'prompt',
+      provider: 'chrome-ai',
+      message: 'Enable built-in browser AI?',
+    })
+  })
+
+  it('uses fallback mode without prompting when public demos disable downloads', async () => {
+    const controller = createCascadeReadinessController({
+      providers: [
+        createModelProvider({
+          id: 'webllm',
+          label: 'WebLLM',
+          resolve: async context => {
+            await context.requestDownload({
+              provider: 'webllm',
+              modelSize: 'small',
+              message: 'Download a local model?',
+            })
+            return null
+          },
+        }),
+      ],
+      downloadPolicy: 'never',
+      fallback: true,
+      visibilityPolicy: 'show-basic-when-local-unavailable',
+    })
+
+    const snapshot = await controller.check()
+
+    expect(snapshot.mode).toBe('fallback-ready')
+    expect(snapshot.canUseFallback).toBe(true)
+    expect(snapshot.recommendedAction.type).toBe('fallback')
+    expect(snapshot.providers[0]).toMatchObject({ status: 'skipped' })
+  })
+
+  it('can hide features until required capabilities are available', async () => {
+    const controller = createCascadeReadinessController({
+      providers: [
+        createModelProvider({
+          id: 'empty',
+          label: 'Empty',
+          resolve: async () => null,
+        }),
+      ],
+      requiredCapabilities: ['local-model'],
+      visibilityPolicy: 'hide-until-ready',
+    })
+
+    const snapshot = await controller.check()
+
+    expect(snapshot.mode).toBe('hidden')
+    expect(snapshot.shouldHideFeatures).toBe(true)
+    expect(snapshot.missingCapabilities).toEqual(['local-model'])
+    expect(snapshot.recommendedAction.type).toBe('hide')
+  })
+})
+
 describe('createAgent', () => {
   it('reports no-model instead of throwing when the cascade cannot resolve a model', async () => {
     const statuses: string[] = []
     const noModelInputs: string[] = []
+    const readiness = createCascadeReadinessController({
+      downloadPolicy: 'never',
+      fallback: true,
+    })
     const agent = createAgent({
       systemPrompt: 'You are helpful.',
       model: [
@@ -758,6 +874,7 @@ describe('createAgent', () => {
         noModelInputs.push(input)
         return 'No model available.'
       },
+      cascadeReadiness: readiness,
     })
 
     const events = []
@@ -765,12 +882,18 @@ describe('createAgent', () => {
       events.push(event)
     }
 
-    expect(events).toContainEqual({
+    expect(events).toContainEqual(expect.objectContaining({
       type: 'no-model',
       message: 'No model available.',
-    })
+    }))
     expect(statuses).toContain('unavailable')
     expect(noModelInputs).toEqual(['hello'])
+    expect(events.find(event => event.type === 'no-model')).toMatchObject({
+      readiness: {
+        mode: 'fallback-ready',
+        recommendedAction: { type: 'fallback' },
+      },
+    })
   })
 
   it('returns a cached response without invoking model inference', async () => {

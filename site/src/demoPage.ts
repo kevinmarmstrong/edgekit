@@ -120,6 +120,7 @@ function docsDemo() {
           <div id="doc-results" class="doc-results" aria-live="polite"></div>
         </div>
       </div>
+      <edge-cascade-wizard id="docs-cascade"></edge-cascade-wizard>
       <edge-chat
         id="docs-chat"
         system-prompt="You answer questions about the edgekit project. Always call searchDocs before answering. Cite the matching section titles in concise language."
@@ -149,6 +150,7 @@ function ecommerceDemo() {
       <div class="commerce-layout">
         <section class="catalog" aria-label="Product catalog" id="catalog"></section>
         <aside class="commerce-agent">
+          <edge-cascade-wizard id="commerce-cascade"></edge-cascade-wizard>
           <edge-chat
             id="commerce-chat"
             placeholder="Try: find running shoes under $100 in size 10"

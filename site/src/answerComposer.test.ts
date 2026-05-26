@@ -105,4 +105,18 @@ describe('composeEdgekitAnswer', () => {
     expect(answer).toMatch(/live GitHub Pages|live Pages/i)
     expect(answer).toMatch(/provider-matrix\.md|agent-suite\.json/i)
   })
+
+  it('explains cascade readiness as a headless capability gate', () => {
+    const answer = composeEdgekitAnswer({
+      input: 'how should I handle public users who do not have Nano downloaded or need fallback mode?',
+      results: searchDocs('cascade readiness model download fallback mode browser state'),
+      mode: 'site-assistant',
+    })
+
+    expect(answer).toMatch(/createCascadeReadinessController/i)
+    expect(answer).toMatch(/headless snapshot|provider statuses|missing capabilities/i)
+    expect(answer).toMatch(/prompt|suggest|message|fallback|hide/i)
+    expect(answer).toMatch(/edge-cascade-wizard/i)
+    expect(answer).toMatch(/downloadPolicy.*never|public sites/i)
+  })
 })

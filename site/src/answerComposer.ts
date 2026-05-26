@@ -84,6 +84,21 @@ export function composeEdgekitAnswer({ input, results, mode = 'docs-demo', curre
       .join('\n')
   }
 
+  if (intent === 'cascade-readiness') {
+    return [
+      'Use cascade readiness when the app needs to decide whether to show the full agent, ask for model-download consent, suggest a supported browser, run basic mode, or hide agent-only features.',
+      '',
+      '`createCascadeReadinessController()` checks the provider cascade and returns a headless snapshot: provider statuses, required and missing capabilities, fallback availability, and a recommended action such as `continue`, `prompt`, `suggest`, `message`, `fallback`, `hide`, or `retry`.',
+      '',
+      'The optional `<edge-cascade-wizard>` component is demo UI for that snapshot. Production apps can replace it with their own onboarding wizard, settings panel, banner, modal, disabled CTA, or no visible UI at all.',
+      '',
+      'For public sites, prefer `downloadPolicy: "never"` plus transparent fallback messaging so visitors who do not have Chrome AI/Nano ready are not pushed into surprise downloads. Controlled internal apps can use `downloadPolicy: "prompt"` when explicit local-model enablement makes sense.',
+      sourceNote,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
   if (intent === 'skill-optimization') {
     return [
       'Use Skill optimization as a measured development loop, not as runtime self-editing.',
@@ -172,6 +187,7 @@ export function composeEdgekitAnswer({ input, results, mode = 'docs-demo', curre
 export function detectAnswerIntent(input: string) {
   const normalized = input.toLowerCase()
   if (/\b(jwt|cookie|token|database|db|credential|secret)\b/.test(normalized)) return 'unsafe-secrets-or-database'
+  if (/\b(cascade readiness|capability wizard|edge-cascade-wizard|download prompt|model download|hide agent|basic mode|fallback mode|browser state|nano.*download|downloaded nano)\b/.test(normalized)) return 'cascade-readiness'
   if (/\b(reproduc|provider matrix|chrome ai|nano|webllm|cloud route|github pages|live pages|strict provider|model availability|works on.*machine)\b/.test(normalized)) return 'reproducibility'
   if (/\b(adoption kit|agent skills?|skill\.md|recipes?|edgekit-init|astro|intake|scaffold|scaffolding|onboarding)\b/.test(normalized)) return 'adoption-kit'
   if (/\b(starter|template|30.minute|thirty.minute|new mission|first sidecar|support workflow)\b/.test(normalized)) return 'starter-path'

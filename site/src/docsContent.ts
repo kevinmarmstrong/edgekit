@@ -305,12 +305,44 @@ edgekit-init mission --recipe astro-intake-knowledge --out src/edgekit/intake`,
         title: 'Model cascade',
         body: [
           'The default strategy tries local browser providers first. Chrome AI can be used when the browser exposes it. WebLLM can be used on hosts with the right cross-origin isolation headers. If no model is available, apps can provide a deterministic fallback through `onNoModel`.',
+          'Public users arrive with different browsers, model-download states, enterprise policies, and network conditions. Use the cascade readiness controller to check capabilities before promising a full local agent experience.',
         ],
         bullets: [
           '`downloadPolicy: "never"` avoids model downloads and is useful for public demos.',
           '`downloadPolicy: "prompt"` lets the UI ask before a model download.',
           '`downloadPolicy: "auto"` is useful for explicit eval sessions or controlled environments.',
+          '`createCascadeReadinessController()` returns a headless snapshot and recommended action so apps can prompt, suggest, message, hide, or fall back without using Edgekit’s demo UI.',
         ],
+      },
+      {
+        id: 'capability-wizard',
+        title: 'Capability wizard',
+        body: [
+          'The readiness helper is intentionally decoupled from presentation. The host app decides whether to show a banner, modal, settings panel, disabled CTA, or nothing at all. Edgekit only returns provider status, missing capabilities, and a recommended action.',
+          'For public sites, prefer `downloadPolicy: "never"` plus a transparent fallback. For controlled internal apps, use `downloadPolicy: "prompt"` when the user should explicitly approve a local model download.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const readiness = createCascadeReadinessController({
+  providers: [chromeAI(), webLLM()],
+  downloadPolicy: 'prompt',
+  fallback: true,
+  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
+  requiredTools: ['searchProducts', 'addToCart'],
+  tools,
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+})
+
+const snapshot = await readiness.check()
+if (snapshot.recommendedAction.type === 'hide') hideAgent()
+if (snapshot.recommendedAction.type === 'prompt') showDownloadConsent(snapshot)
+
+chat.configure({
+  cascadeReadiness: readiness,
+  onNoModel: ({ input, readiness }) =>
+    \`\${readiness?.message}\\n\\n\${answerWithBasicTools(input)}\`,
+})`,
+        },
       },
       {
         id: 'tools',
@@ -450,6 +482,7 @@ const policySkill = createKnowledgeSkill({
         body: ['The core package is intentionally small.'],
         bullets: [
           '`createAgent(options)`: create an event-streaming agent.',
+          '`createCascadeReadinessController(options)`: check provider/capability state before showing agent features and return a headless recommended action.',
           '`chromeAI()`: provider helper for browser Chrome AI.',
           '`webLLM(options)`: provider helper for WebLLM.',
           '`createHybridModelRouter(routes)`: route simple work to local models and complex work to developer-provided models.',
@@ -501,6 +534,34 @@ const agent = createAgent({
   downloadPolicy: 'never',
   toolChoice: 'auto',
   onNoModel: ({ input }) => 'Basic mode answer for: ' + input,
+})`,
+        },
+      },
+      {
+        id: 'cascade-readiness',
+        title: 'Cascade readiness',
+        body: [
+          'Use `createCascadeReadinessController()` when the app needs to decide what to show before promising a full local agent experience. Public users may arrive without Chrome AI/Nano downloaded, without WebLLM support, or with browser policies that block local models.',
+          'The helper is UI-independent. It returns provider status, required and missing capabilities, fallback availability, and a recommended action: `continue`, `prompt`, `suggest`, `message`, `fallback`, `hide`, or `retry`.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const readiness = createCascadeReadinessController({
+  providers: [chromeAI(), webLLM()],
+  downloadPolicy: 'prompt',
+  fallback: true,
+  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
+  requiredTools: ['searchProducts', 'addToCart'],
+  tools,
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+})
+
+const snapshot = await readiness.check()
+
+chat.configure({
+  cascadeReadiness: readiness,
+  onNoModel: ({ input, readiness }) =>
+    \`\${readiness?.message}\\n\\n\${answerWithBasicTools(input)}\`,
 })`,
         },
       },
@@ -1053,6 +1114,30 @@ chat?.configure({
   onNoModel: ({ input }) => fallbackSearch(input),
 })
 chat?.registerTools({ searchProducts, addToCart })`,
+        },
+      },
+      {
+        id: 'cascade-wizard',
+        title: 'Cascade wizard',
+        body: [
+          '`<edge-cascade-wizard>` is optional UI for `createCascadeReadinessController()`. Use it for demos, setup panels, public capability disclosure, or internal diagnostics.',
+          'Production apps can replace it completely. The durable contract is the controller snapshot and the `edgekit-cascade-snapshot` / `edgekit-cascade-action` events.',
+        ],
+        code: {
+          language: 'ts',
+          text: `import '@kevinmarmstrong/edgekit-ui'
+import { chromeAI, createCascadeReadinessController } from '@kevinmarmstrong/edgekit'
+
+const readiness = createCascadeReadinessController({
+  providers: [chromeAI()],
+  downloadPolicy: 'never',
+  fallback: true,
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+})
+
+document.querySelector('edge-cascade-wizard')?.configure(readiness)
+document.querySelector('edge-chat')?.configure({ cascadeReadiness: readiness })
+void readiness.check()`,
         },
       },
       {

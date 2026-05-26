@@ -23,6 +23,9 @@ chat?.registerTools(supportTools)
 
 ```html
 <edge-chat placeholder="Ask for support help"></edge-chat>
+<edge-cascade-wizard></edge-cascade-wizard>
 ```
 
-The host app owns state, authorization, business logic, and tool execution. The component renders chat, activity states, EdgeView cards/forms/tables/charts, and approval prompts.
+`<edge-cascade-wizard>` is optional demo-grade UI for the headless `createCascadeReadinessController()` contract. Production apps can replace it with their own banner, setup wizard, settings panel, or feature gate.
+
+The host app owns state, authorization, business logic, and tool execution. The component renders chat, activity states, EdgeView cards/forms/tables/charts, approval prompts, and optional cascade-readiness status.

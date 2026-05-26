@@ -41,10 +41,19 @@ Replace only the sample data and tool `execute` functions with your app-owned AP
 
 ```ts
 import '@kevinmarmstrong/edgekit-ui'
-import { chromeAI, validateMissionProfile } from '@kevinmarmstrong/edgekit'
+import { chromeAI, createCascadeReadinessController, validateMissionProfile } from '@kevinmarmstrong/edgekit'
 import { supportTools, supportWorkflowProfile } from './edgekit/support-profile'
 
 const chat = document.querySelector('edge-chat#support-agent')
+const readiness = createCascadeReadinessController({
+  providers: [chromeAI()],
+  downloadPolicy: 'never',
+  fallback: true,
+  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
+  requiredTools: supportWorkflowProfile.requiredTools,
+  tools: supportTools,
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+})
 
 const validation = validateMissionProfile(supportWorkflowProfile, {
   registeredTools: supportTools,
@@ -58,11 +67,13 @@ chat?.configure({
   model: [chromeAI()],
   downloadPolicy: 'never',
   toolChoice: 'required',
+  cascadeReadiness: readiness,
   telemetry: event => console.debug('[edgekit]', event.name, event),
 })
 
 chat?.applyMissionProfile(supportWorkflowProfile)
 chat?.registerTools(supportTools)
+void readiness.check()
 ```
 
 ```html
@@ -70,6 +81,16 @@ chat?.registerTools(supportTools)
   id="support-agent"
   placeholder="Ask: what urgent support cases are open for Riverside?"
 ></edge-chat>
+```
+
+Optional demo/setup UI:
+
+```html
+<edge-cascade-wizard id="support-readiness"></edge-cascade-wizard>
+```
+
+```ts
+document.querySelector('edge-cascade-wizard#support-readiness')?.configure(readiness)
 ```
 
 ## Minute 25-30: Prove Outcomes

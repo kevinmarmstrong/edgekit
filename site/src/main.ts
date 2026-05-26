@@ -1,10 +1,18 @@
 import '@kevinmarmstrong/edgekit-ui'
-import { chromeAI, createAgUiAgent, createMissionControl, createModelProvider, modelOptional, tool } from '@kevinmarmstrong/edgekit'
+import {
+  chromeAI,
+  createAgUiAgent,
+  createCascadeReadinessController,
+  createMissionControl,
+  createModelProvider,
+  modelOptional,
+  tool,
+} from '@kevinmarmstrong/edgekit'
 import { publicCatalogShoppingProfile } from './profiles/public-catalog-shopping'
 import { docsQaProfile } from './profiles/docs-qa'
 import { mountOpsDemo } from './opsDemo'
 import type { AgUiRunInput, EdgeViewNode, LanguageModelV3, MissionControlSnapshot } from '@kevinmarmstrong/edgekit'
-import type { EdgeChat } from '@kevinmarmstrong/edgekit-ui'
+import type { EdgeCascadeWizard, EdgeChat } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
 import { mountAdminDemo } from './adminDemo'
 import { searchDocs } from './content'
@@ -158,13 +166,31 @@ const submitDemoRequest = tool({
 })
 
 const docsChat = document.querySelector<EdgeChat>('edge-chat#docs-chat')
+const docsCascadeWizard = document.querySelector<EdgeCascadeWizard>('edge-cascade-wizard#docs-cascade')
+const docsCascade = createCascadeReadinessController({
+  providers: [chromeAI()],
+  downloadPolicy: 'never',
+  fallback: true,
+  requiredCapabilities: ['tools', 'edgeview'],
+  requiredTools: ['searchDocs'],
+  tools: { searchDocs: searchDocsTool },
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+  messages: {
+    ready: 'Chrome AI is ready for local docs Q&A.',
+    fallback: 'This browser is using transparent docs-basic mode. Tool-backed answers still work, but local model reasoning is not active.',
+    unavailable: 'Local browser AI is not available here. The docs assistant can stay visible in basic mode.',
+  },
+})
+docsCascadeWizard?.configure(docsCascade)
+void docsCascade.check()
 // Docs Q&A mission (defined in ./profiles/docs-qa.ts using the recommended pattern)
 docsChat?.configure({
   sessionId: 'site-docs-demo',
   telemetry: missionControl,
   model: [chromeAI()],
   streamText: createDocsSearchStream() as never,
-  onNoModel: ({ input }) => answerFromDocs(input),
+  cascadeReadiness: docsCascade,
+  onNoModel: ({ input, readiness }) => `${readiness?.message ?? 'Basic mode active.'}\n\n${answerFromDocs(input)}`,
 })
 docsChat?.applyMissionProfile(docsQaProfile)
 docsChat?.registerTools({ searchDocs: searchDocsTool })
@@ -178,16 +204,34 @@ docsChat?.registerTools({ searchDocs: searchDocsTool })
 // ─────────────────────────────────────────────────────────────────────────────
 
 const commerceChat = document.querySelector<EdgeChat>('edge-chat#commerce-chat')
+const commerceCascadeWizard = document.querySelector<EdgeCascadeWizard>('edge-cascade-wizard#commerce-cascade')
+const commerceCascade = createCascadeReadinessController({
+  providers: [chromeAI()],
+  downloadPolicy: 'never',
+  fallback: true,
+  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
+  requiredTools: ['searchProducts', 'addToCart'],
+  tools: { searchProducts, addToCart },
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+  messages: {
+    ready: 'Chrome AI is ready for local tool-calling recommendations and guarded cart actions.',
+    fallback: 'This public demo is running in basic mode because local browser AI is unavailable or not enabled. Search, CTAs, approvals, and app-owned actions remain testable.',
+    unavailable: 'Local browser AI is unavailable. Edgekit can either hide the sidecar or expose a transparent fallback.',
+  },
+})
+commerceCascadeWizard?.configure(commerceCascade)
+void commerceCascade.check()
 
 commerceChat?.configure({
   sessionId: 'site-commerce-demo',
   telemetry: missionControl,
   model: scriptedCommerceMode ? [scriptedCommerceProvider()] : [chromeAI()],
+  cascadeReadiness: commerceCascade,
   ...(scriptedCommerceMode
     ? { streamText: createScriptedCommerceStream() as never }
     : {
         toolProvider: ({ input }) => commerceToolsForInput(input),
-        onNoModel: ({ input }) => answerFromCatalog(input),
+        onNoModel: ({ input, readiness }) => `${readiness?.message ?? 'Basic mode active.'}\n\n${answerFromCatalog(input)}`,
       }),
 })
 commerceChat?.applyMissionProfile(publicCatalogShoppingProfile)

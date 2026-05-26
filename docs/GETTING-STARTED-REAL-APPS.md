@@ -126,6 +126,30 @@ chat?.applyMissionProfile(myCatalogProfile);
 chat?.registerTools({ searchProducts, addToCart });
 ```
 
+For public or mixed-browser surfaces, add a cascade readiness check before promising a full local agent experience:
+
+```ts
+const readiness = createCascadeReadinessController({
+  providers: [chromeAI()],
+  downloadPolicy: 'never',
+  fallback: true,
+  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
+  requiredTools: ['searchProducts', 'addToCart'],
+  tools: { searchProducts, addToCart },
+  visibilityPolicy: 'show-basic-when-local-unavailable',
+})
+
+chat?.configure({
+  cascadeReadiness: readiness,
+  onNoModel: ({ input, readiness }) =>
+    `${readiness?.message}\n\n${answerWithBasicCatalogMode(input)}`,
+})
+
+void readiness.check()
+```
+
+Render the readiness snapshot however your product wants: onboarding wizard, settings panel, banner, disabled CTA, or hidden agent surface. The optional `<edge-cascade-wizard>` component is only the demo UI.
+
 ### Step 5: Test With Real Outcome Quality
 
 Use (or copy) the research harness approach:

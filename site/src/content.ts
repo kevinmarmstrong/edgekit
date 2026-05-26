@@ -127,6 +127,13 @@ export const docChunks: DocChunk[] = [
   },
   {
     slug: 'concepts',
+    title: 'Cascade Readiness Wizard',
+    tags: ['cascade', 'readiness', 'wizard', 'download policy', 'fallback', 'chrome ai', 'webllm'],
+    body:
+      'createCascadeReadinessController checks provider state before or during a run and returns a headless snapshot with provider status, missing capabilities, whether fallback is available, and a recommended action: continue, prompt, suggest, message, fallback, hide, or retry. The optional edge-cascade-wizard web component is demo UI; production apps can replace it with their own setup wizard, banner, modal, settings surface, or feature gate.',
+  },
+  {
+    slug: 'concepts',
     title: 'Human Approval',
     tags: ['hitl', 'approval', 'safety'],
     body:

@@ -124,6 +124,7 @@ Backend-served generative UI needs a hosted route or worker that can stream AG-U
 edgekit stays small by exposing contracts instead of shipping a required cloud service:
 
 - Hybrid routing: `createHybridModelRouter()` keeps simple work local and routes complex work to a developer-provided model.
+- Cascade readiness: `createCascadeReadinessController()` checks Chrome AI, WebLLM, fallback, tools, approvals, and UI capability requirements before the app promises a full agent experience. Use it to prompt, suggest, message, hide, or fall back based on the visitor browser and model state.
 - Supervisor routing: `createSupervisorRouter()` gives teams a lightweight supervisor/worker pattern for intent-based delegation without adopting a full multi-agent framework.
 - Markdown memory: `createMarkdownMemoryStore()` hydrates relevant `.md` files into the agent context; replace it with IndexedDB, OPFS, vector, or server-backed stores by implementing the same `search()` contract.
 - Knowledge Access Skills: `EdgeKnowledgeSource`, `createKnowledgeTool()`, and `createKnowledgeSkill()` wrap app-owned retrieval systems as cited, freshness-aware, read-only Skills. Use Markdown, LlamaIndex, LangChain, Qdrant, Neo4j GraphRAG, SQL, or private APIs behind the same contract.

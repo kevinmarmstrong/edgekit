@@ -13,6 +13,21 @@ Use Chrome AI or WebLLM for low-cost, private, low-latency work. Escalate only w
 | Local app navigation | The user explicitly needs cloud-capable synthesis |
 | Privacy-sensitive page context | Developer policy requires server-side logging |
 
+## Capability-Gated UX
+
+Public users arrive with different browsers, local model download states, device policies, and network constraints. Do not present the same agent promise to every visitor.
+
+Use `createCascadeReadinessController()` before or alongside `createAgent()` to produce a headless readiness snapshot:
+
+- `continue`: local browser model is ready.
+- `prompt`: a local model can be enabled and the app should ask for consent.
+- `suggest`: the user can switch browser/device or use a reduced mode.
+- `message`: show transparent status without asking for action.
+- `fallback`: run a basic app-owned fallback while keeping the limitation visible.
+- `hide`: hide the sidecar or disable agent-only features until requirements are met.
+
+The optional `<edge-cascade-wizard>` component is demo UI for that contract. Production apps should render the snapshot in whatever surface fits their workflow: onboarding wizard, settings drawer, disabled CTA, support banner, or nothing at all.
+
 ## Tool Ownership
 
 The host app owns state, authorization, and business logic. Edgekit calls registered tools; it does not replace backend authorization.
