@@ -1097,7 +1097,7 @@ if (!validation.ok) {
       },
       {
         id: 'live-pages-loop',
-        title: 'Live GitHub Pages loop',
+        title: 'Live GitHub Pages Optimization Loop',
         body: [
           'Use the deployed GitHub Pages site as a held-out public surface when tuning documentation-facing Skills.',
           'The optimizer report maps suite IDs to Skills, calculates per-skill scores from live transcripts, and validates bounded candidates against protected paths.',
