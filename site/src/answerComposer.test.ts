@@ -89,4 +89,20 @@ describe('composeEdgekitAnswer', () => {
     expect(answer).toMatch(/Knowledge Access Skill/i)
     expect(answer).toMatch(/approval-gated app-owned tool|app-owned tool/i)
   })
+
+  it('separates deterministic checks from strict provider reproducibility evidence', () => {
+    const answer = composeEdgekitAnswer({
+      input: 'how do I prove Chrome AI Nano, WebLLM, cloud routes, no-model fallback, and live GitHub Pages are not just working on your machine?',
+      results: searchDocs('reproducibility provider matrix chrome ai nano webllm cloud route live pages'),
+      mode: 'site-assistant',
+    })
+
+    expect(answer).toMatch(/reproducibility guide/i)
+    expect(answer).toMatch(/Chrome AI\/Nano|Chrome AI|Nano/i)
+    expect(answer).toMatch(/WebLLM/i)
+    expect(answer).toMatch(/cloud route/i)
+    expect(answer).toMatch(/no-model fallback/i)
+    expect(answer).toMatch(/live GitHub Pages|live Pages/i)
+    expect(answer).toMatch(/provider-matrix\.md|agent-suite\.json/i)
+  })
 })

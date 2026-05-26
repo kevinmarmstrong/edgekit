@@ -12,6 +12,7 @@ Release candidate scaffold. The Phase 0 spike is validated, the core package, do
 - [docs/30-MINUTE-PRODUCTION-SIDECAR.md](./docs/30-MINUTE-PRODUCTION-SIDECAR.md) — The fastest guided path from starter profile to tested sidecar.
 - [docs/AGENT-ADOPTION-KIT.md](./docs/AGENT-ADOPTION-KIT.md) — Coding-agent skills, recipe scaffolds, and outcome loops for low-friction implementation.
 - [docs/RECIPE-CATALOG.md](./docs/RECIPE-CATALOG.md) — Opinionated install paths such as support workflow, Knowledge Access, and Astro intake plus knowledge.
+- [docs/REPRODUCIBILITY.md](./docs/REPRODUCIBILITY.md) — How to verify provider paths, fallback behavior, live Pages, cloud routes, and outcome evidence outside the maintainer machine.
 - [docs/RUNTIME-GUARANTEES.md](./docs/RUNTIME-GUARANTEES.md) — What Edgekit enforces at runtime vs. what is an authoring/harness contract.
 - [docs/DISTRIBUTION-READINESS.md](./docs/DISTRIBUTION-READINESS.md) — Package, fresh-app, and public release readiness.
 - [docs/PRODUCTION-RECIPES.md](./docs/PRODUCTION-RECIPES.md) — Telemetry, audit, RBAC, state, and escalation recipes.
@@ -37,6 +38,28 @@ pnpm dev:ecommerce
 Open the ecommerce demo at `http://127.0.0.1:5173`.
 Open the public docs and demo site at `https://kevinmarmstrong.github.io/edgekit/`.
 Open the full documentation at `https://kevinmarmstrong.github.io/edgekit/docs/`.
+
+## Architecture At A Glance
+
+```mermaid
+flowchart LR
+  App["Host app owns\nstate, auth, APIs, business logic"] --> Skills["Skills + Mission Profiles\nmission, tools, approvals, synthesis"]
+  Skills --> Runtime["Edgekit sidecar runtime\nprovider cascade, tool loop, UI, telemetry"]
+  Runtime --> Providers["Chrome AI\nWebLLM\nCloud route\nAG-UI\nFallback"]
+  Runtime --> Tools["App-owned tools\nKnowledge Access\nMCP adapters"]
+  Tools --> App
+```
+
+```mermaid
+flowchart LR
+  Context["Hydrate context\nidentity summary, app state, memory"] --> Route["Route model\nlocal first, explicit escalation"]
+  Route --> Calls["Call tools\nread tools, retrieval, app APIs"]
+  Calls --> Risk{"Risky mutation?"}
+  Risk -- yes --> Approval["Approval gate\nRBAC, audit, backend authorization"]
+  Risk -- no --> Render["Render outcome\ntext, EdgeView, activity states"]
+  Approval --> Render
+  Render --> Evidence["Telemetry + evidence\noutcome suite, provider matrix"]
+```
 
 ## Embed
 

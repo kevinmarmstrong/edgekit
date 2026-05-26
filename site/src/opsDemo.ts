@@ -83,6 +83,7 @@ const inventory: InventoryItem[] = [
 ]
 
 const opsActivity: string[] = ['No dispatch actions yet']
+const opsAudit: string[] = ['No approval decisions yet']
 const repairKnowledge = [
   {
     id: 'cmp-44-safety',
@@ -140,7 +141,7 @@ export function mountOpsDemo() {
   renderOpsState()
   document.querySelector<HTMLSelectElement>('#ops-role')?.addEventListener('change', () => {
     pushOpsActivity(`Role changed to ${currentOpsRole()}`)
-    renderOpsActivity()
+    renderOpsState()
   })
 
   chat.configure(
@@ -243,6 +244,7 @@ const reserveInventory = tool({
     item.reserved += quantity
     order.status = 'Parts reserved'
     pushOpsActivity(`Reserved ${quantity}x ${item.name} for ${order.customer}`)
+    pushOpsAudit(`Approved reserveInventory for ${workOrderId}: ${quantity}x ${partSku}`)
     renderOpsState()
     return { success: true, workOrderId, customer: order.customer, partSku, partName: item.name, quantity, remaining: item.available }
   },
@@ -265,6 +267,7 @@ const assignTechnician = tool({
     technician.status = 'On route'
     technician.eta = eta
     pushOpsActivity(`Assigned ${technician.name} to ${order.customer} · ETA ${eta}`)
+    pushOpsAudit(`Approved assignTechnician for ${workOrderId}: ${technician.name}, ETA ${eta}`)
     renderOpsState()
     return { success: true, workOrderId, customer: order.customer, technician: technician.name, eta, status: order.status }
   },
@@ -283,6 +286,7 @@ const updateEta = tool({
     if (!order) return { success: false, error: 'Work order not found' }
     order.eta = eta
     pushOpsActivity(`Updated ${order.customer} ETA to ${eta}: ${reason}`)
+    pushOpsAudit(`Approved updateEta for ${workOrderId}: ${eta}, reason ${reason}`)
     renderOpsState()
     return { success: true, workOrderId, customer: order.customer, eta, reason }
   },
@@ -373,6 +377,9 @@ function rejectedOpsStream(toolCall: ApprovalToolCall | null) {
   const name = toolCall?.toolName === 'assignTechnician' ? 'assign a technician' : toolCall?.toolName === 'updateEta' ? 'update ETA' : 'reserve inventory'
   return {
     fullStream: (async function* () {
+      pushOpsActivity(`Rejected request to ${name}; ERP state unchanged`)
+      pushOpsAudit(`Rejected ${toolCall?.toolName ?? 'mutation'}; no ERP mutation executed`)
+      renderOpsState()
       yield { type: 'text-delta', delta: `I did not ${name}. The work order, ETA, technician, and inventory state were left unchanged.` }
     })(),
     response: Promise.resolve({ messages: [{ role: 'assistant', content: [{ type: 'text', text: `I did not ${name}.` }] }] }),
@@ -384,7 +391,9 @@ function renderOpsState() {
   renderInventory()
   renderTechnicians()
   renderOpsActivity()
+  renderOpsAudit()
   renderOpsSummary()
+  renderOpsScope()
 }
 
 function renderWorkOrders() {
@@ -445,10 +454,40 @@ function renderOpsActivity() {
   log.innerHTML = opsActivity.map(item => `<li>${item}</li>`).join('')
 }
 
+function renderOpsAudit() {
+  const log = document.querySelector<HTMLElement>('#ops-audit')
+  if (!log) return
+  log.innerHTML = opsAudit.map(item => `<li>${item}</li>`).join('')
+}
+
 function renderOpsSummary() {
   const compressor = inventory.find(item => item.sku === 'CMP-44')
   const stock = document.querySelector<HTMLElement>('#ops-cmp-stock')
   if (stock && compressor) stock.textContent = String(compressor.available)
+  const availableTechs = document.querySelector<HTMLElement>('#ops-available-techs')
+  if (availableTechs) availableTechs.textContent = String(technicians.filter(tech => tech.status === 'Available').length)
+}
+
+function renderOpsScope() {
+  const role = currentOpsRole()
+  const scope = document.querySelector<HTMLElement>('#ops-role-scope')
+  const risk = document.querySelector<HTMLElement>('#ops-risk-state')
+  const sync = document.querySelector<HTMLElement>('#ops-sync-state')
+  if (scope) {
+    scope.textContent = role === 'viewer'
+      ? 'Viewer can search and inspect work orders; mutation tools are hidden.'
+      : role === 'supervisor'
+        ? 'Supervisor can search, update ETA, review policy, and approve high-risk changes.'
+        : 'Dispatcher can search work orders, reserve parts, and assign available technicians.'
+  }
+  if (risk) {
+    risk.textContent = role === 'viewer' ? 'Read-only role: no mutation tools exposed' : 'Mutations require approval'
+  }
+  if (sync) {
+    sync.textContent = navigator.onLine
+      ? 'Online: ERP mutations execute immediately after approval.'
+      : 'Offline: approved idempotent mutations would queue in the host-owned journal.'
+  }
 }
 
 function answerFromOps(input: string) {
@@ -541,6 +580,11 @@ function latestUserInput(messages: unknown[]) {
 function pushOpsActivity(item: string) {
   if (opsActivity.length === 1 && opsActivity[0] === 'No dispatch actions yet') opsActivity.length = 0
   opsActivity.unshift(item)
+}
+
+function pushOpsAudit(item: string) {
+  if (opsAudit.length === 1 && opsAudit[0] === 'No approval decisions yet') opsAudit.length = 0
+  opsAudit.unshift(`${new Date().toISOString().slice(11, 19)} · ${item}`)
 }
 
 function currentOpsRole() {

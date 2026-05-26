@@ -42,6 +42,11 @@
       "skillIds": ["search-docs"],
       "heldOut": true
     },
+    "docs-reproducibility": {
+      "profileId": "docs-qa-v1",
+      "skillIds": ["search-docs"],
+      "heldOut": true
+    },
     "docs-skill-optimization": {
       "profileId": "docs-qa-v1",
       "skillIds": ["search-docs"],

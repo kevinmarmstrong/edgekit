@@ -643,8 +643,8 @@ dl {
 
 .site-assistant {
   position: fixed;
-  left: 22px;
-  bottom: 22px;
+  top: 156px;
+  right: 22px;
   z-index: 40;
   width: min(420px, calc(100vw - 32px));
   pointer-events: none;
@@ -917,6 +917,74 @@ dd {
   margin: 0;
 }
 
+.ops-command-center {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  gap: 12px;
+}
+
+.ops-scope-panel,
+.ops-risk-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--panel);
+}
+
+.ops-scope-panel span,
+.ops-risk-panel span,
+.ops-workflow span {
+  width: fit-content;
+  color: var(--accent);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.ops-scope-panel strong,
+.ops-risk-panel strong {
+  max-width: 760px;
+  font-size: clamp(17px, 2vw, 23px);
+  line-height: 1.25;
+}
+
+.ops-scope-panel p,
+.ops-risk-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.ops-workflow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.ops-workflow article {
+  display: grid;
+  gap: 8px;
+  min-height: 126px;
+  padding: 16px;
+  background: var(--panel);
+}
+
+.ops-workflow strong,
+.ops-workflow p {
+  margin: 0;
+}
+
+.ops-workflow p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .ops-work-orders {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1141,6 +1209,50 @@ footer {
   line-height: 1.65;
 }
 
+.architecture-diagram {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.architecture-diagram article {
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  padding: 18px;
+  background: #10140f;
+  align-content: start;
+}
+
+.architecture-diagram span {
+  width: fit-content;
+  color: var(--accent);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.architecture-diagram strong {
+  font-size: clamp(18px, 2vw, 25px);
+  line-height: 1.2;
+}
+
+.architecture-diagram p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.runtime-loop-diagram {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 code {
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -1174,6 +1286,7 @@ pre code {
   .hero,
   .split-section,
   .ops-brief,
+  .ops-command-center,
   .commerce-layout,
   .admin-layout,
   .ops-layout,
@@ -1200,6 +1313,11 @@ pre code {
   }
 
   .value-matrix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .architecture-diagram,
+  .runtime-loop-diagram {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1258,8 +1376,19 @@ pre code {
     grid-template-columns: 1fr 1fr;
   }
 
+  .ops-workflow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .architecture-diagram,
+  .runtime-loop-diagram {
+    grid-template-columns: 1fr;
+  }
+
   .site-assistant {
     left: 12px;
+    right: auto;
+    top: auto;
     bottom: 12px;
     width: calc(100vw - 24px);
   }

@@ -11,6 +11,7 @@ export type DocsSection = {
   title: string
   body: string[]
   bullets?: string[]
+  diagram?: 'architecture' | 'runtime-loop'
   code?: {
     language: string
     text: string
@@ -51,6 +52,22 @@ export const docsPages: DocsPage[] = [
           'edgekit is not a chatbot wrapper. It is a small runtime and UI layer for adding an agent to an app that already has real capabilities: product search, cart changes, account updates, documentation search, support triage, or other app-specific workflows.',
           'The developer registers existing functions as tools. The model can ask to call those tools, and edgekit streams the result into a sidecar UI while preserving approval gates for higher-impact actions.',
         ],
+      },
+      {
+        id: 'architecture-diagram',
+        title: 'Architecture diagram',
+        body: [
+          'The important boundary is authority. Edgekit owns the sidecar runtime and UX protocol. The host app owns data, auth, state, business logic, persistence, and all executable tools.',
+        ],
+        diagram: 'architecture',
+      },
+      {
+        id: 'runtime-loop-diagram',
+        title: 'Runtime loop',
+        body: [
+          'A sidecar turn is a bounded loop: hydrate safe app context, route to a provider, call app-owned tools, gate risky mutations, render results, and emit telemetry/audit evidence.',
+        ],
+        diagram: 'runtime-loop',
       },
       {
         id: 'repo-map',
@@ -1407,6 +1424,80 @@ EDGEKIT_SKILL_BASELINE=research-results/skill-optimization/live-before.json EDGE
     ],
   },
   {
+    slug: 'reproducibility',
+    navLabel: 'Reproducibility',
+    title: 'Reproducibility guide',
+    summary: 'How outside teams can verify local models, fallback behavior, live Pages, cloud routes, and outcome quality.',
+    sections: [
+      {
+        id: 'goal',
+        title: 'Goal',
+        body: [
+          'The goal is to make Edgekit evidence repeatable outside the maintainer machine. A passing run should say which provider path was exercised, which host was tested, which scenarios were skipped, and whether skips were required or environmental.',
+          'Treat model availability as an environment fact, not a product claim. Chrome AI, WebLLM, cloud routes, and no-model fallback should each have explicit proof or an explicit skip reason.',
+        ],
+      },
+      {
+        id: 'baseline',
+        title: 'Baseline local gates',
+        body: ['Start with deterministic checks. These do not prove model quality, but they prove the repo and public surfaces are executable.'],
+        code: {
+          language: 'bash',
+          text: `pnpm install
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm test:e2e
+pnpm eval:adoption
+pnpm research:suite`,
+        },
+      },
+      {
+        id: 'provider-matrix',
+        title: 'Provider matrix',
+        body: [
+          'Use the provider matrix to separate capability from availability. A local Chrome AI/Nano run, a WebLLM-capable host, an explicit cloud route, and no-model fallback are different architectures and should be reported separately.',
+        ],
+        bullets: [
+          'Chrome AI/Nano: launch a Chrome profile with model support, connect through CDP, and run strict provider checks.',
+          'WebLLM: use a host with cross-origin isolation headers and enough device memory for the selected model.',
+          'Cloud route: provide `EDGEKIT_SUITE_CLOUD_ROUTE_URL` for a developer-owned model endpoint.',
+          'No-model fallback: verify the app still produces honest basic-mode answers and never pretends an agent model ran.',
+          'Live Pages: run `EDGEKIT_SUITE_TARGET=live pnpm research:suite` and record public-host limitations honestly.',
+        ],
+        code: {
+          language: 'bash',
+          text: `pnpm chrome:profile
+EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:suite
+
+EDGEKIT_SUITE_CLOUD_ROUTE_URL=http://127.0.0.1:4198/api/edgekit/cloud-route pnpm research:suite
+
+EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
+        },
+      },
+      {
+        id: 'evidence',
+        title: 'Evidence to keep',
+        body: ['A useful run leaves enough data for another maintainer, coding agent, or adopter to inspect what actually happened.'],
+        bullets: [
+          '`research-results/agent-suite.json`: machine-readable score, skip, failure, category, and provider evidence.',
+          '`research-results/agent-suite.md`: human-readable scenario summary.',
+          '`research-results/provider-matrix.md`: provider-by-host pass, fail, and skip reasons.',
+          '`research-results/suite-screenshots/*`: browser screenshots for product surfaces.',
+          'Live URL, commit SHA, Chrome version, model availability result, and whether the run was strict.',
+        ],
+      },
+      {
+        id: 'interpretation',
+        title: 'Interpretation',
+        body: [
+          'A green deterministic run means the integration contract works. A green strict provider run means the current machine and browser can exercise the local-model path. A green live Pages run means the public docs and demos still satisfy outcome checks under public-host constraints.',
+          'Do not collapse these into one claim. A production-ready report should say exactly which architecture was tested and which architecture still needs evidence.',
+        ],
+      },
+    ],
+  },
+  {
     slug: 'runtime-guarantees',
     navLabel: 'Guarantees',
     title: 'Runtime guarantees',
@@ -1466,6 +1557,21 @@ EDGEKIT_SKILL_BASELINE=research-results/skill-optimization/live-before.json EDGE
     summary: 'Concrete telemetry, audit, RBAC, state hydration, and escalation patterns for real apps.',
     sections: [
       {
+        id: 'ownership-boundary',
+        title: 'Ownership boundary',
+        body: [
+          'Edgekit is strongest when each responsibility has one owner. The host app owns identity truth, backend authorization, business state, retrieval infrastructure, persistence, and provider secrets. Edgekit owns the sidecar runtime, tool-call protocol, approval UX, telemetry/audit event contracts, and validation helpers.',
+          'Do not move app authority into prompts. Put authority in executable tools, backend policy, and outcome tests.',
+        ],
+        bullets: [
+          'Identity: host app owns login, JWTs, cookies, tenant truth, and permissions; Edgekit receives safe public summaries.',
+          'State: host app owns carts, orders, inventory, tickets, and records; Edgekit renders tool-call and approval outcomes.',
+          'Knowledge: host app owns vector, graph, SQL, CMS, or API retrieval; Edgekit packages it as a cited Knowledge Access Skill.',
+          'Mutations: host app owns API writes, idempotency, validation, and conflicts; Edgekit owns approval protocol and evidence events.',
+          'Escalation: host app owns provider secrets and rate limits; Edgekit owns local-first routing hooks and handoff envelopes.',
+        ],
+      },
+      {
         id: 'telemetry-audit',
         title: 'Telemetry and audit',
         body: [
@@ -1484,6 +1590,21 @@ EDGEKIT_SKILL_BASELINE=research-results/skill-optimization/live-before.json EDGE
         title: 'Local vs cloud escalation',
         body: [
           'Use local browser models for intent, simple tool extraction, local page help, and privacy-sensitive context. Escalate through explicit developer-owned routes for deep synthesis, required server logging, or repeated local-model failures.',
+        ],
+      },
+      {
+        id: 'recipe-shape',
+        title: 'Recipe shape',
+        body: [
+          'Opinionated recipes should remain additive to the core docs. A recipe can know about Astro, support workflows, intake pipelines, ERP dispatch, or a retrieval stack, but it should still emit the same Edgekit primitives.',
+        ],
+        bullets: [
+          '2-5 Skills and one Mission Profile.',
+          'Typed app-owned tools and explicit approval policy for mutations.',
+          'Telemetry and audit hooks.',
+          'Knowledge Access when retrieval is needed.',
+          'Outcome scenarios for read, approve, reject, no-evidence, and hostile prompts.',
+          'Replacement notes that identify exactly what the real app should own.',
         ],
       },
     ],

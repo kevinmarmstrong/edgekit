@@ -373,9 +373,23 @@ export const docChunks: DocChunk[] = [
   {
     slug: 'production-recipes',
     title: 'Production Recipes',
-    tags: ['production', 'telemetry', 'audit', 'rbac', 'state', 'cloud'],
+    tags: ['production', 'telemetry', 'audit', 'rbac', 'state', 'cloud', 'ownership', 'recipes'],
     body:
-      'Production recipes cover telemetry, audit persistence, RBAC and session bridging, state hydration, and local-vs-cloud escalation. Keep public identity and state summaries in context, but keep JWTs, cookies, and secret claims out of prompts.',
+      'Production recipes cover telemetry, audit persistence, RBAC and session bridging, state hydration, ownership boundaries, recipe shape, and local-vs-cloud escalation. The host app owns identity, authorization, business state, retrieval infrastructure, persistence, and provider secrets. Edgekit owns the sidecar runtime, approval UX, tool-call protocol, telemetry and audit event contracts, and validation helpers.',
+  },
+  {
+    slug: 'reproducibility',
+    title: 'Reproducibility Guide',
+    tags: ['reproducibility', 'provider matrix', 'chrome ai', 'nano', 'webllm', 'cloud route', 'github pages'],
+    body:
+      'Reproducibility separates deterministic integration checks from strict provider evidence. Run local gates, Chrome AI through CDP, WebLLM on a cross-origin-isolated host, explicit cloud routes, no-model fallback, and live GitHub Pages suites as separate evidence lanes. Keep agent-suite.json, provider-matrix.md, screenshots, commit SHA, Chrome version, model availability, and strict flags.',
+  },
+  {
+    slug: 'overview',
+    title: 'Architecture Diagrams',
+    tags: ['diagram', 'architecture', 'runtime loop', 'host app', 'edgekit owns'],
+    body:
+      'The architecture diagrams show that the host app owns state, auth, APIs, business logic, executable tools, and knowledge infrastructure. Edgekit owns the sidecar runtime, provider cascade, approval loop, EdgeView, telemetry, audit primitives, and outcome evidence. The runtime loop hydrates context, routes the model, calls tools, gates risky mutations, renders outcomes, and records evidence.',
   },
   {
     slug: 'security-threat-model',

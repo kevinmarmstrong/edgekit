@@ -68,6 +68,7 @@ function renderSection(section: (typeof activePage.sections)[number]) {
     <section class="docs-block" id="${section.id}">
       <h2>${section.title}</h2>
       ${section.body.map(paragraph => `<p>${paragraph}</p>`).join('')}
+      ${section.diagram ? renderDiagram(section.diagram) : ''}
       ${
         section.bullets
           ? `<ul>${section.bullets.map(item => `<li>${formatInlineCode(item)}</li>`).join('')}</ul>`
@@ -79,6 +80,44 @@ function renderSection(section: (typeof activePage.sections)[number]) {
           : ''
       }
     </section>
+  `
+}
+
+function renderDiagram(diagram: 'architecture' | 'runtime-loop') {
+  if (diagram === 'runtime-loop') {
+    return `
+      <div class="architecture-diagram runtime-loop-diagram" aria-label="Edgekit runtime loop diagram">
+        <article><span>1</span><strong>Hydrate context</strong><p>Identity summary, app state, selected memory, and mission profile.</p></article>
+        <article><span>2</span><strong>Route model</strong><p>Chrome AI, WebLLM, cloud route, AG-UI backend, or fallback.</p></article>
+        <article><span>3</span><strong>Call tools</strong><p>Read tools, Knowledge Access, MCP adapters, and app APIs.</p></article>
+        <article><span>4</span><strong>Gate mutations</strong><p>Approval prompts, RBAC, audit trail, and backend authorization.</p></article>
+        <article><span>5</span><strong>Render outcome</strong><p>Text, EdgeView cards/forms, activity states, telemetry, and evidence.</p></article>
+      </div>
+    `
+  }
+  return `
+    <div class="architecture-diagram" aria-label="Edgekit architecture diagram">
+      <article>
+        <span>Host app owns</span>
+        <strong>State, auth, APIs, business logic</strong>
+        <p>Tools execute against the same backend, permissions, and records the app already trusts.</p>
+      </article>
+      <article>
+        <span>Localization</span>
+        <strong>Skills + Mission Profiles</strong>
+        <p>Reviewable artifacts describe the mission, required tools, approvals, synthesis, UI hints, and tests.</p>
+      </article>
+      <article>
+        <span>Edgekit owns</span>
+        <strong>Sidecar runtime and UX contract</strong>
+        <p>Provider cascade, tool loop, approvals, EdgeView, telemetry, audit primitives, and fallbacks.</p>
+      </article>
+      <article>
+        <span>Providers</span>
+        <strong>Local first, explicit escalation</strong>
+        <p>Chrome AI, WebLLM, no-model fallback, AG-UI streams, or developer-owned cloud routes.</p>
+      </article>
+    </div>
   `
 }
 

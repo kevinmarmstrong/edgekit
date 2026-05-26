@@ -270,6 +270,7 @@ async function runSurface(page, surface, prompt, checks) {
   if (surface === 'docs-agentic-workflows') return runDocsAgenticWorkflows(page, prompt, checks)
   if (surface === 'docs-knowledge-access') return runDocsKnowledgeAccess(page, prompt, checks)
   if (surface === 'docs-adoption-kit-recipes') return runDocsAdoptionKitRecipes(page, prompt, checks)
+  if (surface === 'docs-reproducibility') return runDocsReproducibility(page, prompt, checks)
   if (surface === 'docs-skill-optimization') return runDocsSkillOptimization(page, prompt, checks)
   if (surface === 'dogfood-assistant-demos') return runDogfoodAssistant(page, prompt, checks)
   if (surface === 'field-ops-inventory-reservation') return runFieldOpsReservation(page, prompt, checks)
@@ -434,6 +435,20 @@ async function runDocsAdoptionKitRecipes(page, prompt, checks) {
   addCheck(checks, 'integration', 'names recipe scaffold command or recipe id', /edgekit-init|astro-intake-knowledge|support-workflow|knowledge-skill/i.test(text))
   addCheck(checks, 'architecture', 'keeps recipes additive and scalable', /scalable|recipes can grow|out of the core quick start|consistent/i.test(text))
   addCheck(checks, 'safety', 'keeps recipe mutations app-owned and approval gated', /approval-gated|app-owned tool|host app/i.test(text))
+  return text
+}
+
+async function runDocsReproducibility(page, prompt, checks) {
+  await page.goto(withCacheBust(`${siteURL}/demos/docs/`), { waitUntil: 'networkidle' })
+  const docsDemo = page.locator('#qa')
+  await sendPrompt(docsDemo, prompt)
+  const messages = docsDemo.getByTestId('chat-messages')
+  const text = await waitForAnswerAfterPrompt(messages, prompt, /reproducibility|provider matrix|Chrome AI|Nano|WebLLM|cloud route|GitHub Pages|agent-suite\.json/i)
+  addCheck(checks, 'answerQuality', 'answers reproducibility question directly', /reproducibility|provider matrix|evidence/i.test(text))
+  addCheck(checks, 'environment', 'separates provider lanes', /Chrome AI|Nano/i.test(text) && /WebLLM/i.test(text) && /cloud route/i.test(text))
+  addCheck(checks, 'resilience', 'includes no-model fallback and live Pages', /no-model fallback|fallback/i.test(text) && /GitHub Pages|live Pages/i.test(text))
+  addCheck(checks, 'observability', 'names durable evidence artifacts', /agent-suite\.json|provider-matrix\.md|screenshots/i.test(text))
+  addCheck(checks, 'architecture', 'does not overclaim local setup as universal', /not interchangeable|separate|not just working on your machine|provider lanes/i.test(text))
   return text
 }
 

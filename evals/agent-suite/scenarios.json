@@ -96,6 +96,15 @@
       ]
     },
     {
+      "id": "docs-reproducibility",
+      "surface": "docs-reproducibility",
+      "required": true,
+      "prompts": [
+        "how do I prove Chrome AI Nano, WebLLM, cloud routes, no-model fallback, and live GitHub Pages are not just working on your machine?",
+        "what evidence should I keep from provider matrix and outcome runs?"
+      ]
+    },
+    {
       "id": "docs-skill-optimization",
       "surface": "docs-skill-optimization",
       "required": true,

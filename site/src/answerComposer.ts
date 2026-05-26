@@ -142,6 +142,19 @@ export function composeEdgekitAnswer({ input, results, mode = 'docs-demo', curre
       .join('\n')
   }
 
+  if (intent === 'reproducibility') {
+    return [
+      'Use the reproducibility guide to keep provider claims honest and repeatable.',
+      '',
+      'Run deterministic gates first (`pnpm test`, `pnpm typecheck`, `pnpm build`, `pnpm test:e2e`, `pnpm eval:adoption`, `pnpm research:suite`). Then run each architecture as a separate provider lane: Chrome AI/Nano through CDP, WebLLM on a cross-origin-isolated host, a developer-owned cloud route, no-model fallback, and live GitHub Pages.',
+      '',
+      'The evidence to keep is `research-results/agent-suite.json`, `research-results/provider-matrix.md`, screenshots, the commit SHA, browser version, model availability result, and whether strict provider flags were enabled. A green deterministic run, a green strict provider run, and a green live Pages run are related but not interchangeable claims.',
+      sourceNote,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
   return [
     'EdgeKit helps you add an agent to an app by giving you the browser-native sidecar, model cascade, tool loop, and approval/UI contracts so you do not have to rebuild those pieces from scratch.',
     '',
@@ -159,6 +172,7 @@ export function composeEdgekitAnswer({ input, results, mode = 'docs-demo', curre
 export function detectAnswerIntent(input: string) {
   const normalized = input.toLowerCase()
   if (/\b(jwt|cookie|token|database|db|credential|secret)\b/.test(normalized)) return 'unsafe-secrets-or-database'
+  if (/\b(reproduc|provider matrix|chrome ai|nano|webllm|cloud route|github pages|live pages|strict provider|model availability|works on.*machine)\b/.test(normalized)) return 'reproducibility'
   if (/\b(adoption kit|agent skills?|skill\.md|recipes?|edgekit-init|astro|intake|scaffold|scaffolding|onboarding)\b/.test(normalized)) return 'adoption-kit'
   if (/\b(starter|template|30.minute|thirty.minute|new mission|first sidecar|support workflow)\b/.test(normalized)) return 'starter-path'
   if (/\b(chatbot|chat bot|different|instead of chat)\b/.test(normalized)) return 'chatbot-difference'

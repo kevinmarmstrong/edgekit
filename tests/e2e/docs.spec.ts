@@ -11,12 +11,13 @@ test('homepage links into the full documentation site', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sensitive app context crosses the wrong boundary.' })).toBeVisible()
   await expect(page.locator('.primitive-list a')).toHaveCount(8)
   await expect(page.getByRole('heading', { name: 'Start with the thesis, then jump to the implementation surface.' })).toBeVisible()
-  await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(24)
+  await expect(page.locator('#doc-card-grid a.doc-card')).toHaveCount(25)
   await expect(page.getByRole('link', { name: /Mission Profiles/ })).toHaveAttribute('href', /\/edgekit\/docs\/mission-profiles\/$/)
   await expect(page.getByRole('link', { name: /Skill Optimization/ })).toHaveAttribute('href', /\/edgekit\/docs\/skill-optimization\/$/)
   await expect(page.getByRole('link', { name: /Knowledge Access Skills/ })).toHaveAttribute('href', /\/edgekit\/docs\/knowledge-access\/$/)
   await expect(page.getByRole('link', { name: /Agent Adoption Kit/ })).toHaveAttribute('href', /\/edgekit\/docs\/adoption-kit\/$/)
   await expect(page.getByRole('link', { name: /Recipe catalog/ })).toHaveAttribute('href', /\/edgekit\/docs\/recipes\/$/)
+  await expect(page.getByRole('link', { name: /Reproducibility guide/ })).toHaveAttribute('href', /\/edgekit\/docs\/reproducibility\/$/)
   await expect(page.locator('a.doc-card[href="/edgekit/docs/production/"]')).toBeVisible()
   await expect(page.locator('a.doc-card[href="/edgekit/docs/runtime-guarantees/"]')).toBeVisible()
   await expect(page.locator('a.doc-card[href="/edgekit/docs/30-minute-sidecar/"]')).toBeVisible()
@@ -37,6 +38,8 @@ test('homepage links into the full documentation site', async ({ page }) => {
   await page.getByRole('link', { name: 'Read the docs' }).click()
   await expect(page).toHaveURL(/\/edgekit\/docs\/$/)
   await expect(page.getByRole('heading', { name: 'Local-first agent sidecars' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Architecture diagram' })).toBeVisible()
+  await expect(page.locator('.architecture-diagram')).toHaveCount(2)
 })
 
 test('agent-readable documentation exports are available', async ({ page }) => {
@@ -51,6 +54,10 @@ test('agent-readable documentation exports are available', async ({ page }) => {
   const advanced = await page.request.get(`${siteURL}docs/advanced.md`)
   expect(advanced.ok()).toBeTruthy()
   await expect(advanced.text()).resolves.toContain('## Offline mutation journal')
+
+  const reproducibility = await page.request.get(`${siteURL}docs/reproducibility.md`)
+  expect(reproducibility.ok()).toBeTruthy()
+  await expect(reproducibility.text()).resolves.toContain('## Provider matrix')
 })
 
 test('mission control dashboard aggregates public demo telemetry', async ({ page }) => {

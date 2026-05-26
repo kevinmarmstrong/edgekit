@@ -2,6 +2,23 @@
 
 These recipes show the minimum production shape for real applications.
 
+## Ownership Boundary
+
+Edgekit is strongest when each responsibility has one owner.
+
+| Concern | Host App Owns | Edgekit Owns |
+| --- | --- | --- |
+| Identity | Login, session cookies, JWTs, tenant and permission truth | Safe public identity summaries through `identityProvider` or `sessionProvider` |
+| Authorization | Backend checks inside every executable tool | RBAC-filtered tool visibility and validation helpers |
+| Business state | Cart, orders, accounts, inventory, tickets, records | Tool-call events, approval prompts, and UI rendering |
+| Knowledge | Retrieval pipeline, indexes, graph/vector stores, freshness | Knowledge Access Skill contract, citations, faithfulness tests |
+| Mutations | API routes, idempotency, validation, conflict handling | Approval protocol, mutation journal primitives, telemetry/audit events |
+| Observability | Long-term storage, alerts, dashboards, compliance reporting | Event contract and in-memory mission-control aggregator |
+| Model escalation | Provider secrets, rate limits, cloud routes | Local-first routing hooks and handoff envelopes |
+
+Do not move app authority into prompts. Put authority in executable tools,
+backend policy, and outcome tests.
+
 ## Knowledge Access
 
 Treat retrieval as a Skill category, not as a separate chatbot mode. Wrap each knowledge source with `EdgeKnowledgeSource`, expose it through `createKnowledgeTool()` or `createKnowledgeSkill()`, and keep permissions inside the source or backend query.
@@ -82,3 +99,18 @@ Summarize current app state. Do not dump raw DOM or secret data.
 ## Local Vs Cloud Escalation
 
 Use local browser models for intent, tool extraction, page help, simple Q&A, and privacy-sensitive context. Escalate through developer-owned cloud routes for deep multi-source synthesis, policy-required server logging, or tasks where local models repeatedly fail outcome tests.
+
+## Recipe Shape
+
+Every opinionated recipe should remain additive to the core docs. A recipe can
+know about Astro, support workflows, intake pipelines, ERP dispatch, or a
+specific retrieval stack, but it should still emit the same Edgekit primitives:
+
+- 2-5 Skills
+- one Mission Profile
+- typed app-owned tools
+- explicit approval policy for mutations
+- telemetry and audit hooks
+- Knowledge Access when retrieval is needed
+- outcome scenarios for read, approve, reject, no-evidence, and hostile prompts
+- replacement notes that identify exactly what the real app should own

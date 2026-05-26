@@ -172,7 +172,9 @@ function operationsDemo() {
           <h2>Field-service ERP dispatch surface.</h2>
         </div>
         <p>
-          Work orders, inventory, technician availability, and approval-gated actions in one app-owned surface.
+          A production-shaped internal app surface: work-order triage, inventory reservation,
+          technician assignment, role scope, audit evidence, and sync posture stay visible while
+          the sidecar proposes guarded actions.
         </p>
         <label class="role-picker">
           Role
@@ -187,8 +189,26 @@ function operationsDemo() {
         <section class="ops-board" aria-label="Field service work orders">
           <div class="ops-command-strip">
             <article><span>Critical SLA</span><strong>4h</strong><p>Riverside Clinic compressor outage</p></article>
-            <article><span>Available HVAC techs</span><strong>2</strong><p>East region dispatch pool</p></article>
+            <article><span>Available HVAC techs</span><strong id="ops-available-techs">2</strong><p>East region dispatch pool</p></article>
             <article><span>Compressor stock</span><strong id="ops-cmp-stock">2</strong><p>CMP-44 modules available</p></article>
+          </div>
+          <div class="ops-command-center">
+            <section class="ops-scope-panel">
+              <span>Role scope</span>
+              <strong id="ops-role-scope">Dispatcher can search work orders, reserve parts, and assign available technicians.</strong>
+              <p>RBAC should be enforced again by the ERP API. The sidecar only narrows visible tools.</p>
+            </section>
+            <section class="ops-risk-panel">
+              <span>Guardrail posture</span>
+              <strong id="ops-risk-state">Mutations require approval</strong>
+              <p id="ops-sync-state">Online: ERP mutations execute immediately after approval.</p>
+            </section>
+          </div>
+          <div class="ops-workflow" aria-label="Dispatch workflow">
+            <article><span>1</span><strong>Triage</strong><p>Search work orders and cite policy when needed.</p></article>
+            <article><span>2</span><strong>Reserve</strong><p>Hold required parts only after user approval.</p></article>
+            <article><span>3</span><strong>Dispatch</strong><p>Assign a qualified technician with ETA evidence.</p></article>
+            <article><span>4</span><strong>Audit</strong><p>Record approval, rejection, and mutation outcomes.</p></article>
           </div>
           <div id="ops-work-orders" class="ops-work-orders"></div>
           <div class="ops-lower-grid">
@@ -221,6 +241,10 @@ function operationsDemo() {
           <section class="activity-log" aria-live="polite">
             <div class="cart-title">Dispatch log</div>
             <ul id="ops-activity"></ul>
+          </section>
+          <section class="activity-log" aria-live="polite">
+            <div class="cart-title">Audit evidence</div>
+            <ul id="ops-audit"></ul>
           </section>
         </aside>
       </div>

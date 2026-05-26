@@ -92,6 +92,8 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
 
   const ops = page.locator('#operations')
   await expect(page.getByTestId('inventory-available-CMP-44')).toHaveText('2')
+  await expect(page.locator('#ops-role-scope')).toContainText('Dispatcher can search work orders')
+  await expect(page.locator('#ops-risk-state')).toContainText('Mutations require approval')
 
   await ops.getByTestId('chat-input').fill('reserve a compressor for Riverside')
   await ops.getByTestId('send-button').click()
@@ -104,7 +106,9 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
   await ops.getByTestId('approve-button').click()
   await expect(page.getByTestId('inventory-available-CMP-44')).toHaveText('1')
   await expect(page.locator('#ops-cmp-stock')).toHaveText('1')
+  await expect(page.locator('#ops-available-techs')).toHaveText('2')
   await expect(page.locator('#ops-activity')).toContainText('Reserved 1x Compressor module for Riverside Clinic')
+  await expect(page.locator('#ops-audit')).toContainText('Approved reserveInventory')
   await expect(ops.getByTestId('chat-messages')).toContainText('Remaining stock: 1')
 
   await page.goto(`${siteURL}demos/operations/?opsAgentMode=scripted&cacheBust=${Date.now()}`)
@@ -121,11 +125,14 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
   await expect(rejectOps.getByTestId('chat-messages')).toContainText(/did not assign|left unchanged/i)
   await expect(page.getByTestId('ops-tech-WO-1842')).toContainText('Unassigned')
   await expect(page.getByTestId('tech-status-ava')).toHaveText('Available')
+  await expect(page.locator('#ops-audit')).toContainText('Rejected assignTechnician')
 
   await page.goto(`${siteURL}demos/operations/?opsAgentMode=scripted&cacheBust=${Date.now()}`)
   await page.locator('#ops-role').selectOption('viewer')
   await expect(page.locator('#ops-activity')).toContainText('Role changed to viewer')
+  await expect(page.locator('#ops-role-scope')).toContainText('Viewer can search and inspect')
   await page.locator('#ops-role').selectOption('supervisor')
+  await expect(page.locator('#ops-role-scope')).toContainText('Supervisor can search')
 
   const supervisorOps = page.locator('#operations')
   await supervisorOps.getByTestId('chat-input').fill('update Riverside ETA to 45 min because traffic delay')
@@ -136,6 +143,7 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
 
   await expect(page.getByTestId('ops-eta-WO-1842')).toContainText('45 min')
   await expect(page.locator('#ops-activity')).toContainText('Updated Riverside Clinic ETA to 45 min')
+  await expect(page.locator('#ops-audit')).toContainText('Approved updateEta')
 })
 
 test('field ops ERP demo retrieves cited knowledge without mutating state', async ({ page }) => {

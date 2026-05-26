@@ -34,6 +34,7 @@ export default defineConfig({
         'docs-mission-profiles': resolve(__dirname, 'docs/mission-profiles/index.html'),
         'docs-skill-optimization': resolve(__dirname, 'docs/skill-optimization/index.html'),
         'docs-production': resolve(__dirname, 'docs/production/index.html'),
+        'docs-reproducibility': resolve(__dirname, 'docs/reproducibility/index.html'),
         'docs-runtime-guarantees': resolve(__dirname, 'docs/runtime-guarantees/index.html'),
         'docs-distribution-readiness': resolve(__dirname, 'docs/distribution-readiness/index.html'),
         'docs-production-recipes': resolve(__dirname, 'docs/production-recipes/index.html'),
@@ -83,6 +84,7 @@ ${links}
 - [Enterprise controls Markdown](/docs/advanced.md)
 - [Ecosystem Markdown](/docs/ecosystem.md)
 - [Knowledge Access Markdown](/docs/knowledge-access.md)
+- [Reproducibility Markdown](/docs/reproducibility.md)
 
 ## Public demos
 
@@ -133,9 +135,34 @@ function boundedFullExport(markdownPages: Array<{ markdown: string }>) {
 function pageToMarkdown(page: (typeof docsPages)[number]) {
   const sections = page.sections.map(section => {
     const body = section.body.join('\n\n')
+    const diagram = section.diagram ? `\n\n${diagramToMermaid(section.diagram)}` : ''
     const bullets = section.bullets?.map(item => `- ${item}`).join('\n')
     const code = section.code ? `\n\n\`\`\`${section.code.language}\n${section.code.text}\n\`\`\`` : ''
-    return [`## ${section.title}`, body, bullets, code].filter(Boolean).join('\n\n')
+    return [`## ${section.title}`, body + diagram, bullets, code].filter(Boolean).join('\n\n')
   })
   return [`# ${page.title}`, page.summary, ...sections].join('\n\n')
+}
+
+function diagramToMermaid(diagram: 'architecture' | 'runtime-loop') {
+  if (diagram === 'runtime-loop') {
+    return `\`\`\`mermaid
+flowchart LR
+  A[Hydrate context] --> B[Route model]
+  B --> C[Call app tools]
+  C --> D{Risky mutation?}
+  D -- yes --> E[Approval + audit]
+  D -- no --> F[Render outcome]
+  E --> F
+  F --> G[Telemetry + evidence]
+\`\`\``
+  }
+
+  return `\`\`\`mermaid
+flowchart LR
+  App[Host app owns state, auth, APIs, business logic] --> Skills[Skills + Mission Profiles]
+  Skills --> Runtime[Edgekit sidecar runtime]
+  Runtime --> Providers[Chrome AI, WebLLM, cloud route, AG-UI, fallback]
+  Runtime --> Tools[App-owned tools and Knowledge Access]
+  Tools --> App
+\`\`\``
 }
