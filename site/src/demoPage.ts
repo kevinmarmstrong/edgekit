@@ -194,11 +194,29 @@ function operationsDemo() {
             <article><span>Available HVAC techs</span><strong id="ops-available-techs">2</strong><p>East region dispatch pool</p></article>
             <article><span>Compressor stock</span><strong id="ops-cmp-stock">2</strong><p>CMP-44 modules available</p></article>
           </div>
+          <div class="ops-live-state" aria-label="Current dispatch state">
+            <section>
+              <span>Workflow state</span>
+              <strong id="ops-workflow-state">Triage ready</strong>
+              <p id="ops-next-action">Next action: reserve CMP-44 after approval, then assign an East HVAC technician.</p>
+            </section>
+            <section>
+              <span>Policy evidence</span>
+              <strong id="ops-policy-evidence">CMP-44 safety checklist required</strong>
+              <p>Knowledge reads are role-filtered and cited before the sidecar recommends safety-sensitive work.</p>
+            </section>
+            <section>
+              <span>Resilience</span>
+              <strong id="ops-resilience-state">Online execution</strong>
+              <p id="ops-resilience-detail">Approved idempotent mutations execute now; offline mode would queue through the host app.</p>
+            </section>
+          </div>
           <div class="ops-command-center">
             <section class="ops-scope-panel">
               <span>Role scope</span>
               <strong id="ops-role-scope">Dispatcher can search work orders, reserve parts, and assign available technicians.</strong>
               <p>RBAC should be enforced again by the ERP API. The sidecar only narrows visible tools.</p>
+              <ul id="ops-capability-list" class="ops-capability-list"></ul>
             </section>
             <section class="ops-risk-panel">
               <span>Guardrail posture</span>
@@ -226,8 +244,28 @@ function operationsDemo() {
               <div id="ops-technicians" class="tech-list"></div>
             </section>
           </div>
+          <section class="ops-telemetry-panel" aria-label="Field ops telemetry">
+            <div>
+              <span>Tool manifest</span>
+              <strong id="ops-telemetry-tools">dispatcher · 4 tools</strong>
+              <p>Dynamic exposure mirrors the selected role.</p>
+            </div>
+            <div>
+              <span>Approvals</span>
+              <strong id="ops-telemetry-approvals">0 requested · 0 approved · 0 rejected</strong>
+              <p>Risky tool calls stay visible before mutation.</p>
+            </div>
+            <div>
+              <span>Audit events</span>
+              <strong id="ops-telemetry-audit">0 recorded</strong>
+              <p>Production apps forward these to the ERP audit trail.</p>
+            </div>
+          </section>
         </section>
         <aside class="ops-agent">
+          <aside class="ops-scripted-note" aria-label="Demo mode">
+            This public demo can run a scripted Field Ops agent with <code>?opsAgentMode=scripted</code>. Scripted mode is honest: it exercises the same tools, approvals, UI state, and audit surfaces without requiring a provider secret.
+          </aside>
           ${productionNotes([
             'Bind role-specific tools to the signed-in dispatcher or supervisor.',
             'Replace the sample repair knowledge source with LlamaIndex, Qdrant, Neo4j GraphRAG, or your ERP knowledge API behind searchRepairKnowledge.',

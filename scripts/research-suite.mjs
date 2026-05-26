@@ -11,6 +11,7 @@ const strict = process.env.EDGEKIT_SUITE_STRICT !== '0'
 const headless = process.env.EDGEKIT_SUITE_HEADLESS !== '0'
 const requireRealProviders = process.env.EDGEKIT_REQUIRE_REAL_PROVIDERS === '1'
 const promptLimit = Number(process.env.EDGEKIT_SUITE_PROMPT_LIMIT ?? '0')
+const suiteFilter = parseList(process.env.EDGEKIT_SUITE_ONLY)
 const seed = Number(process.env.EDGEKIT_SUITE_SEED ?? '20260525')
 const siteURL = stripTrailingSlash(
   process.env.EDGEKIT_SUITE_SITE_URL ??
@@ -55,13 +56,13 @@ try {
   const browser = await launchBrowser()
   const environmentResult = await runEnvironmentProbe(browser)
   const browserResults = []
-  for (const suite of scenarioPack.suites) {
+  for (const suite of selectedSuites()) {
     for (const prompt of selectPrompts(suite.prompts ?? [], suite.id)) {
       const result = await runBrowserSuite(browser, suite, prompt)
       browserResults.push(result)
     }
   }
-  const providerResults = target === 'local' ? await runProviderMatrix(browser) : []
+  const providerResults = target === 'local' ? await runProviderMatrix(browser) : providerMatrixSkipsForTarget()
   await browser.close()
 
   const architectureResults = await runArchitectureProbes()
@@ -72,12 +73,14 @@ try {
     target,
     seed,
     promptLimit,
+    suiteFilter,
     siteURL,
     ecommerceURL: target === 'live' ? null : ecommerceURL,
     scenarioPack: scenarioPack.version,
     rubric: rubric.version,
     requireRealProviders,
     browserMode: browserMode({ headless }),
+    proofLevel: proofLevel(),
     summary,
     results,
   }
@@ -93,6 +96,8 @@ try {
     ecommerceURL: payload.ecommerceURL,
     browserMode: payload.browserMode,
     requireRealProviders,
+    proofLevel: payload.proofLevel,
+    suiteFilter,
     results: providerResults,
   }
   await writeFile(providerMatrixPath, `${JSON.stringify(providerPayload, null, 2)}\n`)
@@ -184,27 +189,38 @@ async function runEnvironmentProbe(browser) {
         return 'missing'
       }
     })
+    const modes = providerModes()
+    const needsChromeProvider = requireRealProviders && modes.some(mode => mode === 'chrome' || mode === 'cascade')
+    const needsWebLlmProvider = requireRealProviders && modes.some(mode => mode === 'webllm' || mode === 'cascade')
+    const needsCloudRouteProvider = requireRealProviders && modes.includes('cloud-route')
     addCheck(checks, 'environment', 'browser automation is available', true, capabilities.userAgent)
     addCheck(checks, 'environment', 'IndexedDB is available for cache and journal adapters', capabilities.indexedDb)
-    addCheck(checks, 'environment', 'WebGPU is available when real WebLLM providers are required', !requireRealProviders || capabilities.webGpu)
+    addCheck(checks, 'environment', 'WebGPU is available when real WebLLM providers are required', !needsWebLlmProvider || capabilities.webGpu)
+    addCheck(
+      checks,
+      'environment',
+      'COOP/COEP isolation is active for WebLLM host proof',
+      !needsWebLlmProvider || capabilities.crossOriginIsolated,
+      `crossOriginIsolated=${capabilities.crossOriginIsolated}`,
+    )
     addCheck(
       checks,
       'environment',
       'Chrome AI/Nano API is available when real local providers are required',
-      !requireRealProviders || capabilities.languageModel || capabilities.aiLanguageModel,
+      !needsChromeProvider || capabilities.languageModel || capabilities.aiLanguageModel,
     )
     addCheck(
       checks,
       'environment',
       'Chrome AI/Nano model is available when real local providers are required',
-      !requireRealProviders || capabilities.languageModelAvailability === 'available' || capabilities.languageModelAvailability === 'readily',
+      !needsChromeProvider || capabilities.languageModelAvailability === 'available' || capabilities.languageModelAvailability === 'readily',
       `availability=${capabilities.languageModelAvailability}`,
     )
     addCheck(
       checks,
       'environment',
       'cloud route env is reachable when real provider routing is required',
-      !requireRealProviders || await canFetch(process.env.EDGEKIT_SUITE_CLOUD_ROUTE_URL),
+      !needsCloudRouteProvider || await canFetch(process.env.EDGEKIT_SUITE_CLOUD_ROUTE_URL),
     )
     transcript = JSON.stringify(capabilities, null, 2)
   } catch (error) {
@@ -703,10 +719,7 @@ async function runAgentReadableDocs(page, checks) {
 }
 
 async function runProviderMatrix(browser) {
-  const modes = (process.env.EDGEKIT_SUITE_PROVIDER_MODES ?? 'chrome,webllm,cascade,none,scripted,cloud-route')
-    .split(',')
-    .map(mode => mode.trim())
-    .filter(Boolean)
+  const modes = providerModes()
   const results = []
   for (const mode of modes) {
     if (mode === 'cloud-route') {
@@ -740,7 +753,7 @@ async function runProviderMatrix(browser) {
       screenshot = await saveScreenshot(page, `provider-${mode}`).catch(error => `screenshot failed: ${readableError(error)}`)
       await page.close()
     }
-    results.push(makeResult({
+    const result = makeResult({
       id: `provider:${mode}`,
       suiteId: 'provider-matrix',
       title: `Provider matrix: ${mode}`,
@@ -752,7 +765,13 @@ async function runProviderMatrix(browser) {
       screenshot,
       notes,
       durationMs: Date.now() - startedAt,
+    })
+    Object.assign(result, providerProofMetadata(mode, {
+      host: 'local-preview',
+      command: providerCommand(mode),
+      evidence: screenshot,
     }))
+    results.push(result)
   }
   return results
 }
@@ -771,7 +790,7 @@ async function probeCloudRouteProvider() {
     addCheck(checks, 'environment', 'configured cloud route is reachable', reachable, url)
     transcript = `Cloud route ${url} reachable=${reachable}`
   }
-  return makeResult({
+  const result = makeResult({
     id: 'provider:cloud-route',
     suiteId: 'provider-matrix',
     title: 'Provider matrix: cloud route',
@@ -784,6 +803,50 @@ async function probeCloudRouteProvider() {
     notes: '',
     durationMs: Date.now() - startedAt,
   })
+  Object.assign(result, providerProofMetadata('cloud-route', {
+    host: 'developer-route',
+    command: providerCommand('cloud-route'),
+    evidence: url || 'EDGEKIT_SUITE_CLOUD_ROUTE_URL not set',
+  }))
+  return result
+}
+
+function providerMatrixSkipsForTarget() {
+  return providerModes().map(mode => ({
+    id: `provider:${mode}`,
+    suiteId: 'provider-matrix',
+    title: `Provider matrix: ${mode}`,
+    layer: 'provider',
+    required: false,
+    prompt: mode === 'cloud-route' ? '' : 'find me size nine white nike dunks',
+    outcome: 'skipped',
+    score: 0,
+    durationMs: 0,
+    checks: [
+      {
+        category: 'environment',
+        label: `${mode} provider matrix lane is local-preview only`,
+        passed: true,
+        details: `target=${target}; run EDGEKIT_SUITE_TARGET=local pnpm research:suite for executable provider rows`,
+        required: false,
+      },
+    ],
+    transcript: 'Provider execution rows are intentionally not run against GitHub Pages/live targets. Live proof is recorded by browser scenarios; provider proof belongs to local or strict local runs.',
+    screenshot: '',
+    notes: '',
+    ...providerProofMetadata(mode, {
+      host: target,
+      command: providerCommand(mode),
+      evidence: 'skipped-live-target',
+    }),
+  }))
+}
+
+function providerModes() {
+  return (process.env.EDGEKIT_SUITE_PROVIDER_MODES ?? 'chrome,webllm,cascade,none,scripted,cloud-route')
+    .split(',')
+    .map(mode => mode.trim())
+    .filter(Boolean)
 }
 
 async function runArchitectureProbes() {
@@ -1098,6 +1161,85 @@ async function probeMissionProfileValidation(checks) {
   return JSON.stringify({ complete, missing, invalid })
 }
 
+function selectedSuites() {
+  if (!suiteFilter.length) return scenarioPack.suites
+  const allowed = new Set(suiteFilter)
+  return scenarioPack.suites.filter(suite => allowed.has(suite.id) || allowed.has(suite.surface))
+}
+
+function parseList(value) {
+  return (value ?? '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+}
+
+function proofLevel() {
+  if (target === 'live') return 'live-pages'
+  if (requireRealProviders) return browserMode({ headless }).cdpURL ? 'strict-cdp-real-providers' : 'strict-real-providers'
+  return 'local-resilience'
+}
+
+function providerProofMetadata(mode, overrides = {}) {
+  const strictCdp = proofLevel() === 'strict-cdp-real-providers'
+  const definitions = {
+    chrome: {
+      proofLane: strictCdp ? 'strict Chrome AI/Nano CDP' : 'Chrome AI/Nano local candidate',
+      hostRequirement: 'Real Chrome profile with LanguageModel or ai.languageModel; use EDGEKIT_CHROME_CDP_URL for downloaded Nano proof.',
+      strictMeaning: strictCdp ? 'Proves the existing Chrome profile model path.' : 'Proves route behavior or graceful no-model fallback unless strict flags and CDP are set.',
+    },
+    webllm: {
+      proofLane: 'WebLLM COOP/COEP host',
+      hostRequirement: 'Cross-origin isolated host with WebGPU and COOP/COEP headers.',
+      strictMeaning: 'Strict provider mode requires WebGPU plus crossOriginIsolated=true; otherwise this lane may pass as graceful fallback.',
+    },
+    cascade: {
+      proofLane: 'Cascade route',
+      hostRequirement: 'Chrome/WebLLM/cloud availability determines selected provider; local-first order remains visible.',
+      strictMeaning: 'Strict mode proves every required provider dependency is present before claiming full cascade readiness.',
+    },
+    none: {
+      proofLane: 'No-model fallback',
+      hostRequirement: 'No local model is required.',
+      strictMeaning: 'Proves the user-visible basic-mode fallback does not crash or hide limitations.',
+    },
+    scripted: {
+      proofLane: 'Deterministic scripted control',
+      hostRequirement: 'No model is required; used as a deterministic integration and workflow control.',
+      strictMeaning: 'Not model proof; proves host tools, approvals, and UI state independent of provider availability.',
+    },
+    'cloud-route': {
+      proofLane: 'Developer-provided cloud route',
+      hostRequirement: 'EDGEKIT_SUITE_CLOUD_ROUTE_URL must be reachable; a local stub proves routing shape, an external URL proves hosted provider reachability.',
+      strictMeaning: 'When EDGEKIT_REQUIRE_REAL_PROVIDERS=1 this lane is required and fails if no route is configured.',
+    },
+  }
+  return {
+    proofLevel: proofLevel(),
+    mode,
+    ...(definitions[mode] ?? {
+      proofLane: mode,
+      hostRequirement: 'Custom provider mode.',
+      strictMeaning: 'Custom mode semantics are owned by the caller.',
+    }),
+    ...overrides,
+  }
+}
+
+function providerCommand(mode) {
+  if (mode === 'cloud-route') {
+    return 'EDGEKIT_SUITE_CLOUD_ROUTE_URL=http://127.0.0.1:4198/api/edgekit/cloud-route EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:suite'
+  }
+  if (mode === 'chrome') {
+    return 'EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_SUITE_HEADLESS=0 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 EDGEKIT_SUITE_PROVIDER_MODES=chrome pnpm research:suite'
+  }
+  if (mode === 'webllm') {
+    return 'EDGEKIT_SUITE_PROVIDER_MODES=webllm EDGEKIT_REQUIRE_REAL_PROVIDERS=1 pnpm research:suite'
+  }
+  if (mode === 'none') return 'EDGEKIT_SUITE_PROVIDER_MODES=none pnpm research:suite'
+  return `EDGEKIT_SUITE_PROVIDER_MODES=${mode} pnpm research:suite`
+}
+
 function selectPrompts(prompts, salt) {
   if (!prompts.length) return ['']
   const shuffled = [...prompts].sort((a, b) => seededNumber(`${seed}:${salt}:${a}`) - seededNumber(`${seed}:${salt}:${b}`))
@@ -1267,14 +1409,27 @@ ${failures || 'No failed scenarios.'}
 
 function renderProviderMatrixMarkdown(payload) {
   const rows = payload.results
-    .map(result => `| ${result.id} | ${result.outcome} | ${result.score} | ${result.required ? 'yes' : 'no'} | ${result.durationMs} |`)
+    .map(result => `| ${result.id} | ${result.proofLane ?? result.mode ?? 'unknown'} | ${result.proofLevel ?? payload.proofLevel ?? 'unknown'} | ${result.outcome} | ${result.score} | ${result.required ? 'yes' : 'no'} | ${result.durationMs} |`)
     .join('\n')
   const details = payload.results
     .map(result => {
       const checks = result.checks
         .map(check => `- ${check.passed ? 'PASS' : 'FAIL'} [${check.category}] ${check.label}${check.details ? `: ${check.details}` : ''}`)
         .join('\n')
-      return `## ${result.id}\n\n${checks}\n\n\`\`\`text\n${String(result.transcript ?? '').slice(0, 1500)}\n\`\`\``
+      return `## ${result.id}
+
+- Proof lane: ${result.proofLane ?? 'unknown'}
+- Proof level: ${result.proofLevel ?? payload.proofLevel ?? 'unknown'}
+- Host requirement: ${result.hostRequirement ?? 'n/a'}
+- Strict meaning: ${result.strictMeaning ?? 'n/a'}
+- Re-run: \`${result.command ?? 'pnpm research:suite'}\`
+- Evidence: ${result.evidence ?? result.screenshot ?? 'n/a'}
+
+${checks}
+
+\`\`\`text
+${String(result.transcript ?? '').slice(0, 1500)}
+\`\`\``
     })
     .join('\n\n')
 
@@ -1288,10 +1443,21 @@ Site: ${payload.siteURL}
 
 Browser mode: ${JSON.stringify(payload.browserMode)}
 
+Proof level: ${payload.proofLevel ?? 'unknown'}
+
 Require real providers: ${payload.requireRealProviders ? 'yes' : 'no'}
 
-| Provider | Outcome | Score | Required | Duration ms |
-| --- | --- | ---: | --- | ---: |
+Suite filter: ${payload.suiteFilter?.length ? payload.suiteFilter.join(', ') : 'none'}
+
+## How To Read This
+
+- \`local-resilience\` proves route behavior, graceful degradation, and deterministic control paths on local preview.
+- \`strict-cdp-real-providers\` proves a real downloaded Chrome AI/Nano model through an existing Chrome CDP session.
+- \`live-pages\` proves the public static host; local provider execution rows are skipped there by design.
+- Cloud route proof is only hosted-provider proof when \`EDGEKIT_SUITE_CLOUD_ROUTE_URL\` points at a real external route. A local stub proves routing shape only.
+
+| Provider | Lane | Proof level | Outcome | Score | Required | Duration ms |
+| --- | --- | --- | --- | ---: | --- | ---: |
 ${rows}
 
 ${details}

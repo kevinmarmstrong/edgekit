@@ -94,6 +94,12 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
   await expect(page.getByTestId('inventory-available-CMP-44')).toHaveText('2')
   await expect(page.locator('#ops-role-scope')).toContainText('Dispatcher can search work orders')
   await expect(page.locator('#ops-risk-state')).toContainText('Mutations require approval')
+  await expect(page.locator('#ops-workflow-state')).toContainText('Triage ready')
+  await expect(page.locator('#ops-next-action')).toContainText('reserve CMP-44')
+  await expect(page.locator('#ops-policy-evidence')).toContainText('CMP-44 safety checklist')
+  await expect(page.locator('#ops-capability-list')).toContainText('reserveInventory')
+  await expect(page.locator('#ops-telemetry-tools')).toContainText('dispatcher · 4 tools')
+  await expect(page.locator('#ops-telemetry-approvals')).toContainText('0 requested · 0 approved · 0 rejected')
 
   await ops.getByTestId('chat-input').fill('reserve a compressor for Riverside')
   await ops.getByTestId('send-button').click()
@@ -102,13 +108,18 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
   await expect(ops.getByTestId('chat-messages')).toContainText('Critical')
   await expect(ops.getByTestId('approval-prompt')).toContainText('reserveInventory')
   await expect(page.getByTestId('inventory-available-CMP-44')).toHaveText('2')
+  await expect(page.locator('#ops-telemetry-approvals')).toContainText('1 requested · 0 approved · 0 rejected')
 
   await ops.getByTestId('approve-button').click()
   await expect(page.getByTestId('inventory-available-CMP-44')).toHaveText('1')
   await expect(page.locator('#ops-cmp-stock')).toHaveText('1')
+  await expect(page.locator('#ops-workflow-state')).toContainText('Parts reserved, dispatch pending')
+  await expect(page.locator('#ops-next-action')).toContainText('assign Ava or Jules')
   await expect(page.locator('#ops-available-techs')).toHaveText('2')
   await expect(page.locator('#ops-activity')).toContainText('Reserved 1x Compressor module for Riverside Clinic')
   await expect(page.locator('#ops-audit')).toContainText('Approved reserveInventory')
+  await expect(page.locator('#ops-telemetry-approvals')).toContainText('1 requested · 1 approved · 0 rejected')
+  await expect(page.locator('#ops-telemetry-audit')).toContainText('1 recorded')
   await expect(ops.getByTestId('chat-messages')).toContainText('Remaining stock: 1')
 
   await page.goto(`${siteURL}demos/operations/?opsAgentMode=scripted&cacheBust=${Date.now()}`)
@@ -126,13 +137,19 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
   await expect(page.getByTestId('ops-tech-WO-1842')).toContainText('Unassigned')
   await expect(page.getByTestId('tech-status-ava')).toHaveText('Available')
   await expect(page.locator('#ops-audit')).toContainText('Rejected assignTechnician')
+  await expect(page.locator('#ops-telemetry-approvals')).toContainText('1 requested · 0 approved · 1 rejected')
 
   await page.goto(`${siteURL}demos/operations/?opsAgentMode=scripted&cacheBust=${Date.now()}`)
   await page.locator('#ops-role').selectOption('viewer')
   await expect(page.locator('#ops-activity')).toContainText('Role changed to viewer')
   await expect(page.locator('#ops-role-scope')).toContainText('Viewer can search and inspect')
+  await expect(page.locator('#ops-capability-list')).toContainText('searchWorkOrders')
+  await expect(page.locator('#ops-capability-list')).not.toContainText('reserveInventory')
+  await expect(page.locator('#ops-telemetry-tools')).toContainText('viewer · 1 tools')
   await page.locator('#ops-role').selectOption('supervisor')
   await expect(page.locator('#ops-role-scope')).toContainText('Supervisor can search')
+  await expect(page.locator('#ops-capability-list')).toContainText('updateEta')
+  await expect(page.locator('#ops-telemetry-tools')).toContainText('supervisor · 4 tools')
 
   const supervisorOps = page.locator('#operations')
   await supervisorOps.getByTestId('chat-input').fill('update Riverside ETA to 45 min because traffic delay')
@@ -142,6 +159,7 @@ test('field ops ERP demo gates inventory reservation and dispatch actions', asyn
   await supervisorOps.getByTestId('approve-button').click()
 
   await expect(page.getByTestId('ops-eta-WO-1842')).toContainText('45 min')
+  await expect(page.locator('#ops-policy-evidence')).toContainText('ETA policy requires supervisor approval')
   await expect(page.locator('#ops-activity')).toContainText('Updated Riverside Clinic ETA to 45 min')
   await expect(page.locator('#ops-audit')).toContainText('Approved updateEta')
 })
@@ -152,6 +170,7 @@ test('field ops ERP demo retrieves cited knowledge without mutating state', asyn
 
   const ops = page.locator('#operations')
   await expect(page.getByTestId('inventory-available-CMP-44')).toHaveText('2')
+  await expect(page.locator('.ops-scripted-note')).toContainText('scripted Field Ops agent')
   await ops.getByTestId('chat-input').fill('cite the safety rule for CMP-44')
   await ops.getByTestId('send-button').click()
 

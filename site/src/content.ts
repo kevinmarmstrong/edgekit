@@ -81,7 +81,7 @@ export const docChunks: DocChunk[] = [
     title: 'Adopter Simulation',
     tags: ['onboarding', 'vibe coder', 'elite programmer', 'starter kit'],
     body:
-      'Edgekit adopter simulation has two paths: a 30-minute agent-assisted path to choose a mission, create Skills and a Mission Profile, register tools, add approvals, and run outcome prompts; and a 90-minute elite programmer path to inspect architecture, wire providers, add telemetry and audit, and run the full battery.',
+      'Edgekit adopter simulation has two paths: a 30-minute agent-assisted path to choose a mission, copy the starter, replace tool executes, mount edge-chat, validate the Mission Profile, and record the first serious outcome run; and a 90-minute elite programmer path to inspect architecture, wire providers, add telemetry and audit, and run the full battery. Evidence levels are dry-run, starter-run, first-serious-run, and production-shaped.',
   },
   {
     slug: 'adoption-kit',

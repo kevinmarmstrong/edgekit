@@ -75,6 +75,12 @@ try {
     downloadPolicy,
     requireRealModel,
     browserMode: browserMode({ headless }),
+    proofLevel: proofLevel(),
+    runbook: {
+      chromeNanoCdp: 'EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_EVAL_HEADLESS=0 EDGEKIT_REQUIRE_REAL_MODEL=1 EDGEKIT_EVAL_DOWNLOAD_POLICY=never pnpm eval:models',
+      noModelFallback: 'EDGEKIT_EVAL_DOWNLOAD_POLICY=never EDGEKIT_EVAL_MODES=none pnpm eval:models',
+      cascade: 'EDGEKIT_EVAL_MODES=chrome,cascade EDGEKIT_EVAL_DOWNLOAD_POLICY=never pnpm eval:models',
+    },
     summary,
     reports,
   }
@@ -194,6 +200,13 @@ function summarize(reports) {
     },
     { total: 0, passed: 0, failed: 0, modelUnavailable: 0 },
   )
+}
+
+function proofLevel() {
+  const mode = browserMode({ headless })
+  if (requireRealModel && mode.cdpURL) return 'strict-cdp-real-model'
+  if (requireRealModel) return 'strict-real-model'
+  return 'local-cascade-resilience'
 }
 
 async function waitForServer(url) {

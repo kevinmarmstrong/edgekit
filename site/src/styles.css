@@ -923,6 +923,27 @@ dd {
   gap: 12px;
 }
 
+.ops-live-state,
+.ops-telemetry-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.ops-live-state section,
+.ops-telemetry-panel div,
+.ops-scripted-note {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  background: var(--panel);
+}
+
 .ops-scope-panel,
 .ops-risk-panel {
   display: grid;
@@ -935,6 +956,8 @@ dd {
 
 .ops-scope-panel span,
 .ops-risk-panel span,
+.ops-live-state span,
+.ops-telemetry-panel span,
 .ops-workflow span {
   width: fit-content;
   color: var(--accent);
@@ -945,16 +968,40 @@ dd {
 }
 
 .ops-scope-panel strong,
-.ops-risk-panel strong {
+.ops-risk-panel strong,
+.ops-live-state strong,
+.ops-telemetry-panel strong {
   max-width: 760px;
   font-size: clamp(17px, 2vw, 23px);
   line-height: 1.25;
 }
 
 .ops-scope-panel p,
-.ops-risk-panel p {
+.ops-risk-panel p,
+.ops-live-state p,
+.ops-telemetry-panel p,
+.ops-scripted-note {
   margin: 0;
   color: var(--muted);
+}
+
+.ops-capability-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ops-capability-list li {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 5px 7px;
+  color: var(--ink);
+  background: #10140f;
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .ops-workflow {
@@ -1026,6 +1073,17 @@ dd {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
   gap: 14px;
+}
+
+.ops-telemetry-panel strong {
+  font-size: clamp(15px, 1.7vw, 19px);
+}
+
+.ops-scripted-note {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .tech-list {
@@ -1287,6 +1345,8 @@ pre code {
   .split-section,
   .ops-brief,
   .ops-command-center,
+  .ops-live-state,
+  .ops-telemetry-panel,
   .commerce-layout,
   .admin-layout,
   .ops-layout,

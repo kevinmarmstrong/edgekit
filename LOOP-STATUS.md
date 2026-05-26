@@ -1,6 +1,6 @@
 # Edgekit World-Class Loop — Live Status
 
-**Last Updated:** 2026-05-26 15:00:00 UTC
+**Last Updated:** 2026-05-26 22:03:02 UTC
 
 **This is the single source of truth for the current loop state.**
 
@@ -541,3 +541,67 @@ Progress on this wave will be recorded in small, timestamped steps in this file.
 
 **Remaining optional proof:**
 - Run against a real external cloud route instead of the local cloud-route stub if you want hosted-provider proof before package publication.
+
+---
+
+## Latest Update — 2026-05-26 21:45:10 UTC
+
+**Provider/resilience matrix proof and source-of-truth status docs:**
+
+- Tightened `research:suite` provider reporting so each provider row records its proof lane, proof level, host requirement, strict-mode meaning, evidence pointer, and exact re-run command.
+- Added `EDGEKIT_SUITE_ONLY` support for targeted resilience runs without editing the scenario pack.
+- Live-target provider rows are now explicit non-required skips instead of an empty provider matrix, so live Pages proof is not confused with local provider execution proof.
+- WebLLM host proof now records COOP/COEP isolation through a required strict-provider environment check (`crossOriginIsolated=true`).
+- `eval:models` now emits a proof level and runbook commands for strict Chrome/Nano CDP, no-model fallback, and cascade checks.
+- Reproducibility, outcome-quality testing, and distribution-readiness docs now state which lanes prove local resilience, strict Chrome AI/Nano CDP, WebLLM COOP/COEP, cloud routes, no-model fallback, live Pages, hostile/offline paths, long workflow paths, and MCP-ish architecture paths.
+
+**Current pushed cascade readiness work:**
+
+- Local resilience and live Pages proof were previously green in the current loop.
+- Strict Chrome/Nano CDP proof was previously green using `EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223`.
+- Full strict provider proof also requires a reachable `EDGEKIT_SUITE_CLOUD_ROUTE_URL`; a local stub proves routing shape, while an external route is still the optional hosted-provider proof before package publication.
+
+**Verification result:**
+
+- `node --check scripts/research-suite.mjs`: passed after fixing a Markdown-template escaping issue.
+- `node --check scripts/eval-model-cascade.mjs`: passed.
+- `EDGEKIT_SUITE_ONLY=standalone-hostile-cart,offline-loaded-assistant EDGEKIT_SUITE_PROVIDER_MODES=none node scripts/research-suite.mjs`: passed 17/17, 0 failed, 0 skipped, required failures/skips 0, average score 1.0, confidence band `high-confidence`.
+- Regenerated ignored local artifacts `research-results/provider-matrix.md/json` with proof level `local-resilience`, suite filter `standalone-hostile-cart, offline-loaded-assistant`, and an explicit no-model fallback provider row.
+- `EDGEKIT_SUITE_TARGET=live EDGEKIT_SUITE_ONLY=__none__ EDGEKIT_SUITE_PROVIDER_MODES=none EDGEKIT_SUITE_OUTPUT=research-results/live-provider-matrix-check.json EDGEKIT_PROVIDER_MATRIX_OUTPUT=research-results/live-provider-matrix-check-provider.json node scripts/research-suite.mjs`: passed 12/12 with 1 non-required provider skip, required failures/skips 0, average score 1.0. The generated temporary provider matrix shows proof level `live-pages` and explicitly marks the provider row skipped.
+
+**Current caveat:**
+
+- The full `pnpm research:suite` wrapper was stopped because the build phase hung in `@kevinmarmstrong/edgekit-ui` TypeScript compilation for over two minutes. The targeted harness was then run directly against the existing built dist to verify the script changes.
+
+---
+
+## Latest Update — 2026-05-26 22:03:02 UTC
+
+**World-class gap closure pass: onboarding proof, demo realism, provider matrix, and local verification:**
+
+- Upgraded the Field Ops ERP demo so it now shows workflow state, next action, policy evidence, resilience posture, role capability lists, approval counters, audit counts, and scripted-mode disclosure. The demo remains honest: scripted public mode exercises the same tools, approvals, UI state, and audit surfaces without pretending to be a live provider.
+- Expanded Field Ops E2E assertions for dispatcher, viewer, supervisor, approval, rejection, telemetry, audit, state change, and cited knowledge paths.
+- Expanded `ADOPTER-SIMULATION.md` and the public docs page with evidence levels (`dry-run`, `starter-run`, `first-serious-run`, `production-shaped`), timed proof rules, required records, scoring rubric, and first-serious-run reporting.
+- Expanded production recipes with persistable event contracts, approval-ledger rows, dynamic RBAC tool exposure, state hydration examples, and capability-gated cascade UX guidance.
+- Fixed provider-matrix semantics so strict Chrome/Nano proof does not require WebLLM COOP/COEP or a cloud route unless those provider modes are actually being claimed.
+
+**Verification result:**
+
+- `node --check scripts/research-suite.mjs`: passed.
+- `node --check scripts/eval-model-cascade.mjs`: passed.
+- `git diff --check`: passed.
+- `pnpm typecheck`: passed.
+- `pnpm test`: 71/71 passed.
+- `pnpm build`: passed.
+- `pnpm test:e2e`: 52/52 passed.
+- `pnpm eval:adoption`: 10/10 scenarios, 82/82 checks, required failures 0, average score 1.0, `meetsRubric: true`.
+- `pnpm research:suite`: 76/76 scenarios, required failures/skips 0, average score 1.0, confidence rating 1.0, `high-confidence`.
+- `pnpm test:fresh-app`: packed package install/build smoke passed outside workspace aliases.
+- `pnpm eval:models`: local-cascade resilience completed with 6 expected isolated-headless model-unavailable fallback results and no unsafe mutation.
+- `EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_EVAL_HEADLESS=0 EDGEKIT_REQUIRE_REAL_MODEL=1 EDGEKIT_EVAL_DOWNLOAD_POLICY=never pnpm eval:models`: strict Chrome/Nano CDP proof passed 6/6 with `modelUnavailable: 0`.
+- `EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 EDGEKIT_SUITE_HEADLESS=0 EDGEKIT_REQUIRE_REAL_PROVIDERS=1 EDGEKIT_SUITE_PROVIDER_MODES=chrome EDGEKIT_SUITE_ONLY=__none__ pnpm research:suite`: strict Chrome provider-matrix proof passed 13/13, required failures/skips 0, average score 1.0.
+- `pnpm research:agents`: 12/12 scenarios passed, average score 1.0, `shipReady: true`.
+
+**Current caveat:**
+
+- Hosted cloud-route proof still requires a real external `EDGEKIT_SUITE_CLOUD_ROUTE_URL`. The local suite proves routing shape and fallback behavior; it should not be represented as hosted-provider proof.

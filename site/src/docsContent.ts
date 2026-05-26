@@ -1797,7 +1797,15 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         id: 'agent-assisted-path',
         title: '30-minute agent-assisted path',
         body: [
-          'An agent-assisted builder should be able to choose one mission, define 2-5 Skills, create one Mission Profile, register real app tools, add approval gates, and run outcome-quality prompts.',
+          'An agent-assisted builder should be able to choose one mission, copy the starter, replace tool executes with app-owned APIs, mount `<edge-chat>`, validate the Mission Profile, and record the first serious outcome run inside 30-45 minutes.',
+          'The coding agent may use public docs, package READMEs, `llms.txt`, `llms-full.txt`, and starter artifacts. Hidden maintainer knowledge or demo-specific hardcodes are failure signals.',
+        ],
+      },
+      {
+        id: 'evidence-levels',
+        title: 'Evidence levels',
+        body: [
+          '`dry-run` proves docs are understandable enough to plan from. `starter-run` proves the starter can become a real mission. `first-serious-run` proves a realistic sidecar reaches score >= 0.95 with required failures 0. `production-shaped` adds telemetry, audit, RBAC/state boundaries, and provider-lane proof.',
         ],
       },
       {
@@ -1818,7 +1826,15 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         id: 'passing-standard',
         title: 'Passing standard',
         body: [
-          'The sidecar must reach average score >= 0.95 on its first serious harness run after reasonable tuning. The evaluation must include answer quality, generated UI, approval boundaries, telemetry, and app state.',
+          'The sidecar must reach average score >= 0.95 on its first serious harness run after reasonable setup and bounded tuning. The evaluation must include answer quality, generated UI, approval boundaries, telemetry, app state, provider honesty, and host-app authority.',
+          'If the first serious run fails, keep it in the report. Then record the smallest reusable fix that improved the result.',
+        ],
+      },
+      {
+        id: 'report-records',
+        title: 'Required records',
+        body: [
+          'Record timing, files changed, public docs consulted, validation errors/warnings, outcome scores, required failures/skips, provider lane, screenshots or transcripts, friction points, fixes made, and remaining risks.',
         ],
       },
     ],

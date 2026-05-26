@@ -33,6 +33,8 @@ type InventoryItem = {
   reserved: number
 }
 
+type OpsRole = 'dispatcher' | 'viewer' | 'supervisor'
+
 const workOrders: WorkOrder[] = [
   {
     id: 'WO-1842',
@@ -84,6 +86,16 @@ const inventory: InventoryItem[] = [
 
 const opsActivity: string[] = ['No dispatch actions yet']
 const opsAudit: string[] = ['No approval decisions yet']
+const opsMetrics = {
+  approvalsRequested: 0,
+  approvalsApproved: 0,
+  approvalsRejected: 0,
+}
+const roleCapabilities: Record<OpsRole, string[]> = {
+  dispatcher: ['searchWorkOrders', 'searchRepairKnowledge', 'reserveInventory', 'assignTechnician'],
+  viewer: ['searchWorkOrders'],
+  supervisor: ['searchWorkOrders', 'searchRepairKnowledge', 'updateEta', 'approve high-risk changes'],
+}
 const repairKnowledge = [
   {
     id: 'cmp-44-safety',
@@ -143,6 +155,8 @@ export function mountOpsDemo() {
     pushOpsActivity(`Role changed to ${currentOpsRole()}`)
     renderOpsState()
   })
+  window.addEventListener('online', renderOpsState)
+  window.addEventListener('offline', renderOpsState)
 
   chat.configure(
     scriptedMode
@@ -342,6 +356,8 @@ function initialOpsStream(tools: Record<string, unknown>, input: string) {
         type: 'text-delta',
         delta: `Riverside Clinic has a Critical work order with ${workOrders[0].sla}. ${wantsEta ? 'Supervisor approval is required before updating ETA.' : wantsReserve ? 'Approval is required before reserving CMP-44 inventory.' : 'Approval is required before assigning Ava Moreno.'}`,
       }
+      opsMetrics.approvalsRequested += 1
+      renderOpsState()
       yield { type: 'tool-approval-request', approvalId: `approval-${toolCall.toolName}`, toolCall }
     })(),
     response: Promise.resolve({
@@ -364,6 +380,8 @@ function approvedOpsStream(tools: Record<string, unknown>, toolCall: ApprovalToo
   const approvedCall = toolCall ?? { type: 'tool-call', toolCallId: 'tool-reserve-part', toolName: 'reserveInventory', input: { workOrderId: 'WO-1842', partSku: 'CMP-44', quantity: 1 } }
   return {
     fullStream: (async function* () {
+      opsMetrics.approvalsApproved += 1
+      renderOpsState()
       yield approvedCall
       const output = await executeTool(tools[approvedCall.toolName], approvedCall.input)
       yield { type: 'tool-result', toolCallId: approvedCall.toolCallId, toolName: approvedCall.toolName, output }
@@ -377,6 +395,7 @@ function rejectedOpsStream(toolCall: ApprovalToolCall | null) {
   const name = toolCall?.toolName === 'assignTechnician' ? 'assign a technician' : toolCall?.toolName === 'updateEta' ? 'update ETA' : 'reserve inventory'
   return {
     fullStream: (async function* () {
+      opsMetrics.approvalsRejected += 1
       pushOpsActivity(`Rejected request to ${name}; ERP state unchanged`)
       pushOpsAudit(`Rejected ${toolCall?.toolName ?? 'mutation'}; no ERP mutation executed`)
       renderOpsState()
@@ -394,6 +413,8 @@ function renderOpsState() {
   renderOpsAudit()
   renderOpsSummary()
   renderOpsScope()
+  renderOpsWorkflowState()
+  renderOpsTelemetry()
 }
 
 function renderWorkOrders() {
@@ -473,6 +494,7 @@ function renderOpsScope() {
   const scope = document.querySelector<HTMLElement>('#ops-role-scope')
   const risk = document.querySelector<HTMLElement>('#ops-risk-state')
   const sync = document.querySelector<HTMLElement>('#ops-sync-state')
+  const capabilityList = document.querySelector<HTMLElement>('#ops-capability-list')
   if (scope) {
     scope.textContent = role === 'viewer'
       ? 'Viewer can search and inspect work orders; mutation tools are hidden.'
@@ -487,6 +509,65 @@ function renderOpsScope() {
     sync.textContent = navigator.onLine
       ? 'Online: ERP mutations execute immediately after approval.'
       : 'Offline: approved idempotent mutations would queue in the host-owned journal.'
+  }
+  if (capabilityList) {
+    capabilityList.innerHTML = roleCapabilities[role].map(capability => `<li>${capability}</li>`).join('')
+  }
+}
+
+function renderOpsWorkflowState() {
+  const primaryOrder = workOrders.find(order => order.id === 'WO-1842')
+  if (!primaryOrder) return
+  const workflow = document.querySelector<HTMLElement>('#ops-workflow-state')
+  const nextAction = document.querySelector<HTMLElement>('#ops-next-action')
+  const evidence = document.querySelector<HTMLElement>('#ops-policy-evidence')
+  const resilience = document.querySelector<HTMLElement>('#ops-resilience-state')
+  const resilienceDetail = document.querySelector<HTMLElement>('#ops-resilience-detail')
+  const technician = technicians.find(item => item.id === primaryOrder.technicianId)
+
+  if (workflow) {
+    workflow.textContent = primaryOrder.status === 'Unassigned'
+      ? 'Triage ready'
+      : primaryOrder.status === 'Parts reserved'
+        ? 'Parts reserved, dispatch pending'
+        : 'Dispatched with active ETA'
+  }
+  if (nextAction) {
+    nextAction.textContent = primaryOrder.status === 'Unassigned'
+      ? 'Next action: reserve CMP-44 after approval, then assign an East HVAC technician.'
+      : primaryOrder.status === 'Parts reserved'
+        ? 'Next action: assign Ava or Jules with ETA evidence before the 4h SLA breach.'
+        : `Next action: monitor ${technician?.name ?? 'assigned technician'} and update ETA only with supervisor approval.`
+  }
+  if (evidence) {
+    evidence.textContent = currentOpsRole() === 'viewer'
+      ? 'Read-only users can inspect work orders without policy mutation tools'
+      : primaryOrder.status === 'Dispatched' || primaryOrder.eta
+        ? 'ETA policy requires supervisor approval for customer-facing changes'
+        : 'CMP-44 safety checklist required before dispatch'
+  }
+  if (resilience) {
+    resilience.textContent = navigator.onLine ? 'Online execution' : 'Offline journal mode'
+  }
+  if (resilienceDetail) {
+    resilienceDetail.textContent = navigator.onLine
+      ? 'Approved idempotent mutations execute now; audit and telemetry records stay visible.'
+      : 'Approved idempotent mutations would queue in the host-owned journal until sync resumes.'
+  }
+}
+
+function renderOpsTelemetry() {
+  const role = currentOpsRole()
+  const tools = document.querySelector<HTMLElement>('#ops-telemetry-tools')
+  const approvals = document.querySelector<HTMLElement>('#ops-telemetry-approvals')
+  const audit = document.querySelector<HTMLElement>('#ops-telemetry-audit')
+  if (tools) tools.textContent = `${role} · ${roleCapabilities[role].length} tools`
+  if (approvals) {
+    approvals.textContent = `${opsMetrics.approvalsRequested} requested · ${opsMetrics.approvalsApproved} approved · ${opsMetrics.approvalsRejected} rejected`
+  }
+  if (audit) {
+    const count = opsAudit[0] === 'No approval decisions yet' ? 0 : opsAudit.length
+    audit.textContent = `${count} recorded`
   }
 }
 
@@ -587,8 +668,9 @@ function pushOpsAudit(item: string) {
   opsAudit.unshift(`${new Date().toISOString().slice(11, 19)} · ${item}`)
 }
 
-function currentOpsRole() {
-  return document.querySelector<HTMLSelectElement>('#ops-role')?.value ?? 'dispatcher'
+function currentOpsRole(): OpsRole {
+  const value = document.querySelector<HTMLSelectElement>('#ops-role')?.value
+  return value === 'viewer' || value === 'supervisor' ? value : 'dispatcher'
 }
 
 function priorityClass(priority: WorkOrder['priority']) {
