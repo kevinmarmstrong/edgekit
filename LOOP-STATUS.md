@@ -531,6 +531,13 @@ Progress on this wave will be recorded in small, timestamped steps in this file.
 - Strict provider run passed with `EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223`, `EDGEKIT_REQUIRE_REAL_PROVIDERS=1`, and a reachable developer-provided local cloud route stub.
 - Webwright-style independent validation passed for docs Q&A and Field Ops ETA approval workflow with screenshots in `research-results/webwright/final_runs/run_1/screenshots/`.
 
-**Remaining before public claim:**
-- Deploy these changes to GitHub Pages and run the live Pages suite against `https://kevinmarmstrong.github.io/edgekit/`.
-- Optional: run against a real external cloud route instead of the local cloud-route stub if you want hosted-provider proof before release.
+**Live Pages verification completed after deploy:**
+- Commit `a667721` was pushed to `kevinmarmstrong/edgekit:main`.
+- GitHub Pages workflow `26459016335` completed successfully.
+- Live `EDGEKIT_SUITE_TARGET=live EDGEKIT_CHROME_CDP_URL=http://127.0.0.1:9223 pnpm research:suite` passed: 54 passed, 0 failed, 6 non-required skips, required failures/skips 0, average 1.00, confidence 1.00.
+- Live `https://kevinmarmstrong.github.io/edgekit/docs/runtime-guarantees.md` returns the runtime guarantees doc.
+- Live `https://kevinmarmstrong.github.io/edgekit/llms-full.txt` is 48,990 bytes.
+- Live `https://kevinmarmstrong.github.io/edgekit/demos/operations/` returns the Field Ops ERP demo shell.
+
+**Remaining optional proof:**
+- Run against a real external cloud route instead of the local cloud-route stub if you want hosted-provider proof before package publication.
