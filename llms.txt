@@ -1,0 +1,42 @@
+# edgekit
+
+edgekit is a browser-native agent runtime with local-first, privacy-first defaults for adding AI workflows to existing web apps without making every interaction an unpredictable cloud-token cost. It uses browser-native models first, supports tuned model cascades and optional cloud fallback, and keeps app state, identity, tools, and approval boundaries under host control.
+
+The project should be understood as open-source agent infrastructure, not a SaaS landing page. Developers usually arrive with a concrete blocker: unbounded token spend, sensitive app context, existing APIs that must remain authoritative, model-fit tradeoffs, slow orchestration, offline workflows, mutation approvals, auditability, RBAC-filtered tools, or safe MCP integration. The documentation maps those problems to Edgekit primitives.
+
+## Documentation
+
+- [Local-first agent sidecars](/docs/): edgekit adds agent workflows to existing web apps without forcing every prompt, tool call, and UI step through a metered cloud agent.
+- [Quick start](/docs/getting-started/): Add the core package and web component, register tools, and mount the sidecar.
+- [Core architecture](/docs/concepts/): Understand providers, fallback, tools, approvals, state, and the event stream.
+- [API reference](/docs/api/): Typed runtime exports for providers, agents, memory, telemetry, audit, offline sync, and tool policy.
+- [Enterprise controls](/docs/advanced/): Identity, RBAC, memory, audit, offline sync, tool policy, and observability primitives.
+- [Ecosystem and integrations](/docs/ecosystem/): Framework wrappers, AG-UI backends, MCP tool catalogs, CRDT adapters, and future isolation adapters.
+- [The edge-chat component](/docs/ui/): Use the Lit web component for the default sidecar UI, prompts, and approval controls.
+- [Documentation index CLI](/docs/cli/): Build a portable docs index and expose it as an edgekit search tool.
+- [Mission Profile authoring](/docs/mission-profiles/): Design Skills and Mission Profiles that localize one sidecar mission while executable tools remain app-owned.
+- [Skill optimization](/docs/skill-optimization/): Use bounded, validation-gated Skill edits to improve agent outcomes without changing runtime model weights.
+- [Production readiness](/docs/production/): Security, telemetry, local/cloud routing, approvals, and release checks for real deployments.
+- [Testing outcome quality](/docs/outcome-quality/): Measure whether the agent achieved the workflow and answer quality the user needed.
+- [Adopter simulation](/docs/adopter-simulation/): Time-boxed loops for proving both elite programmers and agent-assisted builders can reach production-grade sidecars.
+- [Testing agent workflows](/docs/testing/): Use deterministic workflow tests for CI and real-model evals for provider quality.
+- [Deployment and hosting](/docs/deployment/): GitHub Pages hosts the public docs. Cloudflare Pages or Vercel can provide WebLLM headers.
+
+## Agent ingestion
+
+- [Full documentation export](/llms-full.txt)
+- [Overview Markdown](/docs.md)
+- [Enterprise controls Markdown](/docs/advanced.md)
+- [Ecosystem Markdown](/docs/ecosystem.md)
+
+## Public demos
+
+- [Ecommerce retrofit](/demos/ecommerce/)
+- [Docs Q&A](/demos/docs/)
+- [AG-UI event stream](/demos/ag-ui/)
+- [SaaS admin workflow](/demos/admin/)
+- [Mission control telemetry](/demos/mission-control/)
+
+## Repository
+
+- [GitHub](https://github.com/kevinmarmstrong/edgekit)

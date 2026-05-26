@@ -5,11 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="edgekit is a browser-native agent runtime for adding AI sidecars to existing web apps."
+      content="edgekit is an open-source browser-native agent runtime for adding local-first AI agents to existing web apps."
     />
     <title>edgekit · browser-native agent runtime</title>
-    <script type="module" crossorigin src="/edgekit/assets/index-Bb9KOBlD.js"></script>
-    <link rel="stylesheet" crossorigin href="/edgekit/assets/index-O5ixGWtZ.css">
+    <script>
+      globalThis.AI_SDK_LOG_WARNINGS = false
+    </script>
+    <script type="module" crossorigin src="/edgekit/assets/styles-wSZMTwMX.js"></script>
+    <script type="module" crossorigin src="/edgekit/assets/siteAssistant-C_A8xDGt.js"></script>
+    <script type="module" crossorigin src="/edgekit/assets/main-BW7Y_rem.js"></script>
+    <link rel="stylesheet" crossorigin href="/edgekit/assets/styles-CQI8Q9X1.css">
   </head>
   <body>
     <header class="site-header">
@@ -18,9 +23,9 @@
         <span>edgekit</span>
       </a>
       <nav aria-label="Primary navigation">
-        <a href="#qa">Q&A</a>
+        <a href="docs/">Docs</a>
+        <a href="#how-it-works">How it works</a>
         <a href="#demos">Demos</a>
-        <a href="#docs">Docs</a>
         <a href="https://github.com/kevinmarmstrong/edgekit">GitHub</a>
       </nav>
     </header>
@@ -28,14 +33,18 @@
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
-          <h1>Browser-native agents for apps that already exist.</h1>
+          <p class="hero-kicker">local-first, privacy-first agent runtime</p>
+          <h1>Add an agent to your app without handing every interaction to a cloud meter.</h1>
           <p>
-            edgekit lets developers drop an AI sidecar into a web app, register existing API
-            endpoints as tools, and run the agent locally through Chrome AI or WebLLM.
+            edgekit is open-source infrastructure for developers who want agent workflows inside
+            real product surfaces. Run Chrome AI, WebLLM, and app-tuned local models first; call
+            your existing APIs as tools; keep sensitive context close to the user; and route to
+            cloud workers only when a workflow actually needs it.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#qa">Ask the docs</a>
-            <a class="button secondary" href="#ecommerce">Open ecommerce demo</a>
+            <a class="button primary" href="docs/">Read the docs</a>
+            <a class="button secondary" href="llms.txt">Agent docs</a>
+            <a class="button secondary" href="demos/ecommerce/">Try live demos</a>
           </div>
         </div>
         <div class="hero-visual" aria-label="edgekit architecture diagram">
@@ -52,6 +61,7 @@
                 <div class="pane-title">edgekit sidecar</div>
                 <div class="bubble user">find running shoes under $100</div>
                 <div class="tool-pill">searchProducts()</div>
+                <div class="tool-pill approval">approval required: addToCart()</div>
                 <div class="bubble assistant">3 matching products found</div>
               </div>
             </div>
@@ -59,50 +69,181 @@
         </div>
       </section>
 
-      <section class="proof-grid" aria-label="edgekit principles">
-        <article>
-          <strong>Zero backend by default</strong>
-          <span>Runs with browser-local models when available.</span>
-        </article>
-        <article>
-          <strong>Real tool calling</strong>
-          <span>Uses Vercel AI SDK tools instead of custom orchestration.</span>
-        </article>
-        <article>
-          <strong>Retrofit friendly</strong>
-          <span>Register existing endpoints; the app architecture stays intact.</span>
-        </article>
-      </section>
-
-      <section class="split-section" id="qa">
-        <div>
-          <p class="section-label">Project Q&A</p>
-          <h2>Ask edgekit about its own design.</h2>
+      <section class="value-section" id="value-props">
+        <div class="section-heading">
+          <p class="section-label">Problem to solution</p>
+          <h2>You want an agent in your app. These are the blockers edgekit is built to remove.</h2>
           <p>
-            This demo registers a project documentation search tool with edgekit. Browsers with
-            Chrome AI or WebGPU can answer using local model calls; unsupported browsers fail
-            gracefully and keep the docs searchable below.
+            Developers do not evaluate open-source agent infrastructure like a SaaS checkout page.
+            They arrive with a constraint. Scan the matrix for the problem that is slowing your
+            rollout, then jump into the docs for the implementation surface.
           </p>
-          <div class="quick-search">
-            <label for="doc-search">Basic docs search</label>
-            <div class="search-row">
-              <input id="doc-search" placeholder="Try: model cascade or HITL" />
-              <button id="doc-search-button">Search</button>
-            </div>
-            <div id="doc-results" class="doc-results" aria-live="polite"></div>
+        </div>
+        <div class="value-matrix" aria-label="edgekit challenge and solution matrix">
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Token costs become an open-ended liability.</h3>
+            <p>
+              Public agents can turn stuck users, power users, or scripted loops into metered
+              cloud spend before the feature proves ROI.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Run browser-native models first and use explicit cloud fallback only for workflows
+              that justify the cost.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Sensitive app context crosses the wrong boundary.</h3>
+            <p>
+              Agent prompts often need identity, page state, account data, and tool results that
+              should not automatically leave the application.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Keep inference, memory, state summaries, and redaction local by default while the
+              host app controls every cloud route.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>The agent ignores the app you already built.</h3>
+            <p>
+              Rebuilding product logic around a new agent stack creates drift from the APIs,
+              permissions, and workflows users already trust.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Register existing app functions and MCP catalogs as typed tools, with the host app
+              staying responsible for execution.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>One model does not fit every workflow.</h3>
+            <p>
+              Basic navigation, product help, support triage, and deep synthesis have different
+              latency, cost, and reasoning requirements.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Configure Chrome AI, WebLLM, local ladders, supervisor routing, and cloud workers per
+              use case instead of per project.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Slow orchestration makes the product feel broken.</h3>
+            <p>
+              Sequential tool calls, repeated prompts, and blank spinners make agent workflows feel
+              heavier than the app around them.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Use parallel-safe read tools, semantic response caching, and streaming activity states
+              to keep the UI moving.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Network drops break cloud-only agents.</h3>
+            <p>
+              Field teams, travel workflows, and unreliable mobile connections cannot depend on a
+              remote model for every step.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Pair local inference with Markdown memory, offline mutation journals, and adapter
+              contracts for CRDT-backed sync.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Autonomous mutations need trust and evidence.</h3>
+            <p>
+              Adding to cart, updating plans, suspending accounts, or touching regulated workflows
+              cannot happen as invisible model side effects.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Gate risky tools with approvals, emit telemetry, and record hash-chained audit trails
+              around important actions.
+            </p>
+          </article>
+          <article>
+            <span class="value-label">Problem</span>
+            <h3>Dynamic tools expand the attack surface.</h3>
+            <p>
+              Third-party MCP catalogs and generated tool calls need policy boundaries before they
+              touch app state or credentialed systems.
+            </p>
+            <span class="value-label solution">edgekit</span>
+            <p>
+              Apply RBAC manifests, identity-aware tool hydration, payload limits, timeouts, and
+              guarded execution before broader isolation adapters.
+            </p>
+          </article>
+        </div>
+        <div class="primitive-band">
+          <div>
+            <p class="section-label">Deeper primitives</p>
+            <h3>More than the first eight blockers</h3>
+            <p>
+              The docs go deeper on the integration primitives teams need once the basic sidecar is
+              working.
+            </p>
+          </div>
+          <div class="primitive-list" aria-label="edgekit deeper primitives">
+            <a href="docs/advanced/#state-hydration">State hydration</a>
+            <a href="docs/advanced/#tool-repair">Tool repair loop</a>
+            <a href="docs/advanced/#cross-agent-handoffs">Cross-agent handoffs</a>
+            <a href="docs/ecosystem/#ag-ui">AG-UI streams</a>
+            <a href="docs/ecosystem/#frameworks">React wrapper</a>
+            <a href="docs/advanced/#telemetry">Mission control</a>
+            <a href="docs/advanced/#redaction">PII/PHI redaction</a>
+            <a href="llms.txt">LLM-ready docs</a>
           </div>
         </div>
-        <edge-chat
-          id="docs-chat"
-          system-prompt="You answer questions about the edgekit project. Always call searchDocs before answering. Cite the matching section titles in concise language."
-          placeholder="Ask: how does the model cascade work?"
-        ></edge-chat>
+      </section>
+
+      <section class="how-section" id="how-it-works">
+        <div class="section-heading">
+          <p class="section-label">First principles</p>
+          <h2>The sidecar assists the workflow. Your app remains the authority.</h2>
+          <p>
+            edgekit is not asking you to move product logic into a chatbot. The agent gets a typed,
+            governed view of what the app already knows how to do: identity, state, tools,
+            approval, audit, and recovery.
+          </p>
+        </div>
+        <div class="steps-grid">
+          <article>
+            <span>01</span>
+            <h3>Mount the sidecar</h3>
+            <p>Add the edge-chat web component or use `createAgent()` when you need a custom interface.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Expose real actions</h3>
+            <p>Wrap existing app functions as AI SDK tools with typed inputs and outputs.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Approve changes</h3>
+            <p>Mark irreversible tools as guarded so the user approves before state changes.</p>
+          </article>
+        </div>
       </section>
 
       <section class="docs-section" id="docs">
         <div class="section-heading">
-          <p class="section-label">Docs</p>
-          <h2>What ships in the open source repo.</h2>
+          <p class="section-label">Documentation IA</p>
+          <h2>Start with the thesis, then jump to the implementation surface.</h2>
+          <p>
+            The public docs are split by job: overview, quick start, architecture, enterprise
+            controls, ecosystem integrations, API reference, interface, testing, and deployment.
+          </p>
         </div>
         <div class="doc-card-grid" id="doc-card-grid"></div>
       </section>
@@ -110,46 +251,33 @@
       <section class="demos-section" id="demos">
         <div class="section-heading">
           <p class="section-label">Demos</p>
-          <h2>One runtime, multiple app surfaces.</h2>
-        </div>
-        <div class="demo-grid">
-          <a class="demo-card active" href="#ecommerce">
-            <span>Ecommerce assistant</span>
-            <strong>Product search and guarded add-to-cart</strong>
-          </a>
-          <article class="demo-card">
-            <span>Docs Q&A</span>
-            <strong>Project knowledge as a registered search tool</strong>
-          </article>
-          <article class="demo-card muted">
-            <span>Coming next</span>
-            <strong>More demos can mount into this same gallery</strong>
-          </article>
-        </div>
-      </section>
-
-      <section class="ecommerce-demo" id="ecommerce">
-        <div class="section-heading">
-          <p class="section-label">Live demo</p>
-          <h2>Ecommerce retrofit demo.</h2>
+          <h2>Live examples of agents inside app workflows.</h2>
           <p>
-            The storefront exposes `searchProducts` and `addToCart` tools. edgekit handles the
-            sidecar UI, local model cascade, and graceful fallback.
+            These are not separate chatbots. Each demo registers app capabilities as tools and lets
+            the sidecar assist inside the workflow.
           </p>
         </div>
-        <div class="commerce-layout">
-          <section class="catalog" aria-label="Product catalog" id="catalog"></section>
-          <aside class="commerce-agent">
-            <edge-chat
-              id="commerce-chat"
-              system-prompt="You are a concise shopping assistant. Always search products before recommending. Ask for approval before adding anything to cart."
-              placeholder="Try: find running shoes under $100 in size 10"
-            ></edge-chat>
-            <section class="cart" aria-live="polite">
-              <div class="cart-title">Cart</div>
-              <div id="cart-state">No items yet</div>
-            </section>
-          </aside>
+        <div class="demo-grid">
+          <a class="demo-card active" href="demos/ecommerce/">
+            <span>Live ecommerce</span>
+            <strong>Product search and guarded add-to-cart</strong>
+          </a>
+          <a class="demo-card" href="demos/docs/">
+            <span>Live docs Q&A</span>
+            <strong>Project knowledge as a registered search tool</strong>
+          </a>
+          <a class="demo-card active-secondary" href="demos/admin/">
+            <span>Live SaaS admin</span>
+            <strong>Admin sidecar with guarded workflow actions</strong>
+          </a>
+          <a class="demo-card active-secondary" href="demos/ag-ui/">
+            <span>AG-UI compatible</span>
+            <strong>Remote event stream rendering declarative EdgeView UI</strong>
+          </a>
+          <a class="demo-card" href="demos/mission-control/">
+            <span>Mission control</span>
+            <strong>Telemetry, approvals, errors, and tool usage hooks</strong>
+          </a>
         </div>
       </section>
     </main>
