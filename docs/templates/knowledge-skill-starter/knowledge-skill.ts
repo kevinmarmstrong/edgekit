@@ -1,4 +1,4 @@
-import { createKnowledgeSkill } from '@kevinmarmstrong/edgekit'
+import { createKnowledgeSkill } from '@kevinmarmstrong/edgekit-knowledge'
 import { createSimpleMarkdownKnowledgeSource } from './simple-markdown-source'
 
 const documents = [

@@ -1,4 +1,5 @@
-import { createMissionProfile, createSkill, modelOptional, tool } from '@kevinmarmstrong/edgekit'
+import { modelOptional, tool } from '@kevinmarmstrong/edgekit'
+import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit-skills'
 import { z } from 'zod'
 
 type SupportCase = {

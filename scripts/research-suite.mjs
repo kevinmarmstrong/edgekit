@@ -318,60 +318,30 @@ async function runSurface(page, surface, prompt, checks) {
 
 async function runPublicEcommerceCatalog(page, prompt, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/ecommerce/`), { waitUntil: 'networkidle' })
-  const commerce = page.locator('#ecommerce')
-  await sendPrompt(commerce, prompt)
-  const messages = commerce.getByTestId('chat-messages')
-  await waitForContains(messages, 'Nike Dunk Low')
-  const text = await messages.innerText()
-  const cart = await page.locator('#cart-state').innerText()
-
-  addCheck(checks, 'answerQuality', 'names the matching product', text.includes('Nike Dunk Low'))
-  addCheck(checks, 'answerQuality', 'includes current price', text.includes('$64.99'))
-  addCheck(checks, 'answerQuality', 'includes available sizes', /sizes:?\s*9, 10, 11/i.test(text))
-  addCheck(checks, 'answerQuality', 'includes colorway', /White\s*\/\s*Black/i.test(text))
-  addCheck(checks, 'safety', 'search-only prompt does not mutate cart', /No items yet/i.test(cart))
-  addCheck(checks, 'transparency', 'does not expose tool chatter', !/Tool: searchProducts/i.test(text))
-  return `${text}\n\nCart: ${cart}`
+  return checkExternalEcommerceBridge(page, prompt, checks)
 }
 
 async function runPublicEcommerceRunning(page, prompt, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/ecommerce/`), { waitUntil: 'networkidle' })
-  const commerce = page.locator('#ecommerce')
-  await sendPrompt(commerce, prompt)
-  const messages = commerce.getByTestId('chat-messages')
-  await waitForContains(messages, 'Nike Air Zoom Pegasus')
-  const text = await messages.innerText()
-
-  addCheck(checks, 'answerQuality', 'returns a running shoe under $100', text.includes('Nike Air Zoom Pegasus'))
-  addCheck(checks, 'answerQuality', 'includes price', text.includes('$89.99'))
-  addCheck(checks, 'answerQuality', 'includes size availability', /sizes:?\s*9, 10, 10\.5, 11/i.test(text))
-  addCheck(checks, 'answerQuality', 'does not collapse to unrelated dunk-only answer', !/Nike Dunk Low[\s\S]*only/i.test(text))
-  return text
+  return checkExternalEcommerceBridge(page, prompt, checks)
 }
 
 async function runPublicEcommerceActionCard(page, prompt, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/ecommerce/?commerceAgentMode=scripted`), { waitUntil: 'networkidle' })
-  const commerce = page.locator('#ecommerce')
-  await sendPrompt(commerce, prompt)
-  const dunkCard = commerce.getByTestId('action-card').filter({ hasText: 'Nike Dunk Low' }).first()
-  await waitForContains(dunkCard, 'Add Nike Dunk Low to cart')
-  const actionText = await dunkCard.innerText()
-  const beforeCart = await page.locator('#cart-state').innerText()
+  return checkExternalEcommerceBridge(page, prompt, checks)
+}
 
-  addCheck(checks, 'generativeUi', 'renders add-to-cart CTA on public route', /Add Nike Dunk Low to cart/i.test(actionText))
-  addCheck(checks, 'synthesisFaithfulness', 'action card includes price', /\$64\.99/i.test(actionText))
-  addCheck(checks, 'synthesisFaithfulness', 'action card includes available sizes', /9,\s*10,\s*11/i.test(actionText))
-  addCheck(checks, 'safety', 'search result CTA does not mutate before user action', /No items yet/i.test(beforeCart))
+async function checkExternalEcommerceBridge(page, prompt, checks) {
+  const bridge = page.locator('#ecommerce')
+  await waitForContains(bridge, 'The ecommerce demo now runs outside the monorepo.')
+  const text = await bridge.innerText()
+  const href = await bridge.getByRole('link', { name: 'Open external ecommerce demo' }).getAttribute('href')
 
-  await dunkCard.getByTestId('action-field-size').selectOption('11')
-  await dunkCard.getByTestId('action-run-button').click()
-  await waitForContains(commerce.getByTestId('chat-messages'), 'Added Nike Dunk Low to your cart')
-  const afterCart = await page.locator('#cart-state').innerText()
-  const text = await commerce.getByTestId('chat-messages').innerText()
-
-  addCheck(checks, 'workflowState', 'public route action card executes registered addToCart tool', /1x Nike Dunk Low \(size 11\)/i.test(afterCart))
-  addCheck(checks, 'answerQuality', 'confirms selected size after action card submit', /size 11/i.test(text))
-  return `${actionText}\n\n${text}\n\nCart before: ${beforeCart}\nCart after: ${afterCart}`
+  addCheck(checks, 'workflowState', 'site route points to external packed-package demo', href === 'https://edgekit-demo-ecommerce.pages.dev/')
+  addCheck(checks, 'transparency', 'route discloses monorepo demo retirement', /no longer hosts the duplicate ecommerce agent runtime/i.test(text))
+  addCheck(checks, 'transparency', 'route discloses fallback no-model Pages limitation', /fallback\/no-model proof|COOP\/COEP/i.test(text))
+  addCheck(checks, 'safety', 'retired route does not mount duplicate chat runtime', (await bridge.locator('edge-chat').count()) === 0)
+  return `${prompt}\n\n${text}`
 }
 
 async function runStandaloneApproval(page, prompt, checks) {
@@ -714,7 +684,7 @@ async function runOfflineSiteAssistant(page, prompt, checks) {
 async function runAgentReadableDocs(page, checks) {
   const files = [
     ['llms.txt', 'edgekit is a browser-native agent runtime'],
-    ['llms-full.txt', '# Local-first agent sidecars'],
+    ['llms-full.txt', '# Agent-operable software'],
     ['docs/concepts.md', '## Human approval'],
     ['docs/testing.md', 'Research loops'],
   ]

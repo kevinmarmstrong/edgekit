@@ -1,4 +1,4 @@
-import { createMissionProfile, skillsToTools } from '@kevinmarmstrong/edgekit'
+import { createMissionProfile, skillsToTools } from '@kevinmarmstrong/edgekit-skills'
 import { supportKnowledgeSkill } from './knowledge-skill'
 
 export const supportKnowledgeProfile = createMissionProfile({

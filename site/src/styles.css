@@ -1089,7 +1089,7 @@ dl {
 }
 
 .home-docs-page .home-hero {
-  grid-template-columns: minmax(0, 0.92fr) minmax(360px, 0.68fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   padding-bottom: 34px;
 }
@@ -1099,12 +1099,62 @@ dl {
 }
 
 .home-docs-page .home-hero-copy h1 {
-  max-width: 780px;
+  max-width: 920px;
 }
 
-.home-architecture-card {
-  position: sticky;
-  top: 92px;
+.home-demo-visual {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.home-demo-visual img {
+  display: block;
+  width: min(100%, 980px);
+  border: 1px solid var(--site-line);
+  border-radius: 8px;
+  box-shadow: 0 20px 42px rgb(18 24 38 / 10%);
+}
+
+.home-demo-visual p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--site-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.home-embed-snippet {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+  border: 1px solid var(--site-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111827;
+}
+
+.home-snippet-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  padding: 12px 14px 0;
+}
+
+.home-snippet-label span {
+  color: #7dd3fc;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-snippet-label small {
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .home-stack {
@@ -1224,6 +1274,7 @@ dl {
   border: 0;
   border-radius: 0;
   background: #111827;
+  white-space: pre-wrap;
 }
 
 .home-code code {

@@ -120,7 +120,7 @@ ${maintainerLinks}
 
 ## Public demos
 
-- [Ecommerce retrofit](${publicDocsPath('/demos/ecommerce/')})
+- [Ecommerce retrofit](https://edgekit-demo-ecommerce.pages.dev/)
 - [Field ops ERP](${publicDocsPath('/demos/operations/')})
 - [Docs Q&A](${publicDocsPath('/demos/docs/')})
 - [AG-UI event stream](${publicDocsPath('/demos/ag-ui/')})

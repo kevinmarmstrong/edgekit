@@ -1,0 +1,37 @@
+{
+  "name": "@kevinmarmstrong/edgekit-governance",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Governance primitives for Edgekit: audit, redaction, policy, and offline journals.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevinmarmstrong/edgekit.git",
+    "directory": "packages/governance"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kevinmarmstrong/edgekit": "workspace:^"
+  }
+}

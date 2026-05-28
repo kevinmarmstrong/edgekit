@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@kevinmarmstrong/edgekit": "workspace:*",
+    "@kevinmarmstrong/edgekit-agui": "workspace:*",
+    "@kevinmarmstrong/edgekit-knowledge": "workspace:*",
+    "@kevinmarmstrong/edgekit-skills": "workspace:*",
     "@kevinmarmstrong/edgekit-ui": "workspace:*",
     "vite": "^8.0.14",
     "zod": "^4.4.3"

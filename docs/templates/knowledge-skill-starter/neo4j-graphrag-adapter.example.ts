@@ -1,4 +1,4 @@
-import type { EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit'
+import type { EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
 
 export function graphRagKnowledgeSource(graphRetriever: {
   search(input: { query: string; tenantId?: string; topK?: number }): Promise<Array<{

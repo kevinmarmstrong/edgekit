@@ -459,10 +459,25 @@ function findLatestApprovalResponse(messages: unknown[]) {
     .find((message): message is { role: string; content: unknown } => isRecord(message) && message.role === 'tool')
   const content = Array.isArray(toolMessage?.content) ? toolMessage.content : []
   const approval = content.find(
-    (part): part is { approved: boolean; toolCall?: unknown } =>
+    (part): part is { approvalId?: string; approved: boolean; toolCall?: unknown } =>
       isRecord(part) && part.type === 'tool-approval-response' && typeof part.approved === 'boolean',
   )
-  return approval ? { ...approval, toolCall: normalizeToolCall(approval.toolCall) } : undefined
+  if (!approval) return undefined
+
+  return {
+    ...approval,
+    toolCall: normalizeToolCall(approval.toolCall) ?? findApprovalRequestToolCall(messages, approval.approvalId),
+  }
+}
+
+function findApprovalRequestToolCall(messages: unknown[], approvalId: unknown): ApprovalToolCall | null {
+  if (typeof approvalId !== 'string') return null
+  for (const message of [...messages].reverse()) {
+    if (!isRecord(message) || message.role !== 'assistant' || !Array.isArray(message.content)) continue
+    const request = message.content.find(part => isRecord(part) && part.type === 'tool-approval-request' && part.approvalId === approvalId)
+    if (isRecord(request)) return normalizeToolCall(request.toolCall)
+  }
+  return null
 }
 
 function normalizeToolCall(value: unknown): ApprovalToolCall | null {

@@ -1,4 +1,4 @@
-import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit'
+import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit-skills'
 
 export const searchAccountsSkill = createSkill({
   id: 'search-accounts',

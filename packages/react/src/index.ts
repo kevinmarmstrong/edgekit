@@ -4,9 +4,8 @@ import type {
   AgentEvent,
   EdgeActivityEvent,
   EdgeAgent,
-  EdgeMissionProfile,
-  EdgeProfileValidationResult,
 } from '@kevinmarmstrong/edgekit'
+import type { EdgeMissionProfile, EdgeProfileValidationResult } from '@kevinmarmstrong/edgekit-skills'
 
 export interface EdgeAgentState {
   status: 'idle' | 'streaming' | 'awaiting-approval' | 'done' | 'error'

@@ -15,6 +15,11 @@
     "baseUrl": ".",
     "paths": {
       "@kevinmarmstrong/edgekit": ["packages/core/src/index.ts"],
+      "@kevinmarmstrong/edgekit-agui": ["packages/agui/src/index.ts"],
+      "@kevinmarmstrong/edgekit-governance": ["packages/governance/src/index.ts"],
+      "@kevinmarmstrong/edgekit-knowledge": ["packages/knowledge/src/index.ts"],
+      "@kevinmarmstrong/edgekit-mcp": ["packages/mcp/src/index.ts"],
+      "@kevinmarmstrong/edgekit-skills": ["packages/skills/src/index.ts"],
       "@kevinmarmstrong/edgekit-ui": ["packages/ui/src/index.ts"],
       "@kevinmarmstrong/edgekit-react": ["packages/react/src/index.ts"]
     }

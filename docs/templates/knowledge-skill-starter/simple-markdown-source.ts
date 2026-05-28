@@ -1,4 +1,4 @@
-import type { EdgeKnowledgeResult, EdgeKnowledgeSearchContext, EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit'
+import type { EdgeKnowledgeResult, EdgeKnowledgeSearchContext, EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
 
 export type KnowledgeDocument = {
   id: string

@@ -5,10 +5,10 @@ const siteURL = 'http://127.0.0.1:4174/edgekit/'
 test('homepage links into the full documentation site', async ({ page }) => {
   await page.goto(siteURL)
 
-  await expect(page.getByRole('heading', { name: 'Add a local-first AI sidecar to your web app without giving up control.' })).toBeVisible()
-  await expect(page.locator('.home-summary-grid article')).toHaveCount(3)
-  await expect(page.getByRole('heading', { name: 'Zero variable token cost on the default path.' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Sensitive context does not leave by default.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: "Add an AI agent to your existing app. Don't rewrite the app." })).toBeVisible()
+  await expect(page.locator('.home-summary-grid article')).toHaveCount(4)
+  await expect(page.getByRole('heading', { name: 'Add agents where the work already happens.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Use local models for bounded app work.' })).toBeVisible()
   await expect(page.locator('.home-proof-grid article')).toHaveCount(3)
   await expect(page.locator('.primitive-list a')).toHaveCount(8)
   await expect(page.getByRole('heading', { name: 'Read by job, not by marketing funnel.' })).toBeVisible()
@@ -33,21 +33,22 @@ test('homepage links into the full documentation site', async ({ page }) => {
   await expect(page.locator('.site-header nav').getByRole('link', { name: 'Admin' })).toHaveCount(0)
   await expect(page.locator('edge-chat')).toHaveCount(1)
   await expect(page.locator('#site-assistant')).toBeVisible()
-  await expect(page.locator('a.demo-card[href="/edgekit/demos/ecommerce/"]')).toBeVisible()
+  await expect(page.locator('a.demo-card[href="https://edgekit-demo-ecommerce.pages.dev/"]')).toBeVisible()
   await expect(page.locator('a.demo-card[href="/edgekit/demos/operations/"]')).toBeVisible()
   await expect(page.locator('a.demo-card[href="/edgekit/demos/cascade/"]')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Read the docs' }).click()
+  await page.locator('.site-header nav').getByRole('link', { name: 'Docs' }).click()
   await expect(page).toHaveURL(/\/edgekit\/docs\/$/)
-  await expect(page.getByRole('heading', { name: 'Local-first agent sidecars' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Architecture diagram' })).toBeVisible()
-  await expect(page.locator('.architecture-diagram')).toHaveCount(2)
+  await expect(page.getByRole('heading', { name: 'Agent-operable software' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Implementation boundary' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Runtime loop' })).toBeVisible()
+  await expect(page.locator('.architecture-diagram').first()).toBeVisible()
 })
 
 test('agent-readable documentation exports are available', async ({ page }) => {
   const llms = await page.request.get(`${siteURL}llms.txt`)
   expect(llms.ok()).toBeTruthy()
-  await expect(llms.text()).resolves.toContain('Edgekit adds a local-first AI sidecar')
+  await expect(llms.text()).resolves.toContain('Edgekit helps teams add agents to existing web apps')
   const llmsText = await llms.text()
   expect(llmsText).toContain('(/edgekit/llms-full.txt)')
   expect(llmsText).toContain('(/edgekit/llms-maintainers.txt)')
@@ -60,7 +61,7 @@ test('agent-readable documentation exports are available', async ({ page }) => {
   const full = await page.request.get(`${siteURL}llms-full.txt`)
   expect(full.ok()).toBeTruthy()
   await expect(full.text()).resolves.toContain('# edgekit adopter implementation export')
-  await expect(full.text()).resolves.toContain('# Local-first agent sidecars')
+  await expect(full.text()).resolves.toContain('# Agent-operable software')
   await expect(full.text()).resolves.toContain('# Framework recipes')
   const fullText = await full.text()
   expect(fullText.length).toBeLessThan(50_000)
@@ -156,7 +157,7 @@ test('docs pages expose core documentation sections and navigation', async ({ pa
   await expect(page.getByText('createAgent(options)')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Approval resume' })).toBeVisible()
 
-  await page.locator('.docs-sidebar').getByRole('link', { name: /Maintainer Tests/ }).click()
+  await page.goto(`${siteURL}docs/testing/`)
   await expect(page).toHaveURL(/\/edgekit\/docs\/testing\/$/)
   await expect(page.getByRole('heading', { name: 'Maintainer testing loops' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Maintainer deterministic workflow tests' })).toBeVisible()
@@ -224,11 +225,12 @@ test('public demos expose cascade readiness without forcing model downloads', as
   await expect(page.getByTestId('download-prompt')).toHaveCount(0)
 
   await page.goto(`${siteURL}demos/ecommerce/?cacheBust=${Date.now()}`)
-  const commerceWizard = page.locator('#ecommerce edge-cascade-wizard').getByTestId('cascade-wizard')
-  await expect(commerceWizard).toBeVisible()
-  await expect(commerceWizard).toContainText(/Cascade readiness/)
-  await expect(commerceWizard).toContainText(/approvals/)
-  await expect(page.getByTestId('download-prompt')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'The ecommerce demo now runs outside the monorepo.' })).toBeVisible()
+  await expect(page.locator('#ecommerce edge-cascade-wizard')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Open external ecommerce demo' })).toHaveAttribute(
+    'href',
+    'https://edgekit-demo-ecommerce.pages.dev/',
+  )
 })
 
 test('cascade and permission lab exercises model, permission, validation, fallback, and reset flows', async ({ page }) => {

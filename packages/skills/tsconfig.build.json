@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "rootDir": "src",
+    "paths": {
+      "@kevinmarmstrong/edgekit": ["../core/dist/index.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

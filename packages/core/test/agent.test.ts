@@ -151,7 +151,6 @@ describe('resolveModel', () => {
             type: 'tool-approval-response',
             approvalId: 'approval-1',
             approved: false,
-            toolCall: { toolName: 'addToCart', input: { productId: 'dunk' } },
           }),
         ],
       }),
@@ -1412,6 +1411,12 @@ describe('createAgent', () => {
               type: 'tool-approval-response',
               approvalId: 'approval-1',
               approved: true,
+              toolCall: {
+                type: 'tool-call',
+                toolCallId: 'tool-1',
+                toolName: 'addToCart',
+                input: { productId: 'pegasus', quantity: 1 },
+              },
             },
           ],
         },
@@ -1419,34 +1424,47 @@ describe('createAgent', () => {
     })
   })
 
-  it('repairs validation-shaped tool failures invisibly before surfacing a response', async () => {
-    const streamText = vi
-      .fn()
-      .mockImplementationOnce(() => ({
-        fullStream: (async function* () {
-          yield {
-            type: 'error',
-            error: {
-              name: 'AI_TypeValidationError',
-              message: 'Invalid tool arguments for searchProducts: size must be a string.',
-            },
-          }
-        })(),
-        response: Promise.resolve({ messages: [] }),
-      }))
-      .mockImplementationOnce(() => ({
-        fullStream: (async function* () {
-          yield { type: 'text-delta', delta: 'Found Nike Dunk Low in size 9.' }
-        })(),
-        response: Promise.resolve({
-          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Found Nike Dunk Low in size 9.' }] }],
-        }),
-      }))
+  it('uses AI SDK tool-call repair for validation-shaped tool failures', async () => {
+    const repairError = {
+      name: 'AI_TypeValidationError',
+      message: 'Invalid tool arguments for searchProducts: size must be a string.',
+    }
+    const generateText = vi.fn(() => Promise.resolve({
+      toolCalls: [{ toolName: 'searchProducts', input: { query: 'Nike Dunk Low', size: '9' } }],
+    }))
+    const streamText = vi.fn((options: Record<string, unknown>) => ({
+      fullStream: (async function* () {
+        const repairToolCall = options.experimental_repairToolCall as (input: Record<string, unknown>) => Promise<unknown>
+        const repaired = await repairToolCall({
+          toolCall: {
+            type: 'tool-call',
+            toolCallId: 'tool-1',
+            toolName: 'searchProducts',
+            input: '{"query":"Nike Dunk Low","size":9}',
+          },
+          tools: options.tools,
+          system: options.system,
+          messages: options.messages,
+          error: repairError,
+        })
+        yield {
+          type: 'tool-call',
+          toolCallId: 'tool-1',
+          toolName: 'searchProducts',
+          input: JSON.parse((repaired as { input: string }).input),
+        }
+        yield { type: 'text-delta', delta: 'Found Nike Dunk Low in size 9.' }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Found Nike Dunk Low in size 9.' }] }],
+      }),
+    }))
     const agent = createAgent({
       systemPrompt: 'You are helpful.',
       model: [fakeModel],
       tools: { searchProducts: {} },
       streamText: streamText as never,
+      generateText: generateText as never,
       toolRepair: { maxAttempts: 2 },
     })
 
@@ -1455,10 +1473,17 @@ describe('createAgent', () => {
       events.push(event)
     }
 
-    expect(streamText).toHaveBeenCalledTimes(2)
+    expect(streamText).toHaveBeenCalledTimes(1)
+    expect(generateText).toHaveBeenCalledTimes(1)
     expect(events.some(event => event.type === 'error')).toBe(false)
+    expect(events).toContainEqual({
+      type: 'tool-call',
+      toolName: 'searchProducts',
+      toolCallId: 'tool-1',
+      input: { query: 'Nike Dunk Low', size: '9' },
+    })
     expect(events).toContainEqual({ type: 'text-delta', text: 'Found Nike Dunk Low in size 9.' })
-    expect(streamText.mock.calls[1][0].messages.at(-1)).toMatchObject({
+    expect(generateText.mock.calls[0][0].messages.at(-1)).toMatchObject({
       role: 'user',
       content: expect.stringContaining('The previous tool call failed validation'),
     })
@@ -1468,15 +1493,30 @@ describe('createAgent', () => {
     })
   })
 
-  it('surfaces a tool validation error after the repair limit is exhausted', async () => {
-    const streamText = vi.fn(() => ({
+  it('surfaces a tool validation error when AI SDK repair cannot produce a replacement call', async () => {
+    const repairError = {
+      name: 'AI_TypeValidationError',
+      message: 'Invalid tool arguments.',
+    }
+    const generateText = vi.fn(() => Promise.resolve({ toolCalls: [] }))
+    const streamText = vi.fn((options: Record<string, unknown>) => ({
       fullStream: (async function* () {
+        const repairToolCall = options.experimental_repairToolCall as (input: Record<string, unknown>) => Promise<unknown>
+        await repairToolCall({
+          toolCall: {
+            type: 'tool-call',
+            toolCallId: 'tool-1',
+            toolName: 'searchProducts',
+            input: '{"query":1}',
+          },
+          tools: options.tools,
+          system: options.system,
+          messages: options.messages,
+          error: repairError,
+        })
         yield {
           type: 'error',
-          error: {
-            name: 'AI_TypeValidationError',
-            message: 'Invalid tool arguments.',
-          },
+          error: repairError,
         }
       })(),
       response: Promise.resolve({ messages: [] }),
@@ -1486,6 +1526,7 @@ describe('createAgent', () => {
       model: [fakeModel],
       tools: { searchProducts: {} },
       streamText: streamText as never,
+      generateText: generateText as never,
       toolRepair: { maxAttempts: 1 },
     })
 
@@ -1494,13 +1535,11 @@ describe('createAgent', () => {
       events.push(event)
     }
 
-    expect(streamText).toHaveBeenCalledTimes(2)
+    expect(streamText).toHaveBeenCalledTimes(1)
+    expect(generateText).toHaveBeenCalledTimes(1)
     expect(events).toContainEqual({
       type: 'error',
-      error: {
-        name: 'AI_TypeValidationError',
-        message: 'Invalid tool arguments.',
-      },
+      error: repairError,
     })
   })
 })
@@ -1687,6 +1726,16 @@ describe('AG-UI adapter', () => {
       { type: 'text-delta', text: 'From AG-UI' },
       { type: 'done', text: 'From AG-UI' },
     ])
+  })
+
+  it('points root endpoint transport users to the AG-UI sibling package', async () => {
+    const agent = createAgUiAgent({ endpoint: '/ag-ui' })
+
+    await expect(async () => {
+      for await (const _ of agent.send('hello')) {
+        // drain
+      }
+    }).rejects.toThrow('BREAKING in v0.3.0: endpoint transport was removed')
   })
 })
 

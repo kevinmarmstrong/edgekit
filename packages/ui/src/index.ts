@@ -2,20 +2,15 @@ import { css, html, LitElement } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import {
   actionsToEdgeView,
-  applyMissionProfile,
-  applyRedactors,
   createAgent,
   filterToolManifestsForSession,
   resolveSessionContext,
   toolsFromManifests,
-  validateMissionProfile as validateEdgeMissionProfile,
   type AgentEvent,
   type CascadeReadinessSnapshot,
   type EdgeActivityEvent,
   type EdgeAction,
   type EdgeCascadeReadinessController,
-  type EdgeMissionProfile,
-  type EdgeProfileValidationResult,
   type EdgeActionContext,
   type EdgeField,
   type EdgeToolExecutionContext,
@@ -28,6 +23,13 @@ import {
   type ModelStatusEvent,
   type NoModelEvent,
 } from '@kevinmarmstrong/edgekit'
+import { applyRedactors } from '@kevinmarmstrong/edgekit-governance'
+import {
+  applyMissionProfile,
+  validateMissionProfile as validateEdgeMissionProfile,
+  type EdgeMissionProfile,
+  type EdgeProfileValidationResult,
+} from '@kevinmarmstrong/edgekit-skills'
 
 type ChatMessage = {
   role: 'user' | 'assistant' | 'system' | 'tool'

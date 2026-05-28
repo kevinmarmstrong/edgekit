@@ -67,7 +67,7 @@ test('scripted workflow searches size nine white nike dunks and adds to cart aft
 
   await page.getByTestId('approve-button').click()
 
-  await expect(page.getByTestId('chat-messages')).toContainText('Added Nike Dunk Low to your cart')
+  await expect(page.getByTestId('chat-messages')).toContainText('Added Nike Dunk Low to your cart (size 9)')
   await expect(page.locator('#cart-state')).toContainText('1x Nike Dunk Low (size 9)')
 })
 

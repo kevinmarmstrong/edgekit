@@ -1,17 +1,15 @@
 import '@kevinmarmstrong/edgekit-ui'
 import {
   chromeAI,
-  createAgUiAgent,
   createCascadeReadinessController,
   createMissionControl,
-  createModelProvider,
-  modelOptional,
   tool,
 } from '@kevinmarmstrong/edgekit'
-import { publicCatalogShoppingProfile } from './profiles/public-catalog-shopping'
+import { createAgUiAgent } from '@kevinmarmstrong/edgekit-agui'
 import { docsQaProfile } from './profiles/docs-qa'
 import { mountOpsDemo } from './opsDemo'
-import type { AgUiRunInput, EdgeViewNode, LanguageModelV3, MissionControlSnapshot } from '@kevinmarmstrong/edgekit'
+import type { EdgeViewNode, MissionControlSnapshot } from '@kevinmarmstrong/edgekit'
+import type { AgUiRunInput } from '@kevinmarmstrong/edgekit-agui'
 import type { EdgeCascadeWizard, EdgeChat } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
 import { mountAdminDemo } from './adminDemo'
@@ -22,82 +20,10 @@ import { mountSiteAssistant } from './siteAssistant'
 import { mountCascadeDemo } from './cascadeDemo'
 import './styles.css'
 
-type Product = {
-  id: string
-  name: string
-  category: string
-  price: number
-  sizes: string[]
-  color: string
-  support: string
-}
-
-type CartItem = {
-  productId: string
-  quantity: number
-  size?: string
-}
-
-type ProductSearchInput = {
-  query: string
-  maxPrice?: number
-  size?: string
-  color?: string
-}
-
-const products: Product[] = [
-  {
-    id: 'pegasus',
-    name: 'Nike Air Zoom Pegasus',
-    category: 'running shoes',
-    price: 89.99,
-    sizes: ['9', '10', '10.5', '11'],
-    color: 'Volt / Black',
-    support: 'Daily road trainer',
-  },
-  {
-    id: 'fresh-foam',
-    name: 'New Balance Fresh Foam',
-    category: 'running shoes',
-    price: 74.99,
-    sizes: ['10', '10.5', '11', '12'],
-    color: 'Sea Salt',
-    support: 'Soft neutral cushion',
-  },
-  {
-    id: 'ghost',
-    name: 'Brooks Ghost 16',
-    category: 'running shoes',
-    price: 94.99,
-    sizes: ['9.5', '10', '10.5'],
-    color: 'Blue / Lime',
-    support: 'Stable everyday miles',
-  },
-  {
-    id: 'ultraboost',
-    name: 'Adidas Ultraboost Light',
-    category: 'running shoes',
-    price: 119.99,
-    sizes: ['9', '10', '11'],
-    color: 'Cloud White',
-    support: 'Responsive long runs',
-  },
-  {
-    id: 'dunk',
-    name: 'Nike Dunk Low',
-    category: 'casual shoes',
-    price: 64.99,
-    sizes: ['9', '10', '11'],
-    color: 'White / Black',
-    support: 'Streetwear',
-  },
-]
-
-const cart: CartItem[] = []
 const missionControl = createMissionControl()
 missionControl.subscribe((_event, snapshot) => renderMissionControl(snapshot))
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-const scriptedCommerceMode = new URLSearchParams(window.location.search).get('commerceAgentMode') === 'scripted'
+const externalEcommerceDemoUrl = 'https://edgekit-demo-ecommerce.pages.dev/'
 
 const searchDocsTool = tool({
   description: 'Search edgekit project documentation by natural language query.',
@@ -108,34 +34,6 @@ const searchDocsTool = tool({
     query,
     results: searchDocs(query),
   }),
-})
-
-const searchProducts = tool({
-  description: 'Search the product catalog by query, maximum price, size, and color.',
-  inputSchema: z.object({
-    query: z.string().describe('Product search terms, such as running shoes'),
-    maxPrice: modelOptional(z.number()).describe('Maximum price in dollars'),
-    size: modelOptional(z.string()).describe('Shoe size'),
-    color: modelOptional(z.string()).describe('Requested product color'),
-  }),
-  execute: async input => searchProductCatalog(input),
-})
-
-const addToCart = tool({
-  description: 'Add a product to the shopping cart after the user approves.',
-  inputSchema: z.object({
-    productId: z.string().describe('The product id to add'),
-    quantity: z.number().default(1).describe('Quantity to add'),
-    size: modelOptional(z.string()).describe('Selected shoe size'),
-  }),
-  execute: async ({ productId, quantity, size }) => {
-    const product = products.find(item => item.id === productId)
-    if (!product) return { success: false, error: 'Product not found' }
-    cart.push({ productId, quantity, size })
-    renderCart()
-    return { success: true, product: product.name, quantity, size }
-  },
-  needsApproval: true,
 })
 
 const createSupportTicket = tool({
@@ -196,83 +94,14 @@ docsChat?.configure({
 docsChat?.applyMissionProfile(docsQaProfile)
 docsChat?.registerTools({ searchDocs: searchDocsTool })
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Demo Surface Initialization — Skills + Mission Profile Pattern (Recommended)
-// 
-// Both live demos below are intentionally driven primarily through Mission Profiles
-// rather than raw configure() calls. This is the pattern we want adopters to follow.
-// See ARCHITECTURE.md and docs/GETTING-STARTED-REAL-APPS.md for rationale.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const commerceChat = document.querySelector<EdgeChat>('edge-chat#commerce-chat')
-const commerceCascadeWizard = document.querySelector<EdgeCascadeWizard>('edge-cascade-wizard#commerce-cascade')
-const commerceCascade = createCascadeReadinessController({
-  providers: [chromeAI()],
-  downloadPolicy: 'never',
-  fallback: true,
-  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
-  requiredTools: ['searchProducts', 'addToCart'],
-  tools: { searchProducts, addToCart },
-  visibilityPolicy: 'show-basic-when-local-unavailable',
-  messages: {
-    ready: 'Chrome AI is ready for local tool-calling recommendations and guarded cart actions.',
-    fallback: 'This public demo is running in basic mode because local browser AI is unavailable or not enabled. Search, CTAs, approvals, and app-owned actions remain testable.',
-    unavailable: 'Local browser AI is unavailable. Edgekit can either hide the agent UI or expose a transparent fallback.',
-  },
-})
-commerceCascadeWizard?.configure(commerceCascade)
-void commerceCascade.check()
-
-commerceChat?.configure({
-  sessionId: 'site-commerce-demo',
-  telemetry: missionControl,
-  model: scriptedCommerceMode ? [scriptedCommerceProvider()] : [chromeAI()],
-  cascadeReadiness: commerceCascade,
-  ...(scriptedCommerceMode
-    ? { streamText: createScriptedCommerceStream() as never }
-    : {
-        toolProvider: ({ input }) => commerceToolsForInput(input),
-        onNoModel: ({ input, readiness }) => `${readiness?.message ?? 'Basic mode active.'}\n\n${answerFromCatalog(input)}`,
-      }),
-})
-commerceChat?.applyMissionProfile(publicCatalogShoppingProfile)
-
-// Explicitly register the executable tools for action card execution on the public site.
-// This ensures EdgeView forms (add-to-cart CTAs) have real implementations even when
-// most other config comes from the Mission Profile.
-commerceChat?.registerTools({ searchProducts, addToCart })
-
-commerceChat?.registerActions(({ toolName, output }) => {
-  if (toolName !== 'searchProducts') return []
-  return extractProducts(output).map(product => ({
-    id: `add-${product.id}`,
-    label: `Add ${product.name} to cart`,
-    toolName: 'addToCart',
-    description: `$${product.price.toFixed(2)}. Available sizes: ${product.sizes.join(', ')}. Color: ${product.color}. Choose a size and add it directly from the agent UI.`,
-    input: { productId: product.id, quantity: 1 },
-    fields: [
-      {
-        name: 'size',
-        label: 'Size',
-        type: 'select',
-        required: true,
-        options: product.sizes.map(size => ({ label: size, value: size })),
-      },
-    ],
-    successMessage: (_output, input) =>
-      `Added ${product.name} to your cart${input.size ? ` (size ${input.size})` : ''}.`,
-  }))
-})
-
 const agUiChat = document.querySelector<EdgeChat>('edge-chat#agui-chat')
 agUiChat?.configure({ sessionId: 'site-agui-demo', telemetry: missionControl })
 agUiChat?.registerTools({ createSupportTicket, submitDemoRequest })
 agUiChat?.useAgent(createAgUiAgent({ run: mockAgUiRun, sessionId: 'site-agui-demo', telemetry: missionControl }))
 
 renderHomePage()
+void renderGitHubStars()
 renderDocCards()
-renderCatalog()
-renderCart()
 renderMissionControl()
 wireDocSearch()
 mountAdminDemo()
@@ -290,33 +119,31 @@ function renderHomePage() {
   home.innerHTML = `
     <section class="hero home-hero" aria-labelledby="home-title">
       <div class="hero-copy home-hero-copy">
-        <p class="hero-kicker">Agent-operable software</p>
-        <h1 id="home-title">Add agents to existing apps without rewriting the software behind them.</h1>
+        <p class="hero-kicker">Open source agent workflows</p>
+        <h1 id="home-title">Add an AI agent to your existing app. Don't rewrite the app.</h1>
         <p>
-          Edgekit lets an agent worker use the APIs, workflows, and knowledge your app already
-          owns. The app stays authoritative over state, permissions, business logic, approvals,
-          telemetry, and audit. Routine work can run at the browser edge; heavy or risky reasoning
-          escalates only through routes you provide.
+          Two lines of HTML. The agent runs in the user's browser, calls your existing APIs as tools,
+          and falls back to the cloud only when it has to. Open source, MIT.
         </p>
         <div class="hero-actions home-hero-actions" aria-label="Primary Edgekit links">
-          <a class="button primary" href="${withBase('/docs/')}">Read the docs</a>
-          <a class="button secondary" href="${withBase('/docs/should-i-use-edgekit/')}">Should I use it?</a>
-          <a class="button secondary" href="${withBase('/docs/getting-started/')}">Quick start</a>
-          <a class="button secondary" href="${withBase('/demos/ecommerce/')}">Open demos</a>
+          <a class="button primary" href="https://github.com/kevinmarmstrong/edgekit-demo-ecommerce#quickstart">Quickstart (60 seconds)</a>
+          <a class="button secondary" href="https://github.com/kevinmarmstrong/edgekit">Star on GitHub <span id="github-star-count">(★)</span></a>
+          <a class="button secondary" href="${externalEcommerceDemoUrl}">Watch the 90s demo</a>
+        </div>
+        <div class="home-embed-snippet" aria-label="Copyable Edgekit embed snippet">
+          <div class="home-snippet-label">
+            <span>Embed</span>
+            <small>Mount the component, choose the local-first cascade, register your tools.</small>
+          </div>
+          <pre class="home-code"><code>&lt;edge-chat id="agent"&gt;&lt;/edge-chat&gt;
+import { chromeAI, webLLM } from '@kevinmarmstrong/edgekit'
+agent.configure({ model: [chromeAI(), webLLM(), appCloudRoute] })
+agent.registerTools({ searchProducts, addToCart })</code></pre>
         </div>
       </div>
-      <div class="hero-visual home-architecture-card" aria-label="Edgekit transformation overview">
-        <div class="home-stack">
-          <div>
-            <span class="section-label">Outcome first</span>
-            <h2>The hunger is not a sidecar. The hunger is useful agentic work without losing control.</h2>
-          </div>
-          <ol class="home-architecture-stack home-outcome-stack">
-            <li><strong>Need</strong><span>Add agentic workflows to real software without a rewrite, data leak, or runaway cloud bill.</span></li>
-            <li><strong>Boundary</strong><span>Separate the agent worker from the durable software tool it operates.</span></li>
-            <li><strong>Runtime</strong><span>Use local-first models, governed tools, approvals, telemetry, audit, and tested outcomes.</span></li>
-          </ol>
-        </div>
+      <div class="hero-visual home-demo-visual" aria-label="Live ecommerce demo preview">
+        <img src="${withBase('/ecommerce-demo.gif')}" alt="Live ecommerce demo showing catalog search, tool-backed answers, and guarded add-to-cart approval" />
+        <p>Running on the Cloudflare Pages COOP/COEP mirror. Browser-local path ready; GitHub Pages remains the fallback/no-model reference.</p>
       </div>
     </section>
 
@@ -451,37 +278,37 @@ chat.registerTools({ searchCases, createTicket })</code></pre>
         <p class="section-label">Demo catalog</p>
         <h2>Working surfaces that keep their integration boundaries visible.</h2>
         <p>
-          Each demo preserves the important truth: the agent assists inside an app workflow, tool
-          execution remains app-owned, and scripted/provider modes are disclosed.
+          Ecommerce now runs as the external packed-package proof. The remaining demos are internal
+          previews until Phase F replacement repos are live.
         </p>
       </div>
       <div class="demo-grid">
-        <a class="demo-card active" href="${withBase('/demos/ecommerce/')}">
+        <a class="demo-card active" href="${externalEcommerceDemoUrl}">
           <span>Public catalog</span>
-          <strong>Skills + Mission Profile, product search, generated CTAs, and guarded add-to-cart.</strong>
+          <strong>External COOP/COEP packed-package demo with product search, generated CTAs, and guarded add-to-cart.</strong>
         </a>
         <a class="demo-card active-secondary" href="${withBase('/demos/docs/')}">
-          <span>Docs Q&A</span>
+          <span>Internal preview: Docs Q&A</span>
           <strong>Project knowledge exposed as a search tool with synthesis-faithfulness checks.</strong>
         </a>
         <a class="demo-card active-secondary" href="${withBase('/demos/operations/')}">
-          <span>Field ops ERP</span>
+          <span>Internal preview: Field ops ERP</span>
           <strong>Work orders, inventory reservation, and technician dispatch in one workflow.</strong>
         </a>
         <a class="demo-card active-secondary" href="${withBase('/demos/admin/')}">
-          <span>SaaS admin</span>
+          <span>Internal preview: SaaS admin</span>
           <strong>Guarded account changes, approvals, telemetry, and workflow recovery.</strong>
         </a>
         <a class="demo-card" href="${withBase('/demos/ag-ui/')}">
-          <span>AG-UI adapter</span>
+          <span>Internal preview: AG-UI adapter</span>
           <strong>Remote event streams rendered into declarative EdgeView UI.</strong>
         </a>
         <a class="demo-card" href="${withBase('/demos/cascade/')}">
-          <span>Cascade lab</span>
+          <span>Internal preview: Cascade lab</span>
           <strong>Browser model readiness, permission states, fallbacks, and feature gating.</strong>
         </a>
         <a class="demo-card" href="${withBase('/demos/mission-control/')}">
-          <span>Mission control</span>
+          <span>Internal preview: Mission control</span>
           <strong>Telemetry, approvals, errors, and tool usage hooks for product teams.</strong>
         </a>
       </div>
@@ -505,6 +332,21 @@ chat.registerTools({ searchCases, createTicket })</code></pre>
       </div>
     </section>
   `
+}
+
+async function renderGitHubStars() {
+  const target = document.querySelector<HTMLElement>('#github-star-count')
+  if (!target) return
+  try {
+    const response = await fetch('https://api.github.com/repos/kevinmarmstrong/edgekit')
+    if (!response.ok) return
+    const repo = await response.json() as { stargazers_count?: number }
+    if (typeof repo.stargazers_count === 'number') {
+      target.textContent = `(★ ${repo.stargazers_count})`
+    }
+  } catch {
+    // Static fallback keeps the CTA usable when GitHub is blocked.
+  }
 }
 
 function renderDocCards() {
@@ -533,30 +375,6 @@ function withBase(path: string) {
   if (path === '/') return `${basePath}/`
   if (path.startsWith('/#')) return `${basePath}/${path.slice(1)}`
   return `${basePath}${path}`
-}
-
-function renderCatalog() {
-  const catalog = document.querySelector<HTMLElement>('#catalog')
-  if (!catalog) return
-
-  catalog.innerHTML = products
-    .map(
-      product => `
-        <article class="product-card" data-testid="product-card">
-          <div class="product-art" aria-hidden="true">${product.name.slice(0, 2)}</div>
-          <div>
-            <h3>${product.name}</h3>
-            <p>${product.support}</p>
-          </div>
-          <dl>
-            <div><dt>Price</dt><dd>$${product.price.toFixed(2)}</dd></div>
-            <div><dt>Sizes</dt><dd>${product.sizes.join(', ')}</dd></div>
-            <div><dt>Color</dt><dd>${product.color}</dd></div>
-          </dl>
-        </article>
-      `,
-    )
-    .join('')
 }
 
 function answerFromDocs(input: string) {
@@ -605,93 +423,6 @@ function formatDocsAnswer(output: unknown, input: string) {
   })
 }
 
-function answerFromCatalog(input: string) {
-  const maxPrice = input.match(/under\s+\$?(\d+)/i)?.[1]
-  const requestedSize = extractSize(input)
-  const requestedColor = input.match(/\b(white|black|blue|green|volt)\b/i)?.[1]?.toLowerCase()
-  const { results } = searchProductCatalog({
-    query: input,
-    maxPrice: maxPrice == null ? undefined : Number(maxPrice),
-    size: requestedSize,
-    color: requestedColor,
-  })
-
-  if (results.length === 0) {
-    return 'Local browser AI is unavailable here, and basic catalog mode did not find matching products.'
-  }
-
-  return [
-    'Local browser AI is unavailable here, so edgekit answered through basic catalog mode.',
-    '',
-    ...results.map(
-      product =>
-        `${product.name} - $${product.price.toFixed(2)} - sizes ${product.sizes.join(', ')} - ${product.color} - ${product.support}`,
-    ),
-    '',
-    'Enable Chrome AI for tool-calling recommendations and guarded add-to-cart actions.',
-  ].join('\n')
-}
-
-function scriptedCommerceProvider() {
-  const scriptedModel = {
-    provider: 'scripted-commerce',
-    modelId: 'public-catalog-shopping',
-    specificationVersion: 'v3',
-  } as LanguageModelV3
-
-  return createModelProvider({
-    id: 'scripted-commerce',
-    label: 'Scripted commerce agent',
-    resolve: async () => scriptedModel,
-  })
-}
-
-function createScriptedCommerceStream() {
-  return (options: { messages?: unknown[]; tools?: Record<string, unknown> }) => {
-    const input = latestUserInput(options.messages ?? [])
-    const maxPrice = input.match(/under\s+\$?(\d+)/i)?.[1]
-    const requestedSize = extractSize(input)
-    const requestedColor = input.match(/\b(white|black|blue|green|volt)\b/i)?.[1]?.toLowerCase()
-    const toolInput = {
-      query: input,
-      maxPrice: maxPrice == null ? undefined : Number(maxPrice),
-      size: requestedSize,
-      color: requestedColor,
-    }
-    const outputPromise = executeTool(options.tools?.searchProducts, toolInput)
-    const textPromise = outputPromise.then(formatCatalogToolAnswer)
-
-    return {
-      fullStream: (async function* () {
-        const toolCallId = 'site-commerce-search'
-        yield { type: 'tool-call', toolCallId, toolName: 'searchProducts', input: toolInput }
-        const output = await outputPromise
-        yield { type: 'tool-result', toolCallId, toolName: 'searchProducts', output }
-        yield { type: 'text-delta', delta: formatCatalogToolAnswer(output) }
-      })(),
-      response: textPromise.then(text => ({
-        messages: [{ role: 'assistant', content: [{ type: 'text', text }] }],
-      })),
-    }
-  }
-}
-
-function formatCatalogToolAnswer(output: unknown) {
-  const products = extractProducts(output)
-  if (products.length === 0) return 'I did not find a matching product in the catalog.'
-  return products.map(productSummary).join('\n')
-}
-
-function commerceToolsForInput(input: string) {
-  return hasCartMutationIntent(input)
-    ? { searchProducts, addToCart }
-    : { searchProducts }
-}
-
-function hasCartMutationIntent(input: string) {
-  return /\b(add|cart|buy|purchase|checkout|order)\b/i.test(input)
-}
-
 async function* mockAgUiRun({ input }: AgUiRunInput) {
   const normalized = input.toLowerCase()
   if (normalized.includes('component') || normalized.includes('ui')) {
@@ -704,7 +435,7 @@ async function* mockAgUiRun({ input }: AgUiRunInput) {
 
   if (normalized.includes('hard coded') || normalized.includes('hardcoded') || normalized.includes('same example')) {
     yield* renderAgUiDemoResponse(
-      'Yes. This public Pages demo uses a local scripted AG-UI event source so the repo can be tested without a backend. In production, replace the script with createAgUiAgent({ endpoint }) and stream events from your agent provider.',
+      'Yes. This public Pages demo uses a local scripted AG-UI event source so the repo can be tested without a backend. In production, replace the script with createAgUiAgent({ endpoint }) from @kevinmarmstrong/edgekit-agui and stream events from your agent provider.',
       transparencyView(),
     )
     return
@@ -772,7 +503,7 @@ function transparencyView(): EdgeViewNode {
     id: 'agui-transparency',
     title: 'What is scripted here',
     description:
-      'GitHub Pages is serving a deterministic AG-UI mock stream. The scalable integration point is createAgUiAgent({ endpoint }) or createAgUiAgent({ run }), which accepts provider events and renders the same EdgeView payloads.',
+      'GitHub Pages is serving a deterministic AG-UI mock stream. The scalable integration point is createAgUiAgent({ endpoint }) or createAgUiAgent({ run }) from @kevinmarmstrong/edgekit-agui, which accepts provider events and renders the same EdgeView payloads.',
   }
 }
 
@@ -882,23 +613,6 @@ function supportQueueView(): EdgeViewNode[] {
     ]
 }
 
-function renderCart() {
-  const cartState = document.querySelector<HTMLElement>('#cart-state')
-  if (!cartState) return
-  if (cart.length === 0) {
-    cartState.textContent = 'No items yet'
-    return
-  }
-
-  cartState.textContent = cart
-    .map(item => {
-      const product = products.find(candidate => candidate.id === item.productId)
-      const size = item.size ? ` (size ${item.size})` : ''
-      return `${item.quantity}x ${product?.name ?? item.productId}${size}`
-    })
-    .join(', ')
-}
-
 function renderMissionControl(snapshot: MissionControlSnapshot = missionControl.snapshot()) {
   setText('#mc-runs', String(snapshot.runs))
   setText('#mc-tools', String(Object.values(snapshot.toolCalls).reduce((total, count) => total + count, 0)))
@@ -938,125 +652,8 @@ function latestUserInput(messages: unknown[]) {
   return typeof userMessage?.content === 'string' ? userMessage.content : ''
 }
 
-function extractProducts(output: unknown): Product[] {
-  if (!isRecord(output) || !Array.isArray(output.results)) return []
-  return output.results.filter((item): item is Product => {
-    return isRecord(item) && typeof item.id === 'string' && typeof item.name === 'string'
-  })
-}
-
-function searchProductCatalog(input: ProductSearchInput) {
-  const requestedSize = normalizeSize(input.size ?? extractSize(input.query))
-  const requestedColors = colorTokens(input.color ?? input.query)
-  const queryTokens = queryTokensForCatalog(input.query)
-  const exact = rankedProducts(queryTokens, requestedSize, requestedColors, input.maxPrice)
-  const relaxedColor = exact.length > 0 ? exact : rankedProducts(queryTokens, requestedSize, [], input.maxPrice)
-  const relaxedSize = relaxedColor.length > 0 ? relaxedColor : rankedProducts(queryTokens, undefined, requestedColors, input.maxPrice)
-  const relaxedQuery = relaxedSize.length > 0 ? relaxedSize : rankedProducts([], requestedSize, requestedColors, input.maxPrice)
-  const results = relaxedQuery.map(result => result.product)
-  const strategy = exact.length > 0
-    ? 'strict'
-    : relaxedColor.length > 0
-      ? 'relaxed-color'
-      : relaxedSize.length > 0
-        ? 'relaxed-size'
-        : relaxedQuery.length > 0
-          ? 'relaxed-query'
-          : 'no-match'
-
-  return {
-    results,
-    total: results.length,
-    strategy,
-    summary: results.map(productSummary),
-  }
-}
-
-function rankedProducts(queryTokens: string[], size: string | undefined, colors: string[], maxPrice: number | undefined) {
-  return products
-    .map(product => ({ product, score: productScore(product, queryTokens) }))
-    .filter(({ product, score }) => {
-      const requiredTokens = queryTokens.filter(token => !brandTokens().has(token))
-      const matchesQuery =
-        queryTokens.length === 0 ||
-        (requiredTokens.length > 0
-          ? requiredTokens.every(token => productSearchTokens(product).includes(token))
-          : score > 0)
-      const matchesPrice = maxPrice == null || product.price <= maxPrice
-      const matchesSize = size == null || product.sizes.includes(size)
-      const matchesColor = colors.length === 0 || colors.every(color => colorTokens(product.color).includes(color))
-      return matchesQuery && matchesPrice && matchesSize && matchesColor
-    })
-    .sort((a, b) => b.score - a.score || a.product.price - b.product.price)
-}
-
-function productScore(product: Product, queryTokens: string[]) {
-  const searchable = productSearchTokens(product)
-  const searchableText = searchable.join(' ')
-  return queryTokens.reduce((score, token) => {
-    if (searchable.includes(token)) return score + 2
-    if (searchableText.includes(token)) return score + 1
-    return score
-  }, 0)
-}
-
-function productSearchTokens(product: Product) {
-  return queryTokensForCatalog(`${product.name} ${product.category} ${product.support} ${product.color}`)
-}
-
-function brandTokens() {
-  return new Set(['adidas', 'brooks', 'balance', 'new', 'nike'])
-}
-
-function productSummary(product: Product) {
-  return `${product.name} costs $${product.price.toFixed(2)}; available sizes: ${product.sizes.join(', ')}; color: ${product.color}; ${product.support}.`
-}
-
-function queryTokensForCatalog(value: string) {
-  const stopWords = new Set([
-    'a', 'an', 'and', 'are', 'available', 'below', 'carry', 'carried', 'cheaper', 'cost', 'costs', 'dollar',
-    'dollars', 'find', 'for', 'has', 'have', 'how', 'info', 'is', 'me', 'option', 'options', 'price', 'show',
-    'size', 'sizes', 'the', 'under', 'what', 'with',
-  ])
-  return normalizeText(value)
-    .split(' ')
-    .map(token => singularize(token))
-    .filter(token => token.length > 1 && !stopWords.has(token) && !colorTokens(token).includes(token) && !normalizeSize(token))
-}
-
-function colorTokens(value: string) {
-  const colors = new Set(['black', 'blue', 'green', 'lime', 'sea', 'salt', 'volt', 'white'])
-  return normalizeText(value).split(' ').filter(token => colors.has(token))
-}
-
-function normalizeText(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9.]+/g, ' ').trim()
-}
-
-function singularize(token: string) {
-  return token.length > 3 && token.endsWith('s') ? token.slice(0, -1) : token
-}
-
-function normalizeSize(value?: string) {
-  if (!value) return undefined
-  const numeric = value.match(/\d+(?:\.\d+)?/)?.[0]
-  if (numeric) return numeric
-  const wordSizes: Record<string, string> = {
-    nine: '9',
-    ten: '10',
-    eleven: '11',
-    twelve: '12',
-  }
-  return wordSizes[value.toLowerCase()]
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-function extractSize(input: string) {
-  return normalizeSize(input.match(/size\s+([\d.]+)/i)?.[1]) ??
-    normalizeSize(input.match(/\b(nine|ten|eleven|twelve)\b/i)?.[1])
 }
 
 function wireDocSearch() {

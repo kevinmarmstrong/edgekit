@@ -111,7 +111,7 @@ export const docsPages: DocsPage[] = [
           '`packages/ui`: Lit web component, approval prompts, download prompts, chat shell.',
           '`packages/cli`: documentation indexing utility for project Q&A tools.',
           '`examples/ecommerce`: standalone app retrofit demo.',
-          '`site`: GitHub Pages docs, Q&A, ecommerce demo, and SaaS admin demo.',
+          '`site`: GitHub Pages docs plus remaining internal demo surfaces while Phase F externalization continues.',
           '`tests/e2e`: Playwright coverage for embedded agent workflows.',
         ],
       },
@@ -865,12 +865,12 @@ chat.configure({
         id: 'ag-ui',
         title: 'AG-UI compatibility',
         body: [
-          'Use `createAgUiAgent()` when the agent comes from an AG-UI ecosystem backend instead of the browser-native model cascade. Edgekit accepts text events, tool-result events, and custom `edgekit.view` or A2UI-style view events.',
+          'Use `createAgUiAgent()` from `@kevinmarmstrong/edgekit-agui` when the agent comes from an AG-UI ecosystem backend instead of the browser-native model cascade. Edgekit accepts text events, tool-result events, and custom `edgekit.view` or A2UI-style view events.',
           'Without AG-UI, use `registerTools()` plus `registerActions()` to keep the agent fully browser-native and app-owned. With AG-UI, attach an external event stream with `useAgent()` and keep the same EdgeView renderer for rich UI.',
           'The public GitHub Pages AG-UI demo intentionally uses a scripted mock stream because Pages cannot run a provider backend. It is a renderer and protocol demo, not a general-purpose hosted agent.',
         ],
         bullets: [
-          'Standard AG-UI HTTP/SSE endpoint: pass `createAgUiAgent({ endpoint })` and attach it with `chat.useAgent(agent)`.',
+          'Standard AG-UI HTTP/SSE endpoint: import from `@kevinmarmstrong/edgekit-agui`, pass `createAgUiAgent({ endpoint })`, and attach it with `chat.useAgent(agent)`.',
           '@ag-ui/client or HttpAgent-backed service: expose the same event stream endpoint, or adapt its event iterator through `createAgUiAgent({ run })`.',
           'CopilotKit, LangGraph, CrewAI, or other AG-UI bridges: keep their backend agent runtime, then let Edgekit render the user-facing event stream inside your app.',
           'Backend dependency: a hosted route or worker that can stream AG-UI events, hold provider secrets, enforce rate limits, and call only the app tools you expose.',
@@ -1543,7 +1543,7 @@ function Assistant({ agent }) {
           'Production AG-UI integrations need a hosted route or worker that can stream provider events, hold secrets, enforce rate limits, and call only the tools the app intentionally exposes.',
         ],
         bullets: [
-          'Use `createAgUiAgent({ endpoint })` for HTTP/SSE endpoints.',
+          'Use `createAgUiAgent({ endpoint })` from `@kevinmarmstrong/edgekit-agui` for HTTP/SSE endpoints.',
           'Use `createAgUiAgent({ run })` when adapting an event iterator from an existing agent client.',
           'Keep public demos explicit when they use scripted streams instead of a real provider backend.',
         ],
@@ -1656,7 +1656,7 @@ function Assistant({ agent }) {
         body: ['Use `useAgent()` when the agent UI should be powered by an AG-UI-compatible backend instead of the built-in browser model cascade.'],
         code: {
           language: 'ts',
-          text: `import { createAgUiAgent } from '@kevinmarmstrong/edgekit'
+          text: `import { createAgUiAgent } from '@kevinmarmstrong/edgekit-agui'
 
 const agent = createAgUiAgent({
   endpoint: '/api/ag-ui/support-agent',
@@ -2283,7 +2283,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
     slug: 'adopter-simulation',
     navLabel: 'Maintainer Adoption',
     title: 'Maintainer adopter simulation',
-    summary: 'Project-process loops for proving elite programmers and agent-assisted builders can reach production-grade sidecars.',
+    summary: 'Project-process loops for proving elite programmers and agent-assisted builders can reach production-grade agent workflows.',
     sections: [
       {
         id: 'agent-assisted-path',
@@ -2353,7 +2353,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         id: 'model-evals',
         title: 'Real-model evals',
         body: [
-          '`pnpm eval:models` launches a browser against the ecommerce demo and records model/provider behavior to `test-results/model-cascade-eval.json`. Model unavailability is reportable by default and becomes a failure when `EDGEKIT_REQUIRE_REAL_MODEL=1` is set.',
+          '`pnpm eval:models` launches a browser against the standalone ecommerce demo and records model/provider behavior to `test-results/model-cascade-eval.json`. Model unavailability is reportable by default and becomes a failure when `EDGEKIT_REQUIRE_REAL_MODEL=1` is set.',
         ],
         code: {
           language: 'bash',

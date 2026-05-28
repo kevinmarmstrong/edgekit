@@ -231,14 +231,10 @@ This iteration is focused on making the *experience* of adopting Edgekit feel wo
 
 ## Loop Visibility
 
-To see exactly where we are in the ongoing world-class iteration loop at any moment, check:
+To see exactly where we are in the ongoing v3.5 refactor loop at any moment, check:
 
-**`LOOP-STATUS.md`** (root of the repo)
+**`V3.5-PLAN.md`** (root of the repo)
 
-This file is updated after every significant turn in the Document → Implement → Test → Learn cycle. It contains:
-- Current iteration focus
-- Latest outcome quality data
-- Honest gaps vs the world-class bar
-- Next planned actions
+This file is the current shape/scope source of truth. Older process and self-grading notes have moved under `lab/process/`.
 
-You can open it anytime (`cat LOOP-STATUS.md`) to get a clear picture without needing to ask.
+You can open it anytime (`cat V3.5-PLAN.md`) to get a clear picture without needing to ask.

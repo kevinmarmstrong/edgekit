@@ -42,6 +42,8 @@
   },
   "dependencies": {
     "@kevinmarmstrong/edgekit": "workspace:^",
+    "@kevinmarmstrong/edgekit-governance": "workspace:^",
+    "@kevinmarmstrong/edgekit-skills": "workspace:^",
     "lit": "^3.3.3"
   }
 }

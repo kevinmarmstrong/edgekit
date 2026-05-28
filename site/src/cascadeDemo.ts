@@ -1,15 +1,14 @@
 import {
   chromeAI,
   createCascadeReadinessController,
-  createMissionProfile,
   createModelProvider,
   tool,
-  validateMissionProfile,
   webLLM,
   type CascadeReadinessSnapshot,
   type DownloadPolicy,
   type LanguageModelV3,
 } from '@kevinmarmstrong/edgekit'
+import { createMissionProfile, validateMissionProfile } from '@kevinmarmstrong/edgekit-skills'
 import type { EdgeCascadeWizard } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
 

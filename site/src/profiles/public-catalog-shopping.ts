@@ -23,7 +23,7 @@
  * Use `requiredTools` to name the app-owned executable tools a profile expects.
  */
 
-import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit'
+import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit-skills'
 
 export const productSearchSkill = createSkill({
   id: 'product-search',

@@ -2,45 +2,17 @@ import { expect, test } from '@playwright/test'
 
 const siteURL = 'http://127.0.0.1:4174/edgekit/'
 
-test('public ecommerce agent answers catalog questions with actionable product facts', async ({ page }) => {
+test('public ecommerce route points to the external packed-package demo', async ({ page }) => {
   await page.goto(`${siteURL}demos/ecommerce/?cacheBust=${Date.now()}`)
 
-  const commerce = page.locator('#ecommerce')
-  await commerce.getByTestId('chat-input').fill('how much are Nike dunks and what sizes are carried?')
-  await commerce.getByTestId('send-button').click()
-
-  const messages = commerce.getByTestId('chat-messages')
-  await expect(messages).toContainText('Nike Dunk Low')
-  await expect(messages).toContainText('$64.99')
-  await expect(messages).toContainText('sizes 9, 10, 11')
-  await expect(messages).toContainText('White / Black')
-  await expect(page.locator('#cart-state')).toContainText('No items yet')
-
-  await commerce.getByTestId('chat-input').fill('show running shoes under $100 size 10')
-  await commerce.getByTestId('send-button').click()
-
-  await expect(messages).toContainText('Nike Air Zoom Pegasus')
-  await expect(messages).toContainText('$89.99')
-  await expect(messages).toContainText('sizes 9, 10, 10.5, 11')
-})
-
-test('public ecommerce sidecar executes generated add-to-cart action card', async ({ page }) => {
-  await page.goto(`${siteURL}demos/ecommerce/?commerceAgentMode=scripted&cacheBust=${Date.now()}`)
-
-  const commerce = page.locator('#ecommerce')
-  await commerce.getByTestId('chat-input').fill('how much are Nike dunks and what sizes are carried?')
-  await commerce.getByTestId('send-button').click()
-
-  const dunkCard = commerce.getByTestId('action-card').filter({ hasText: 'Nike Dunk Low' }).first()
-  await expect(dunkCard).toContainText('Add Nike Dunk Low to cart')
-  await expect(dunkCard).toContainText('$64.99')
-  await expect(page.locator('#cart-state')).toContainText('No items yet')
-
-  await dunkCard.getByTestId('action-field-size').selectOption('11')
-  await dunkCard.getByTestId('action-run-button').click()
-
-  await expect(commerce.getByTestId('chat-messages')).toContainText('Added Nike Dunk Low to your cart')
-  await expect(page.locator('#cart-state')).toContainText('1x Nike Dunk Low (size 11)')
+  await expect(page.getByRole('heading', { name: 'The ecommerce demo now runs outside the monorepo.' })).toBeVisible()
+  await expect(page.locator('#ecommerce')).toContainText('verified external replacement')
+  await expect(page.locator('#ecommerce edge-chat')).toHaveCount(0)
+  await expect(page.locator('#cart-state')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Open external ecommerce demo' })).toHaveAttribute(
+    'href',
+    'https://edgekit-demo-ecommerce.pages.dev/',
+  )
 })
 
 test('standalone ecommerce scripted loop searches, renders CTA, and mutates only after user action', async ({ page }) => {

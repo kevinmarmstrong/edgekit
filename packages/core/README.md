@@ -50,7 +50,7 @@ for await (const event of agent.send('find running shoes')) {
 Use `chromeAI()` and `webLLM()` for the default local model cascade, or pass any AI SDK language model in `model`.
 Use `createCascadeReadinessController()` when the app needs to check browser/provider state before showing agent features. It returns a headless snapshot with provider status, missing capabilities, and a recommended action (`prompt`, `suggest`, `message`, `hide`, `fallback`, or `continue`) so your app can render its own wizard, banner, modal, or disabled state.
 Use `modelOptional(schema)` for optional tool fields so browser models can omit a value or send `null` without causing a visible schema-retry loop.
-Use `createAgUiAgent({ endpoint })` to connect an AG-UI compatible event stream, and `actionsToEdgeView()` when you want tool results to render as declarative cards/forms.
+Use `createAgUiAgent({ endpoint })` from `@kevinmarmstrong/edgekit-agui` to connect an AG-UI compatible event stream, and `actionsToEdgeView()` when you want tool results to render as declarative cards/forms.
 Use `createHybridModelRouter()` or `createSupervisorRouter()` when an app needs cloud fallback or lightweight supervisor/worker delegation without replacing the browser-native runtime.
 Use `createHandoffEnvelope()` or supervisor `onHandoff` callbacks to pass bounded context to cloud workers without leaking secret claims.
 Use `createMarkdownMemoryStore()` for inspectable `.md`-backed memory that can later be replaced by IndexedDB, OPFS, vectors, or a server store implementing the same `search()` contract. Configure compaction thresholds when Markdown logs become append-heavy.

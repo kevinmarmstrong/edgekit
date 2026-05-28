@@ -72,7 +72,7 @@ distinguish a real WebLLM-capable host from a graceful fallback.
 The Cloudflare proof host in `examples/cloudflare-sidecar` is the current
 non-GitHub-Pages architecture proof. It serves COOP/COEP headers, Worker-backed
 knowledge and intake routes, and a developer-owned cloud-route shape. See
-`docs/CLOUDFLARE-ARCHITECTURE-PROOF.md`.
+`lab/proofs/CLOUDFLARE-ARCHITECTURE-PROOF.md`.
 
 ## Clean-Room Adoption Proof
 

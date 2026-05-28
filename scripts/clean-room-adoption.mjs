@@ -13,20 +13,27 @@ const appDir = resolve(tmpdir(), `edgekit-clean-room-${Date.now()}`)
 const started = Date.now()
 const commands = []
 const friction = []
+const packages = [
+  { dir: 'packages/core', name: '@kevinmarmstrong/edgekit', tarball: 'kevinmarmstrong-edgekit-0.1.0.tgz' },
+  { dir: 'packages/skills', name: '@kevinmarmstrong/edgekit-skills', tarball: 'kevinmarmstrong-edgekit-skills-0.1.0.tgz' },
+  { dir: 'packages/knowledge', name: '@kevinmarmstrong/edgekit-knowledge', tarball: 'kevinmarmstrong-edgekit-knowledge-0.1.0.tgz' },
+  { dir: 'packages/governance', name: '@kevinmarmstrong/edgekit-governance', tarball: 'kevinmarmstrong-edgekit-governance-0.1.0.tgz' },
+  { dir: 'packages/mcp', name: '@kevinmarmstrong/edgekit-mcp', tarball: 'kevinmarmstrong-edgekit-mcp-0.1.0.tgz' },
+  { dir: 'packages/agui', name: '@kevinmarmstrong/edgekit-agui', tarball: 'kevinmarmstrong-edgekit-agui-0.1.0.tgz' },
+  { dir: 'packages/ui', name: '@kevinmarmstrong/edgekit-ui', tarball: 'kevinmarmstrong-edgekit-ui-0.1.0.tgz' },
+  { dir: 'packages/react', name: '@kevinmarmstrong/edgekit-react', tarball: 'kevinmarmstrong-edgekit-react-0.1.0.tgz' },
+  { dir: 'packages/cli', name: '@kevinmarmstrong/edgekit-cli', tarball: 'kevinmarmstrong-edgekit-cli-0.1.0.tgz' },
+]
 
 async function main() {
 await rm(outDir, { recursive: true, force: true })
 await mkdir(packsDir, { recursive: true })
 await mkdir(appDir, { recursive: true })
 
-await run('pnpm', ['--filter', '@kevinmarmstrong/edgekit', 'build'], repoRoot)
-await run('pnpm', ['--filter', '@kevinmarmstrong/edgekit-ui', 'build'], repoRoot)
-await run('pnpm', ['--filter', '@kevinmarmstrong/edgekit-react', 'build'], repoRoot)
-await run('pnpm', ['--filter', '@kevinmarmstrong/edgekit-cli', 'build'], repoRoot)
-await run('pnpm', ['--dir', 'packages/core', 'pack', '--pack-destination', packsDir], repoRoot)
-await run('pnpm', ['--dir', 'packages/ui', 'pack', '--pack-destination', packsDir], repoRoot)
-await run('pnpm', ['--dir', 'packages/react', 'pack', '--pack-destination', packsDir], repoRoot)
-await run('pnpm', ['--dir', 'packages/cli', 'pack', '--pack-destination', packsDir], repoRoot)
+for (const item of packages) {
+  await run('pnpm', ['--filter', item.name, 'build'], repoRoot)
+  await run('pnpm', ['--dir', item.dir, 'pack', '--pack-destination', packsDir], repoRoot)
+}
 
 await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
   name: 'edgekit-clean-room-adopter',
@@ -39,10 +46,7 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
     outcome: 'tsx scripts/outcome-check.ts',
   },
   dependencies: {
-    '@kevinmarmstrong/edgekit': `file:${join(packsDir, 'kevinmarmstrong-edgekit-0.1.0.tgz')}`,
-    '@kevinmarmstrong/edgekit-ui': `file:${join(packsDir, 'kevinmarmstrong-edgekit-ui-0.1.0.tgz')}`,
-    '@kevinmarmstrong/edgekit-react': `file:${join(packsDir, 'kevinmarmstrong-edgekit-react-0.1.0.tgz')}`,
-    '@kevinmarmstrong/edgekit-cli': `file:${join(packsDir, 'kevinmarmstrong-edgekit-cli-0.1.0.tgz')}`,
+    ...Object.fromEntries(packages.map(item => [item.name, `file:${join(packsDir, item.tarball)}`])),
     '@vitejs/plugin-react': '^5.1.1',
     '@types/node': '^25.9.1',
     '@types/react': '^19.2.7',
@@ -114,7 +118,7 @@ const report = {
     'packed npm tarballs from package artifacts',
     'edgekit-init support-workflow recipe',
     'docs/templates/mission-profile-starter shape',
-    'docs/ADOPTER-SIMULATION.md protocol',
+    'lab/process/ADOPTER-SIMULATION.md protocol',
   ],
   providerLane: 'deterministic local clean-room structural and outcome proof',
   durationMs,

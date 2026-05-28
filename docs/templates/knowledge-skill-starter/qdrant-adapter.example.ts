@@ -1,4 +1,4 @@
-import type { EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit'
+import type { EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
 
 export function qdrantKnowledgeSource(client: {
   query(collection: string, input: unknown): Promise<{ points: Array<{ id: string; score?: number; payload?: Record<string, unknown> }> }>

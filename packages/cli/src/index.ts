@@ -51,7 +51,8 @@ export const recipeCatalog: RecipeDefinition[] = [
     files: [
       {
         path: 'profile.ts',
-        content: `import { createMissionProfile, createSkill, modelOptional, tool } from '@kevinmarmstrong/edgekit'
+        content: `import { modelOptional, tool } from '@kevinmarmstrong/edgekit'
+import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit-skills'
 import { z } from 'zod'
 
 export const searchSupportCases = tool({
@@ -147,7 +148,7 @@ export const supportTools = { searchSupportCases, createSupportTicket }
     files: [
       {
         path: 'knowledge.ts',
-        content: `import { createKnowledgeSkill, type EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit'
+        content: `import { createKnowledgeSkill, type EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
 
 const policySource: EdgeKnowledgeSource = {
   id: 'policy-kb',
@@ -205,7 +206,9 @@ export const policyKnowledgeSkill = createKnowledgeSkill({
     files: [
       {
         path: 'edgekit-profile.ts',
-        content: `import { createKnowledgeSkill, createMissionProfile, createSkill, skillsToTools, tool, type EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit'
+        content: `import { tool } from '@kevinmarmstrong/edgekit'
+import { createKnowledgeSkill, type EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
+import { createMissionProfile, createSkill, skillsToTools } from '@kevinmarmstrong/edgekit-skills'
 import { z } from 'zod'
 
 const intakeKnowledgeSource: EdgeKnowledgeSource = {
@@ -280,7 +283,8 @@ export const astroIntakeTools = {
 
 <script>
   import '@kevinmarmstrong/edgekit-ui'
-  import { chromeAI, validateMissionProfile } from '@kevinmarmstrong/edgekit'
+  import { chromeAI } from '@kevinmarmstrong/edgekit'
+  import { validateMissionProfile } from '@kevinmarmstrong/edgekit-skills'
   import { astroIntakeProfile, astroIntakeTools } from './edgekit-profile'
 
   const chat = document.querySelector('edge-chat#intake-agent')

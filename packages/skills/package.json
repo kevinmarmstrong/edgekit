@@ -1,0 +1,37 @@
+{
+  "name": "@kevinmarmstrong/edgekit-skills",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Skills and Mission Profiles for Edgekit agent workflows.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevinmarmstrong/edgekit.git",
+    "directory": "packages/skills"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kevinmarmstrong/edgekit": "workspace:^"
+  }
+}

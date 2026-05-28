@@ -1,0 +1,38 @@
+{
+  "name": "@kevinmarmstrong/edgekit-agui",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "AG-UI bridge for Edgekit agents.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevinmarmstrong/edgekit.git",
+    "directory": "packages/agui"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ag-ui/client": "^0.0.53",
+    "@kevinmarmstrong/edgekit": "workspace:^"
+  }
+}

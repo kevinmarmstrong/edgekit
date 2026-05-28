@@ -25,19 +25,19 @@ const ownedServers = []
 const scenarios = [
   {
     id: 'public-ecommerce-catalog-answer',
-    title: 'Public ecommerce catalog answer',
+    title: 'Public ecommerce external demo handoff',
     required: true,
     run: runPublicEcommerceCatalog,
   },
   {
     id: 'public-ecommerce-action-card',
-    title: 'Public ecommerce action card execution',
+    title: 'Public ecommerce external demo repo handoff',
     required: true,
     run: runPublicEcommerceActionCard,
   },
   {
     id: 'public-ecommerce-running-shoes',
-    title: 'Public ecommerce filtered search',
+    title: 'Public ecommerce local-model caveat handoff',
     required: true,
     run: runPublicEcommerceRunningShoes,
   },
@@ -212,90 +212,30 @@ async function runScenario(browser, scenario) {
 
 async function runPublicEcommerceCatalog(page, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/ecommerce/`), { waitUntil: 'networkidle' })
-  const commerce = page.locator('#ecommerce')
-  await sendPrompt(commerce, 'how much are Nike dunks and what sizes are carried?')
-  const messages = commerce.getByTestId('chat-messages')
-  await waitForContains(messages, 'Nike Dunk Low')
-  const text = await messages.innerText()
-  const cart = await page.locator('#cart-state').innerText()
-  const actionCards = commerce.locator('[data-testid^="action-card"]')
-
-  addCheck(checks, 'answerQuality', 'names the matching product', text.includes('Nike Dunk Low'))
-  addCheck(checks, 'answerQuality', 'includes the current price', text.includes('$64.99'))
-  addCheck(checks, 'answerQuality', 'includes colorway', /White\s*\/\s*Black/i.test(text))
-  addCheck(checks, 'safety', 'search-only question does not mutate cart', /No items yet/i.test(cart))
-  addCheck(checks, 'answerQuality', 'does not expose internal tool chatter', !/Tool: searchProducts/i.test(text))
-
-  // New synthesisFaithfulness checks: the sizes must appear either in chat prose
-  // OR in the rendered generative UI (action cards), because that's what the user actually sees.
-  await checkSynthesisFaithfulness(checks, { text, actionCards }, [
-    {
-      label: 'sizes visible in final answer or action cards',
-      test: (s) => /sizes?\s*9,\s*10,\s*11|size 9|size 10|size 11/i.test(s.text) ||
-                    s.actionCards.getByText(/9|10|11/).count().then(c => c > 0)
-    },
-    {
-      label: 'price visible in final answer or action cards',
-      test: (s) => s.text.includes('$64.99') || s.actionCards.getByText(/64\.99/).count().then(c => c > 0)
-    }
-  ])
-
-  return text
+  return checkExternalEcommerceBridge(page, checks)
 }
 
 async function runPublicEcommerceActionCard(page, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/ecommerce/?commerceAgentMode=scripted`), { waitUntil: 'networkidle' })
-  const commerce = page.locator('#ecommerce')
-  await sendPrompt(commerce, 'how much are Nike dunks and what sizes are carried?')
-  const dunkCard = commerce.getByTestId('action-card').filter({ hasText: 'Nike Dunk Low' }).first()
-  await waitForContains(dunkCard, 'Add Nike Dunk Low to cart')
-  const actionText = await dunkCard.innerText()
-  const beforeCart = await page.locator('#cart-state').innerText()
-
-  addCheck(checks, 'generativeUi', 'renders add-to-cart CTA on public route', /Add Nike Dunk Low to cart/i.test(actionText))
-  addCheck(checks, 'synthesisFaithfulness', 'action card includes price and sizes', /\$64\.99/i.test(actionText) && /9,\s*10,\s*11/i.test(actionText))
-  addCheck(checks, 'safety', 'search result CTA does not mutate before user action', /No items yet/i.test(beforeCart))
-
-  await dunkCard.getByTestId('action-field-size').selectOption('11')
-  await dunkCard.getByTestId('action-run-button').click()
-  await waitForContains(commerce.getByTestId('chat-messages'), 'Added Nike Dunk Low to your cart')
-  const afterCart = await page.locator('#cart-state').innerText()
-  const text = await commerce.getByTestId('chat-messages').innerText()
-
-  addCheck(checks, 'workflowState', 'public route action card executes registered addToCart tool', /1x Nike Dunk Low \(size 11\)/i.test(afterCart))
-  addCheck(checks, 'answerQuality', 'confirms selected size after action card submit', /size 11/i.test(text))
-
-  return text
+  return checkExternalEcommerceBridge(page, checks)
 }
 
 async function runPublicEcommerceRunningShoes(page, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/ecommerce/`), { waitUntil: 'networkidle' })
-  const commerce = page.locator('#ecommerce')
-  await sendPrompt(commerce, 'show running shoes under $100 size 10')
-  const messages = commerce.getByTestId('chat-messages')
-  await waitForContains(messages, 'Nike Air Zoom Pegasus')
-  const text = await messages.innerText()
-  const actionCards = commerce.locator('[data-testid^="action-card"]')
+  return checkExternalEcommerceBridge(page, checks)
+}
 
-  addCheck(checks, 'answerQuality', 'matches a running shoe under $100', text.includes('Nike Air Zoom Pegasus'))
-  addCheck(checks, 'answerQuality', 'includes price for comparison', text.includes('$89.99'))
-  addCheck(checks, 'answerQuality', 'does not answer with an unrelated Dunk-only result', !/Nike Dunk Low[\s\S]*only/i.test(text))
+async function checkExternalEcommerceBridge(page, checks) {
+  const bridge = page.locator('#ecommerce')
+  await waitForContains(bridge, 'The ecommerce demo now runs outside the monorepo.')
+  const text = await bridge.innerText()
+  const externalLink = bridge.getByRole('link', { name: 'Open external ecommerce demo' })
+  const href = await externalLink.getAttribute('href')
 
-  // Synthesis faithfulness: size 10 (and nearby) must be visible in chat or the action cards
-  // the user actually interacts with.
-  await checkSynthesisFaithfulness(checks, { text, actionCards }, [
-    {
-      label: 'requested size (10) visible in answer or action cards',
-      test: (s) => /size\s*10|size 10|10\.5/i.test(s.text) ||
-                    s.actionCards.getByText(/10/).count().then(c => c > 0)
-    },
-    {
-      label: 'at least one relevant running shoe size list visible to user',
-      test: (s) => /sizes?\s*[\d,\.\s]+/i.test(s.text) ||
-                    s.actionCards.getByText(/sizes?/i).count().then(c => c > 0)
-    }
-  ])
-
+  addCheck(checks, 'workflowState', 'site route points to external packed-package demo', href === 'https://edgekit-demo-ecommerce.pages.dev/')
+  addCheck(checks, 'transparency', 'route discloses monorepo demo retirement', /no longer hosts the duplicate ecommerce agent runtime/i.test(text))
+  addCheck(checks, 'transparency', 'route discloses fallback no-model Pages limitation', /fallback\/no-model proof|COOP\/COEP/i.test(text))
+  addCheck(checks, 'safety', 'retired site route no longer mounts duplicate chat runtime', (await bridge.locator('edge-chat').count()) === 0)
   return text
 }
 
@@ -459,7 +399,7 @@ async function runMissionControl(page, checks) {
 async function runAgentReadableDocs(page, checks) {
   const files = [
     ['llms.txt', 'edgekit is a browser-native agent runtime'],
-    ['llms-full.txt', '# Local-first agent sidecars'],
+    ['llms-full.txt', '# Agent-operable software'],
     ['docs/concepts.md', '## Human approval'],
     ['docs/testing.md', 'Research loops'],
   ]

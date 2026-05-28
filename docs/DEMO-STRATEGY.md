@@ -24,7 +24,7 @@ The demo bed is not a marketing carousel. It is a measured product lab.
 
 | Surface | Current demo | Coverage |
 | --- | --- | --- |
-| Ecommerce | `demos/ecommerce` | Strong: catalog search, action cards, cart mutation, variant preservation |
+| Ecommerce | `https://edgekit-demo-ecommerce.pages.dev/` / `https://github.com/kevinmarmstrong/edgekit-demo-ecommerce` | Externalized in Phase E/F: COOP/COEP Cloudflare Pages mirror, catalog search, action cards, cart mutation, variant preservation, packed-package install proof |
 | Docs Q&A | `demos/docs` | Strong: docs search, implementation answers, Skill optimization answers |
 | AG-UI | `demos/ag-ui` | Strong: forms, charts, tables, cards, provider transparency |
 | SaaS admin | `demos/admin` | Strong: account search, plan update, suspension, approval/rejection |

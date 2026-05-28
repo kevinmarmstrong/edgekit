@@ -1,4 +1,4 @@
-import type { EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit'
+import type { EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
 
 export function llamaIndexKnowledgeSource(retriever: {
   retrieve(input: { query: string; topK?: number }): Promise<Array<{

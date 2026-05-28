@@ -2,16 +2,11 @@ import '@kevinmarmstrong/edgekit-ui'
 import {
   chromeAI,
   createCascadeReadinessController,
-  createKnowledgeSkill,
-  createMissionProfile,
-  createSkill,
-  skillsToTools,
   tool,
-  validateMissionProfile,
   webLLM,
-  type EdgeKnowledgeResult,
-  type EdgeKnowledgeSource,
 } from '@kevinmarmstrong/edgekit'
+import { createKnowledgeSkill, type EdgeKnowledgeResult, type EdgeKnowledgeSource } from '@kevinmarmstrong/edgekit-knowledge'
+import { createMissionProfile, createSkill, skillsToTools, validateMissionProfile } from '@kevinmarmstrong/edgekit-skills'
 import type { EdgeCascadeWizard, EdgeChat } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
 import './styles.css'

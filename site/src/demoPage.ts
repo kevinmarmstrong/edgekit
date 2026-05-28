@@ -3,14 +3,16 @@ import './styles.css'
 type DemoSlug = 'ecommerce' | 'operations' | 'docs' | 'ag-ui' | 'admin' | 'mission-control' | 'cascade'
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+const externalEcommerceDemoUrl = 'https://edgekit-demo-ecommerce.pages.dev/'
+const fallbackEcommerceDemoUrl = 'https://kevinmarmstrong.github.io/edgekit-demo-ecommerce/'
 const root = document.querySelector<HTMLElement>('#demo-root')
 const demoSlug = (document.body.dataset.demoPage ?? 'ecommerce') as DemoSlug
 
 const demoMeta: Record<DemoSlug, { title: string; label: string; summary: string }> = {
   ecommerce: {
-    title: 'Ecommerce retrofit demo',
-    label: 'Live ecommerce',
-    summary: 'Product search, selectable CTAs, and guarded cart mutation inside a storefront workflow.',
+    title: 'Ecommerce retrofit demo moved',
+    label: 'External ecommerce',
+    summary: 'The packed-package storefront demo now lives in its own repository and deployment.',
   },
   operations: {
     title: 'Field ops ERP demo',
@@ -355,39 +357,47 @@ function docsDemo() {
 
 function ecommerceDemo() {
   return `
-    <section class="ecommerce-demo" id="ecommerce">
+    <section class="ecommerce-demo external-demo-bridge" id="ecommerce">
       <div class="section-heading">
-        <p class="section-label">Live demo</p>
-        <h2>Ecommerce retrofit demo.</h2>
+        <p class="section-label">Phase F demo retirement</p>
+        <h2>The ecommerce demo now runs outside the monorepo.</h2>
         <p>
-          The storefront exposes searchProducts and addToCart tools. edgekit handles the agent UI,
-          local model cascade, approval gates, generated CTAs, and graceful fallback.
+          The public catalog workflow has a verified external replacement built from packed
+          Edgekit package tarballs. This site keeps the pointer, but no longer hosts the duplicate
+          ecommerce agent runtime.
         </p>
-        <p><strong>Architecture note:</strong> This workflow is localized via an <code>EdgeMissionProfile</code> (defined in the consuming page). Edgekit provides the runtime; the app owns the mission-specific behavior.</p>
         ${proofGrid([
-          ['Catalog tools', 'searchProducts returns app-owned product facts; addToCart is a guarded mutation.'],
-          ['Action UI', 'EdgeView turns tool results into selectable product CTAs without moving cart state into Edgekit.'],
-          ['Approval + telemetry', 'Cart mutations stay explicit and can be tracked as host-owned workflow events.'],
+          ['External repo', 'The demo installs Edgekit from package tarballs rather than workspace aliases.'],
+          ['Host-owned state', 'Catalog search and guarded add-to-cart behavior live with the consuming storefront app.'],
+          ['Honest mode', 'Cloudflare Pages is the COOP/COEP local-model proof; GitHub Pages remains the fallback/no-model reference.'],
         ])}
         ${productionNotes([
-          'Replace the sample catalog with your app-owned product search API.',
-          'Keep checkout and cart mutations behind explicit approval.',
-          'Use telemetry to track searches, action-card clicks, approvals, and failures.',
+          'Use the external repo when testing the adopter install path.',
+          'Use the Cloudflare Pages mirror when checking WebLLM/local-model readiness.',
+          'Switch the demo from vendored tarballs to npm dependencies after the Phase I package publish.',
         ])}
       </div>
-      <div class="commerce-layout">
-        <section class="catalog" aria-label="Product catalog" id="catalog"></section>
-        <aside class="commerce-agent">
-          <edge-cascade-wizard id="commerce-cascade"></edge-cascade-wizard>
-          <edge-chat
-            id="commerce-chat"
-            placeholder="Try: find running shoes under $100 in size 10"
-          ></edge-chat>
-          <section class="cart" aria-live="polite">
-            <div class="cart-title">Cart</div>
-            <div id="cart-state">No items yet</div>
-          </section>
-        </aside>
+      <div class="demo-proof-grid">
+        <article>
+          <span>Repository</span>
+          <p><a href="https://github.com/kevinmarmstrong/edgekit-demo-ecommerce">github.com/kevinmarmstrong/edgekit-demo-ecommerce</a></p>
+        </article>
+        <article>
+          <span>COOP/COEP live URL</span>
+          <p><a href="${externalEcommerceDemoUrl}">edgekit-demo-ecommerce.pages.dev</a></p>
+        </article>
+        <article>
+          <span>Fallback URL</span>
+          <p><a href="${fallbackEcommerceDemoUrl}">kevinmarmstrong.github.io/edgekit-demo-ecommerce</a></p>
+        </article>
+        <article>
+          <span>Replacement status</span>
+          <p>Verified live with packed-package install, clean-room smoke, and cold-clone proof.</p>
+        </article>
+      </div>
+      <div class="hero-actions">
+        <a class="button primary" href="${externalEcommerceDemoUrl}">Open external ecommerce demo</a>
+        <a class="button secondary" href="https://github.com/kevinmarmstrong/edgekit-demo-ecommerce">View demo repo</a>
       </div>
     </section>
   `
@@ -684,7 +694,7 @@ function proofGrid(items: Array<[string, string]>) {
 }
 
 function hostSurfaceCopy(slug: DemoSlug) {
-  if (slug === 'ecommerce') return 'A public storefront with catalog cards, cart state, and guarded add-to-cart actions.'
+  if (slug === 'ecommerce') return 'A verified external storefront demo with catalog cards, cart state, and guarded add-to-cart actions.'
   if (slug === 'operations') return 'A field-service ERP dispatch console with work orders, parts, technicians, and SLA state.'
   if (slug === 'docs') return 'A project knowledge surface where Q&A augments, rather than replaces, the documentation.'
   if (slug === 'ag-ui') return 'An AG-UI-compatible integration point for remote event streams and generated UI.'
@@ -694,7 +704,7 @@ function hostSurfaceCopy(slug: DemoSlug) {
 }
 
 function proofCopy(slug: DemoSlug) {
-  if (slug === 'ecommerce') return 'Tool calls, action cards, approval, synthesis faithfulness, and host-owned cart state.'
+  if (slug === 'ecommerce') return 'Packed-package install, no workspace aliases, external deployment, and host-owned cart state.'
   if (slug === 'operations') return 'RBAC-filtered tools, approvals, audit events, repair knowledge, and offline-aware mutations.'
   if (slug === 'docs') return 'Read-only retrieval, answer faithfulness, local-first Q&A, and basic docs fallback.'
   if (slug === 'ag-ui') return 'AG-UI event rendering through EdgeView while provider secrets stay behind a backend.'
@@ -704,6 +714,7 @@ function proofCopy(slug: DemoSlug) {
 }
 
 function honestModeCopy(slug: DemoSlug) {
+  if (slug === 'ecommerce') return 'This page is a link-out. The Cloudflare Pages demo is the COOP/COEP local-model proof; GitHub Pages remains the fallback/no-model reference.'
   if (slug === 'ag-ui') return 'Scripted public event stream; production requires an AG-UI backend endpoint.'
   if (slug === 'operations') return 'Provider mode uses Chrome AI when available; scripted mode is opt-in with ?opsAgentMode=scripted.'
   if (slug === 'admin') return 'Provider mode uses Chrome AI when available; scripted mode is opt-in with ?adminAgentMode=scripted.'

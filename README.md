@@ -26,8 +26,8 @@ Open the full documentation at `https://kevinmarmstrong.github.io/edgekit/docs/`
 
 Recommended adoption path:
 
-- [Marketing Brief](./docs/MARKETING-BRIEF.md): the outcome-first public message and audience model.
-- [Agent-Operated Software Thesis](./docs/AGENT-OPERATED-SOFTWARE-THESIS.md): the long-form transformation arc behind Edgekit.
+- [Marketing Brief](./docs/thesis/MARKETING-BRIEF.md): the outcome-first public message and audience model.
+- [Agent-Operated Software Thesis](./docs/thesis/AGENT-OPERATED-SOFTWARE-THESIS.md): the long-form transformation arc behind Edgekit.
 - [30-Minute Agent Workflow](./docs/30-MINUTE-PRODUCTION-SIDECAR.md): fastest path from starter profile to tested agentic workflow.
 - [Getting Started For Real Apps](./docs/GETTING-STARTED-REAL-APPS.md): the full Skills + Mission Profiles walkthrough.
 - [Recipe Catalog](./docs/RECIPE-CATALOG.md): scaffold repeatable app patterns such as support workflow, Knowledge Access, and Astro intake plus knowledge.
@@ -114,7 +114,7 @@ For docs search, site-map, catalog, or support assistants that must ground answe
 AG-UI-compatible backends can drive the same component:
 
 ```ts
-import { createAgUiAgent } from '@kevinmarmstrong/edgekit'
+import { createAgUiAgent } from '@kevinmarmstrong/edgekit-agui'
 
 const agent = createAgUiAgent({ endpoint: '/api/ag-ui/support-agent' })
 document.querySelector('edge-chat')?.useAgent(agent)
@@ -245,9 +245,9 @@ pnpm research:suite
 pnpm research:full
 ```
 
-Provider/reproducibility variants are documented in [docs/REPRODUCIBILITY.md](./docs/REPRODUCIBILITY.md), [docs/DISTRIBUTION-READINESS.md](./docs/DISTRIBUTION-READINESS.md), [docs/CLEAN-ROOM-ADOPTION-PROOF.md](./docs/CLEAN-ROOM-ADOPTION-PROOF.md), and [docs/CLOUDFLARE-ARCHITECTURE-PROOF.md](./docs/CLOUDFLARE-ARCHITECTURE-PROOF.md).
+Provider/reproducibility variants are documented in [docs/REPRODUCIBILITY.md](./docs/REPRODUCIBILITY.md) and [docs/DISTRIBUTION-READINESS.md](./docs/DISTRIBUTION-READINESS.md). Internal proof notes now live under [lab/proofs](./lab/proofs/).
 
-Release-definition and iteration context lives in [WORLD-CLASS-DEFINITION.md](./WORLD-CLASS-DEFINITION.md), [docs/WORLD-CLASS-READINESS-ANALYSIS.md](./docs/WORLD-CLASS-READINESS-ANALYSIS.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [LOOP-STATUS.md](./LOOP-STATUS.md).
+Release-definition and iteration context lives in [ARCHITECTURE.md](./ARCHITECTURE.md) and [V3.5-PLAN.md](./V3.5-PLAN.md). Internal process notes now live under [lab/process](./lab/process/).
 
 Edgekit Skills are inspectable context artifacts that can be improved without changing runtime model weights. Inspired by [SkillOpt: Executive Strategy for Self-Evolving Agent Skills](https://arxiv.org/pdf/2605.23904), Edgekit supports bounded, validation-gated Skill optimization contracts:
 
