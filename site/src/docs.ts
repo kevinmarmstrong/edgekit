@@ -19,6 +19,7 @@ const navGroups = [
     title: 'Production',
     slugs: [
       'production',
+      'proof-center',
       'runtime-guarantees',
       'production-recipes',
       'security-threat-model',
@@ -31,19 +32,15 @@ const navGroups = [
     title: 'Reference',
     slugs: ['api', 'ui', 'cli', 'ecosystem'],
   },
-  {
-    title: 'Maintainers',
-    slugs: [
-      'proof-center',
-      'testing',
-      'reproducibility',
-      'distribution-readiness',
-      'adopter-simulation',
-      'skill-optimization',
-      'deployment',
-    ],
-  },
 ]
+const hiddenNavSlugs = new Set([
+  'testing',
+  'reproducibility',
+  'distribution-readiness',
+  'adopter-simulation',
+  'skill-optimization',
+  'deployment',
+])
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
 const root = document.querySelector<HTMLElement>('#docs-root')
@@ -84,7 +81,6 @@ if (root) {
         <div class="docs-sidebar-links">
           <a href="${withBase('/llms.txt')}">llms.txt</a>
           <a href="${withBase('/llms-full.txt')}">Adopter context</a>
-          <a href="${withBase('/llms-maintainers.txt')}">Maintainer context</a>
         </div>
       </aside>
 
@@ -102,7 +98,6 @@ if (root) {
           <div class="docs-utility-links" aria-label="Documentation utilities">
             <a href="${withBase(markdownPath(activePage.slug))}">Raw Markdown</a>
             <a href="${withBase('/llms-full.txt')}">Adopter export</a>
-            <a href="${withBase('/llms-maintainers.txt')}">Maintainer export</a>
           </div>
         </header>
 
@@ -151,7 +146,7 @@ function renderDocsNav() {
     .join('')
 
   const uncategorizedLinks = docsPages
-    .filter(page => !groupedSlugs.has(page.slug))
+    .filter(page => !groupedSlugs.has(page.slug) && !hiddenNavSlugs.has(page.slug))
     .map(renderDocsNavLink)
     .join('')
 
@@ -206,7 +201,65 @@ function renderSection(section: (typeof activePage.sections)[number]) {
   `
 }
 
-function renderDiagram(diagram: 'architecture' | 'runtime-loop') {
+function renderDiagram(
+  diagram:
+    | 'outcome-hierarchy'
+    | 'transformation'
+    | 'thesis-bridge'
+    | 'worker-tool'
+    | 'local-cascade'
+    | 'architecture'
+    | 'runtime-loop',
+) {
+  if (diagram === 'outcome-hierarchy') {
+    return `
+      <div class="architecture-diagram outcome-diagram" aria-label="Edgekit outcome hierarchy diagram">
+        <article><span>Need</span><strong>Agents that do real work</strong><p>Search, compare, fill, guide, request, and move workflows forward inside existing software.</p></article>
+        <article><span>Blockers</span><strong>Rewrite, data, cost, safety</strong><p>Teams need adoption without rebuilding apps, leaking context, creating runaway cloud spend, or bypassing approvals.</p></article>
+        <article><span>Boundary</span><strong>Worker operates tool</strong><p>The app stays authoritative; the agent operates governed capabilities.</p></article>
+        <article><span>Runtime</span><strong>Edgekit</strong><p>Local-first cascade, Skills, Profiles, approvals, UI, telemetry, audit, and outcome tests.</p></article>
+      </div>
+    `
+  }
+  if (diagram === 'transformation') {
+    return `
+      <div class="architecture-diagram transformation-diagram" aria-label="Self-service to agent-operated software diagram">
+        <article><span>1</span><strong>Paper work</strong><p>People pushed forms, records, and approvals through manual processes.</p></article>
+        <article><span>2</span><strong>Enterprise software</strong><p>Operators used systems to digitize records and enforce workflow.</p></article>
+        <article><span>3</span><strong>Self-service</strong><p>Customers, employees, and vendors became the edge of data entry and support.</p></article>
+        <article><span>4</span><strong>Agent-operated software</strong><p>Agent workers perform bounded software work for the user through governed tools.</p></article>
+      </div>
+    `
+  }
+  if (diagram === 'thesis-bridge') {
+    return `
+      <div class="architecture-diagram thesis-bridge-diagram" aria-label="Edgekit thesis bridge diagram">
+        <article><span>Need</span><strong>Agents do useful work</strong><p>Inside real software, with real state, users, permissions, and workflows.</p></article>
+        <article><span>Adopt</span><strong>Retrofit or build ready</strong><p>Start with one existing workflow, or design new apps with the agent boundary from day one.</p></article>
+        <article><span>Separate</span><strong>Worker from tool</strong><p>The agent changes fast; the software remains authoritative and durable.</p></article>
+        <article><span>Route</span><strong>Local first, cloud by choice</strong><p>Bounded app work runs at the edge; heavy reasoning escalates deliberately.</p></article>
+        <article><span>Govern</span><strong>Tools, approvals, evidence</strong><p>Every action flows through app-owned permissions, telemetry, and audit.</p></article>
+      </div>
+    `
+  }
+  if (diagram === 'worker-tool') {
+    return `
+      <div class="architecture-diagram worker-tool-diagram" aria-label="Agent worker and software tool lifecycle diagram">
+        <article><span>Agent worker</span><strong>Fast-changing layer</strong><p>Models, prompts, Skills, routing, provider mix, memory, and UX patterns improve continuously.</p></article>
+        <article><span>Edgekit boundary</span><strong>Governed operation</strong><p>Tools, Profiles, approvals, policy, telemetry, audit, and fallback make the interaction explicit.</p></article>
+        <article><span>Software tool</span><strong>Durable system</strong><p>State, auth, permissions, business logic, data access, persistence, compliance, and releases stay stable.</p></article>
+      </div>
+    `
+  }
+  if (diagram === 'local-cascade') {
+    return `
+      <div class="architecture-diagram local-cascade-diagram" aria-label="Local worker and cloud escalation diagram">
+        <article><span>Routine work</span><strong>Local edge worker</strong><p>Read context, search app tools, prepare forms, compare fields, and step through user-like workflows.</p></article>
+        <article><span>App boundary</span><strong>State + tools + permissions</strong><p>The host app decides what the worker can see, which tools exist, and what requires approval.</p></article>
+        <article><span>Escalation</span><strong>Cloud only by choice</strong><p>Complex, risky, long-running, or policy-sensitive reasoning routes through developer-owned workers.</p></article>
+      </div>
+    `
+  }
   if (diagram === 'runtime-loop') {
     return `
       <div class="architecture-diagram runtime-loop-diagram" aria-label="Edgekit runtime loop diagram">
@@ -232,7 +285,7 @@ function renderDiagram(diagram: 'architecture' | 'runtime-loop') {
       </article>
       <article>
         <span>Edgekit owns</span>
-        <strong>Sidecar runtime and UX contract</strong>
+        <strong>Agent runtime and UX contract</strong>
         <p>Provider cascade, tool loop, approvals, EdgeView, telemetry, audit primitives, and fallbacks.</p>
       </article>
       <article>
@@ -266,7 +319,7 @@ function getOrderedDocsPages() {
   const groupedPages = navGroups
     .flatMap(group => group.slugs.map(slug => pagesBySlug.get(slug)))
     .filter(Boolean) as typeof docsPages
-  const uncategorizedPages = docsPages.filter(page => !groupedSlugs.has(page.slug))
+  const uncategorizedPages = docsPages.filter(page => !groupedSlugs.has(page.slug) && !hiddenNavSlugs.has(page.slug))
   return [...groupedPages, ...uncategorizedPages]
 }
 

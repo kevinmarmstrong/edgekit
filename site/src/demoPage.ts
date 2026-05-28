@@ -35,7 +35,7 @@ const demoMeta: Record<DemoSlug, { title: string; label: string; summary: string
   'mission-control': {
     title: 'Mission control demo',
     label: 'Telemetry primitive',
-    summary: 'Local run, tool, approval, and model-availability telemetry from a deployed Edgekit sidecar.',
+    summary: 'Local run, tool, approval, and model-availability telemetry from a deployed Edgekit agent workflow.',
   },
   cascade: {
     title: 'Cascade and permission lab',
@@ -122,7 +122,7 @@ function cascadeDemo() {
           ${proofGrid([
             ['Provider ladder', 'Chrome AI first, then app-selected WebLLM, then an explicit developer cloud route or no-model fallback.'],
             ['Permission state', 'Download consent, enterprise blocks, hidden features, and user opt-out are visible runtime states.'],
-            ['Profile gate', 'The lab validates required tools and capabilities before enabling the sidecar surface.'],
+            ['Profile gate', 'The lab validates required tools and capabilities before enabling the agent surface.'],
           ])}
         </div>
         ${productionNotes([
@@ -155,7 +155,7 @@ function cascadeDemo() {
             <article data-live-step="launch">
               <span>3</span>
               <strong>Launch safely</strong>
-              <p>Show, degrade, or hide the sidecar based on the snapshot.</p>
+              <p>Show, degrade, or hide the agent UI based on the snapshot.</p>
             </article>
           </div>
         </div>
@@ -271,7 +271,7 @@ function cascadeDemo() {
             <article>
               <span>Feature visibility</span>
               <strong id="cascade-feature-state">Unknown</strong>
-              <p id="cascade-feature-message">The host app can show, hide, or degrade the sidecar.</p>
+              <p id="cascade-feature-message">The host app can show, hide, or degrade the agent UI.</p>
             </article>
             <article>
               <span>Validation</span>
@@ -326,7 +326,7 @@ function docsDemo() {
         </p>
         ${proofGrid([
           ['Read-only tool', 'searchDocs is the only mission tool, so answers are grounded without giving the docs page mutation authority.'],
-          ['Faithfulness gate', 'The sidecar must carry section titles and relevant facts from retrieval into the visible answer.'],
+          ['Faithfulness gate', 'The agent must carry section titles and relevant facts from retrieval into the visible answer.'],
           ['Fallback path', 'Basic docs search stays usable when no browser-local model is available.'],
         ])}
         ${productionNotes([
@@ -360,10 +360,10 @@ function ecommerceDemo() {
         <p class="section-label">Live demo</p>
         <h2>Ecommerce retrofit demo.</h2>
         <p>
-          The storefront exposes searchProducts and addToCart tools. edgekit handles the sidecar UI,
+          The storefront exposes searchProducts and addToCart tools. edgekit handles the agent UI,
           local model cascade, approval gates, generated CTAs, and graceful fallback.
         </p>
-        <p><strong>Architecture note:</strong> This sidecar is localized via an <code>EdgeMissionProfile</code> (defined in the consuming page). Edgekit provides the runtime; the app owns the mission-specific behavior.</p>
+        <p><strong>Architecture note:</strong> This workflow is localized via an <code>EdgeMissionProfile</code> (defined in the consuming page). Edgekit provides the runtime; the app owns the mission-specific behavior.</p>
         ${proofGrid([
           ['Catalog tools', 'searchProducts returns app-owned product facts; addToCart is a guarded mutation.'],
           ['Action UI', 'EdgeView turns tool results into selectable product CTAs without moving cart state into Edgekit.'],
@@ -404,7 +404,7 @@ function operationsDemo() {
         <p>
           A production-shaped internal app surface: work-order triage, inventory reservation,
           technician assignment, role scope, audit evidence, and sync posture stay visible while
-          the sidecar proposes guarded actions.
+          the agent proposes guarded actions.
         </p>
         ${proofGrid([
           ['ERP workflow', 'Work orders, parts, technicians, SLA state, and audit records remain in the host app.'],
@@ -436,7 +436,7 @@ function operationsDemo() {
             <section>
               <span>Policy evidence</span>
               <strong id="ops-policy-evidence">CMP-44 safety checklist required</strong>
-              <p>Knowledge reads are role-filtered and cited before the sidecar recommends safety-sensitive work.</p>
+              <p>Knowledge reads are role-filtered and cited before the agent recommends safety-sensitive work.</p>
             </section>
             <section>
               <span>Resilience</span>
@@ -448,7 +448,7 @@ function operationsDemo() {
             <section class="ops-scope-panel">
               <span>Role scope</span>
               <strong id="ops-role-scope">Dispatcher can search work orders, reserve parts, and assign available technicians.</strong>
-              <p>RBAC should be enforced again by the ERP API. The sidecar only narrows visible tools.</p>
+              <p>RBAC should be enforced again by the ERP API. The agent UI only narrows visible tools.</p>
               <ul id="ops-capability-list" class="ops-capability-list"></ul>
             </section>
             <section class="ops-risk-panel">
@@ -686,10 +686,10 @@ function proofGrid(items: Array<[string, string]>) {
 function hostSurfaceCopy(slug: DemoSlug) {
   if (slug === 'ecommerce') return 'A public storefront with catalog cards, cart state, and guarded add-to-cart actions.'
   if (slug === 'operations') return 'A field-service ERP dispatch console with work orders, parts, technicians, and SLA state.'
-  if (slug === 'docs') return 'A docs-first knowledge surface where Q&A augments, rather than replaces, the documentation.'
+  if (slug === 'docs') return 'A project knowledge surface where Q&A augments, rather than replaces, the documentation.'
   if (slug === 'ag-ui') return 'An AG-UI-compatible integration point for remote event streams and generated UI.'
   if (slug === 'admin') return 'A SaaS account administration console with role scope and high-impact customer mutations.'
-  if (slug === 'mission-control') return 'An observability dashboard for distributed Edgekit sidecars.'
+  if (slug === 'mission-control') return 'An observability dashboard for distributed Edgekit agent workflows.'
   return 'A readiness lab for model cascade, permissions, validation, fallback, and feature gating.'
 }
 

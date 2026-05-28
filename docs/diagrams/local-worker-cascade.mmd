@@ -1,0 +1,6 @@
+flowchart LR
+  Routine["Routine user-delegated app work\nread, search, compare, fill, submit"] --> Local["Local edge worker\nChrome AI / WebLLM"]
+  Complex["Heavy or risky reasoning\nanalysis, policy, long planning"] --> Cloud["Developer-owned cloud worker"]
+  Local --> Boundary["App-owned boundary\nstate summary, allowed tools,\npermissions, approvals"]
+  Cloud --> Boundary
+  Boundary --> Outcome["Visible outcome\nanswer, CTA, form, audit evidence"]

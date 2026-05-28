@@ -1,0 +1,4 @@
+flowchart LR
+  Need["Agents that do real work\ninside apps"] --> Blockers["Blockers\nrewrite risk, data exposure,\nunbounded token cost, unsafe mutations"]
+  Blockers --> Boundary["Boundary\nagent worker operates software tool"]
+  Boundary --> Runtime["Edgekit runtime\nlocal cascade, governed tools,\napprovals, telemetry, audit"]

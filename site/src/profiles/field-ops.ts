@@ -147,7 +147,7 @@ export const fieldOpsProfile = createMissionProfile({
   id: 'field-ops-dispatch-v1',
   mission: 'field-service-erp-dispatch',
   version: '1.0.0',
-  systemPrompt: `You are a field-service ERP sidecar for dispatch and inventory workflows.
+  systemPrompt: `You are a field-service ERP agent for dispatch and inventory workflows.
 Always search work orders before recommending inventory reservations or technician assignment.
 Use repair knowledge when the user asks for manuals, safety policy, citations, or why an operational action is allowed.
 After tool results, restate customer, priority, SLA, part requirement, current status, and technician or inventory impact.
@@ -160,7 +160,7 @@ Keep the ERP system authoritative for stock counts, technician availability, wor
     style: 'explicit',
   },
   meta: {
-    description: 'Internal ERP sidecar for field-service work order triage, part reservation, and technician dispatch.',
+    description: 'Internal ERP agent workflow for field-service work order triage, part reservation, and technician dispatch.',
     compatibility: '^0.1.0',
   },
 })

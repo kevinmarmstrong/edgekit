@@ -11,7 +11,14 @@ export type DocsSection = {
   title: string
   body: string[]
   bullets?: string[]
-  diagram?: 'architecture' | 'runtime-loop'
+  diagram?:
+    | 'outcome-hierarchy'
+    | 'transformation'
+    | 'thesis-bridge'
+    | 'worker-tool'
+    | 'local-cascade'
+    | 'architecture'
+    | 'runtime-loop'
   code?: {
     language: string
     text: string
@@ -22,42 +29,68 @@ export const docsPages: DocsPage[] = [
   {
     slug: 'overview',
     navLabel: 'Overview',
-    title: 'Local-first agent sidecars',
+    title: 'Agent-operable software',
     summary:
-      'edgekit adds agent workflows to existing web apps without forcing every prompt, tool call, and UI step through a metered cloud agent.',
+      'Edgekit helps teams add agents to existing web apps without rewriting the software, surrendering app authority, or turning every prompt into cloud spend.',
     sections: [
       {
         id: 'first-principles',
-        title: 'First principles',
+        title: 'Start with the hunger',
         body: [
-          'Developers usually investigate edgekit because they already want an agent in a site or application and have run into a blocker: unpredictable token costs, sensitive context, slow orchestration, offline workflows, tool safety, or the need to reuse existing product APIs.',
-          'edgekit starts from those constraints. Run browser-native models first, tune the cascade to the workflow, register existing app capabilities as typed tools, and let the host app remain the authority for data, permissions, state, and final execution.',
+          'Teams do not wake up needing a sidecar. They need agents to do real work inside software: search records, compare options, fill forms, guide users, request changes, and move workflows forward.',
+          'The blockers are familiar: existing apps are hard to rewrite, broad app context is sensitive, cloud-agent costs can become unpredictable, and mutations need permissions, approvals, audit, and backend authorization. Edgekit starts from those outcomes before it introduces architecture.',
         ],
+        diagram: 'outcome-hierarchy',
         bullets: [
-          'Unbounded token spend: run local browser models first and reserve cloud models for explicit fallback routes.',
-          'Sensitive app context: keep prompts, state summaries, memory, and tool results local unless the app chooses otherwise.',
-          'Existing app logic: register current APIs and functions as typed tools instead of rebuilding workflow logic.',
-          'Model fit: choose Chrome AI, WebLLM, local model ladders, supervisor routing, or cloud workers per use case.',
-          'Agent latency: combine parallel-safe read tools, edge response caching, and streaming activity states.',
-          'Offline workflows: pair local inference with Markdown memory, offline mutation journals, and CRDT-ready sync adapters.',
-          'Trust and compliance: require approvals for risky tools and emit telemetry plus hash-chained audit trails.',
-          'Dynamic tools: hydrate RBAC-filtered manifests, adapt MCP catalogs safely, and wrap tool execution with policy limits.',
-          'Agent-readable docs: provide Markdown and llms exports so coding agents can implement against the project without scraping UI chrome.',
+          'Add agentic workflows to existing apps without a rewrite.',
+          'Keep state, auth, permissions, business logic, and persistence in the host app.',
+          'Run routine user-delegated work locally when browser models are available.',
+          'Escalate heavy or risky reasoning only through explicit developer-owned routes.',
+          'Gate important mutations with approvals, telemetry, audit, and backend policy.',
+          'Package behavior as Skills and Mission Profiles so the agent layer can evolve without destabilizing the app.',
         ],
       },
       {
-        id: 'purpose',
-        title: 'Purpose',
+        id: 'transformation',
+        title: 'The transformation',
         body: [
-          'edgekit is not a chatbot wrapper. It is a small runtime and UI layer for adding an agent to an app that already has real capabilities: product search, cart changes, account updates, documentation search, support triage, or other app-specific workflows.',
-          'The developer registers existing functions as tools. The model can ask to call those tools, and edgekit streams the result into a sidecar UI while preserving approval gates for higher-impact actions.',
+          'For decades, software moved work to the edge: customers, employees, vendors, and operators became the people entering data, searching portals, and moving work between systems. Agents can become the worker at that edge.',
+          'That does not mean the model becomes the enterprise system. The app remains the system of record. The agent operates it through explicit, governed tools.',
         ],
+        diagram: 'transformation',
+      },
+      {
+        id: 'adoption-bridge',
+        title: 'The adoption bridge',
+        body: [
+          'The practical path is not one-size-fits-all. Existing products use Edgekit to retrofit one workflow at a time. New products use the same boundary from day one so their APIs, permissions, and workflow surfaces are ready for agents to operate.',
+          'Both paths lead to the same architecture: the app is the durable tool, the agent is the worker, and Edgekit is the governed runtime between them.',
+        ],
+        diagram: 'thesis-bridge',
+      },
+      {
+        id: 'worker-tool',
+        title: 'Separate the worker from the tool',
+        body: [
+          'The software tool and the agent worker have different lifecycles. The tool needs durable state, stable APIs, predictable releases, audit, compliance, and tests. The worker changes quickly as models, prompts, Skills, providers, routing, and UX patterns improve.',
+          'Edgekit creates the boundary between those lifecycles. The agent can improve without forcing the app to be rewritten, and the app can remain authoritative without freezing the agent layer.',
+        ],
+        diagram: 'worker-tool',
+      },
+      {
+        id: 'local-first',
+        title: 'Local-first by role, not ideology',
+        body: [
+          'Not every AI task is deep reasoning. Much of the work looks like what a user already does in software: read enough context, search the right record, fill a form, ask for approval, and submit through the normal app path.',
+          'Browser-local models are becoming good enough for a large share of that bounded worker role. Heavy analysis, high-risk synthesis, long planning, or regulated decisions can still route to a developer-owned cloud worker when the app chooses.',
+        ],
+        diagram: 'local-cascade',
       },
       {
         id: 'architecture-diagram',
-        title: 'Architecture diagram',
+        title: 'Implementation boundary',
         body: [
-          'The important boundary is authority. Edgekit owns the sidecar runtime and UX protocol. The host app owns data, auth, state, business logic, persistence, and all executable tools.',
+          'The implementation boundary follows the thesis. Edgekit owns the embeddable runtime and UX contracts. The host app owns data, auth, state, business logic, persistence, and all executable tools.',
         ],
         diagram: 'architecture',
       },
@@ -65,7 +98,7 @@ export const docsPages: DocsPage[] = [
         id: 'runtime-loop-diagram',
         title: 'Runtime loop',
         body: [
-          'A sidecar turn is a bounded loop: hydrate safe app context, route to a provider, call app-owned tools, gate risky mutations, render results, and emit telemetry/audit evidence.',
+          'A turn is a bounded loop: hydrate safe app context, route to a provider, call app-owned tools, gate risky mutations, render results, and emit telemetry/audit evidence.',
         ],
         diagram: 'runtime-loop',
       },
@@ -86,7 +119,7 @@ export const docsPages: DocsPage[] = [
         id: 'mental-model',
         title: 'Mental model',
         body: [
-          'Think of edgekit as an app sidecar. Your app keeps ownership of state, authorization, API boundaries, and UI context. edgekit owns the agent conversation, provider selection, tool-call events, approval prompts, and graceful fallback when local AI is unavailable.',
+          'Think of edgekit as the agent runtime that lets a worker operate your software tool. Your app keeps ownership of state, authorization, API boundaries, and UI context. Edgekit owns the conversation loop, provider selection, tool-call events, approval prompts, and graceful fallback when local AI is unavailable.',
         ],
       },
     ],
@@ -95,7 +128,7 @@ export const docsPages: DocsPage[] = [
     slug: 'should-i-use-edgekit',
     navLabel: 'Use Edgekit?',
     title: 'Should I use Edgekit?',
-    summary: 'A decision matrix for teams evaluating whether an embeddable local-first sidecar is the right architecture.',
+    summary: 'A decision matrix for teams evaluating whether embeddable local-first agent workflows fit their product.',
     sections: [
       {
         id: 'best-fit',
@@ -116,7 +149,7 @@ export const docsPages: DocsPage[] = [
         title: 'Decision matrix',
         body: ['Use this table as the first architectural filter.'],
         bullets: [
-          'Choose Edgekit: embedded sidecar, app-owned tools, browser model cascade, Mission Profiles, approvals, telemetry, and framework-neutral UI.',
+          'Choose Edgekit: embedded agent workflow, app-owned tools, browser model cascade, Mission Profiles, approvals, telemetry, and framework-neutral UI.',
           'Choose a hosted chatbot: broad website Q&A, no app mutations, no need for local inference, and minimal product integration.',
           'Choose only AG-UI or a backend agent: an existing server agent already owns reasoning and Edgekit is only needed if you want the in-app renderer and EdgeView contract.',
           'Wait or prototype first: no clear mission, no app-owned tool surface, no outcome tests, or no owner for provider fallback policy.',
@@ -126,7 +159,7 @@ export const docsPages: DocsPage[] = [
         id: 'red-flags',
         title: 'Red flags',
         body: [
-          'Edgekit is the wrong abstraction if the sidecar would become the source of truth for business logic, secrets, or authorization. Keep those in the host app.',
+          'Edgekit is the wrong abstraction if the agent would become the source of truth for business logic, secrets, or authorization. Keep those in the host app.',
         ],
         bullets: [
           'The plan requires putting API keys, JWTs, cookies, or privileged claims into prompts.',
@@ -148,7 +181,7 @@ export const docsPages: DocsPage[] = [
     slug: 'proof-center',
     navLabel: 'Proof Center',
     title: 'Proof Center',
-    summary: 'Evidence an adopter should ask for before trusting an Edgekit sidecar in a real app.',
+    summary: 'Evidence an adopter should ask for before trusting an Edgekit agent workflow in a real app.',
     sections: [
       {
         id: 'proof-levels',
@@ -217,7 +250,7 @@ export const docsPages: DocsPage[] = [
         id: 'security-review',
         title: 'Security review',
         body: [
-          'Edgekit should inherit the host app authorization model. The sidecar can request a tool call, but the executable tool and backend policy decide whether the current user may perform it.',
+          'Edgekit should inherit the host app authorization model. The agent can request a tool call, but the executable tool and backend policy decide whether the current user may perform it.',
         ],
         bullets: [
           'Keep JWTs, cookies, API keys, and privileged claims out of prompts and state summaries.',
@@ -236,7 +269,7 @@ export const docsPages: DocsPage[] = [
         bullets: [
           'Public sites usually use `downloadPolicy: "never"` plus transparent basic mode.',
           'Internal apps may use `downloadPolicy: "prompt"` when local model download consent is acceptable.',
-          'Strict environments can hide the sidecar or route only through approved app-owned providers.',
+          'Strict environments can hide the agent UI or route only through approved app-owned providers.',
           'Telemetry should record provider lane and fallback reason without storing sensitive prompt payloads.',
         ],
       },
@@ -258,23 +291,15 @@ export const docsPages: DocsPage[] = [
   {
     slug: 'getting-started',
     navLabel: 'Quick Start',
-    title: 'Quick start: Skills and Mission Profiles first',
-    summary: 'Build one localized sidecar mission with Skills, a Mission Profile, app-owned tools, and the web component.',
+    title: 'Quick start: build one agentic workflow',
+    summary: 'Start with one outcome, expose app-owned tools, apply a Mission Profile, and prove the workflow works.',
     sections: [
       {
-        id: 'install',
-        title: 'Install',
-        body: ['The packages are workspace-local today and ready for package publication when release metadata is finalized.'],
-        code: {
-          language: 'bash',
-          text: 'pnpm install\npnpm build\npnpm test\npnpm test:e2e',
-        },
-      },
-      {
         id: 'mission-first',
-        title: 'Start with a mission',
+        title: 'Start with the outcome',
         body: [
-          'Do not start by writing a generic system prompt. Start by naming one sidecar mission, the Skills it needs, the app-owned tools those Skills may call, and the facts the final visible answer must preserve.',
+          'Do not start by writing a generic system prompt. Start by naming the work the user wants done: search a catalog, triage a case, create an intake request, update an account, or answer from a knowledge base.',
+          'Then name one agent mission, the Skills it needs, the app-owned tools those Skills may call, and the facts the final visible answer must preserve.',
         ],
         bullets: [
           'Mission Profile: owns the localized instructions, defaults, required tools, and synthesis expectations.',
@@ -283,9 +308,18 @@ export const docsPages: DocsPage[] = [
         ],
       },
       {
+        id: 'install',
+        title: 'Run the repo demos',
+        body: ['For this repository, build packages and open the demos. Package-first install instructions will become the primary command once release metadata is finalized.'],
+        code: {
+          language: 'bash',
+          text: 'pnpm install\npnpm build\npnpm dev:ecommerce',
+        },
+      },
+      {
         id: 'embed',
-        title: 'Embed the sidecar',
-        body: ['Import the UI package once, place `<edge-chat>` where the sidecar belongs, apply the Mission Profile, then register app tools from JavaScript.'],
+        title: 'Embed the agent UI',
+        body: ['Import the UI package once, place `<edge-chat>` where the agent belongs in the workflow, apply the Mission Profile, then register app tools from JavaScript.'],
         code: {
           language: 'html',
           text: `<edge-chat
@@ -296,11 +330,11 @@ export const docsPages: DocsPage[] = [
       {
         id: 'profile',
         title: 'Create a Mission Profile',
-        body: ['The profile is the artifact an adopter should review, version, and test. It declares the sidecar mission without taking ownership of executable app logic.'],
+        body: ['The profile is the artifact an adopter should review, version, and test. It declares the agent mission without taking ownership of executable app logic.'],
         code: {
           language: 'ts',
           text: `const catalogProfile = createMissionProfile({
-  id: 'catalog-sidecar-v1',
+  id: 'catalog-agent-v1',
   mission: 'catalog-help',
   version: '1.0.0',
   systemPrompt: 'You help shoppers answer catalog questions using registered app tools.',
@@ -342,7 +376,7 @@ chat?.registerTools({ searchProducts })`,
         id: 'knowledge-skill',
         title: 'Add knowledge as a Skill',
         body: [
-          'When the sidecar needs docs, policy, manuals, graph relationships, account history, or another dynamic knowledge base, use a Knowledge Access Skill. Edgekit should not own the vector database, graph database, crawler, reranker, or document pipeline; the app or chosen retrieval library owns those.',
+          'When the agent needs docs, policy, manuals, graph relationships, account history, or another dynamic knowledge base, use a Knowledge Access Skill. Edgekit should not own the vector database, graph database, crawler, reranker, or document pipeline; the app or chosen retrieval library owns those.',
           'Wrap the source with `EdgeKnowledgeSource`, expose it through `createKnowledgeTool()` or `createKnowledgeSkill()`, compose it into the Mission Profile, and test that citations, freshness, and retrieved facts appear in the final visible answer.',
         ],
         code: {
@@ -359,9 +393,9 @@ chat?.registerTools({ searchProducts })`,
   },
   {
     slug: '30-minute-sidecar',
-    navLabel: '30-Minute Path',
-    title: '30-minute Mission Profile path',
-    summary: 'A guided path from one narrow mission to a tested Skills-and-Profile sidecar.',
+    navLabel: '30-Minute Workflow',
+    title: '30-minute agent workflow path',
+    summary: 'A guided path from one narrow mission to a tested Skills-and-Profile agent workflow.',
     sections: [
       {
         id: 'mission',
@@ -382,7 +416,7 @@ chat?.registerTools({ searchProducts })`,
         id: 'prove',
         title: 'Prove outcomes',
         body: [
-          'Run the starter scenarios from `docs/templates/mission-profile-starter/harness-scenarios.json`. The sidecar passes only when facts surface in the final answer, ticket creation requires approval, rejection preserves state, and no tool chatter leaks to the user.',
+          'Run the starter scenarios from `docs/templates/mission-profile-starter/harness-scenarios.json`. The workflow passes only when facts surface in the final answer, ticket creation requires approval, rejection preserves state, and no tool chatter leaks to the user.',
         ],
       },
     ],
@@ -400,7 +434,7 @@ chat?.registerTools({ searchProducts })`,
           'Every framework recipe follows the same architecture: define Skills and a Mission Profile in app code, keep executable tools behind app-owned APIs or functions, mount `<edge-chat>` on the client, then apply the profile and register tools after the component is available.',
         ],
         bullets: [
-          'Client boundary: the sidecar UI and browser model providers run in the browser.',
+          'Client boundary: the agent UI and browser model providers run in the browser.',
           'Server boundary: secrets, privileged retrieval, database writes, and provider keys stay in routes or server functions.',
           'Hydration boundary: pass only safe state summaries through `stateProvider`; never serialize tokens into prompts.',
           'Testing boundary: add at least one read scenario, one approval scenario, one rejection scenario, and one no-model/fallback scenario.',
@@ -414,7 +448,7 @@ chat?.registerTools({ searchProducts })`,
           language: 'tsx',
           text: `import { EdgeChat } from '@kevinmarmstrong/edgekit-react'
 
-export function EdgekitSidecar() {
+export function EdgekitAgent() {
   return (
     <EdgeChat
       missionProfile={catalogProfile}
@@ -437,7 +471,7 @@ export function EdgekitSidecar() {
 
 import { EdgeChat } from '@kevinmarmstrong/edgekit-react'
 
-export function EdgekitClientSidecar() {
+export function EdgekitClientAgent() {
   return (
     <EdgeChat
       missionProfile={supportProfile}
@@ -452,7 +486,7 @@ export function EdgekitClientSidecar() {
         id: 'astro',
         title: 'Astro',
         body: [
-          'Use a client-loaded component or a small script island. The existing recipe pairs an intake sidecar with a Knowledge Access Skill and approval-gated submission.',
+          'Use a client-loaded component or a small script island. The existing recipe pairs an intake workflow with a Knowledge Access Skill and approval-gated submission.',
         ],
         code: {
           language: 'bash',
@@ -463,7 +497,7 @@ export function EdgekitClientSidecar() {
         id: 'remix',
         title: 'Remix',
         body: [
-          'Mount the sidecar in a client component and call Remix actions or resource routes from registered tools. Keep mutation authorization inside the action, not in the Mission Profile.',
+          'Mount the agent UI in a client component and call Remix actions or resource routes from registered tools. Keep mutation authorization inside the action, not in the Mission Profile.',
         ],
         code: {
           language: 'ts',
@@ -539,7 +573,7 @@ onMounted(() => {
         id: 'hosted-chatbot',
         title: 'Is Edgekit a hosted chatbot?',
         body: [
-          'No. Edgekit is an embeddable browser-native sidecar runtime. The host app owns state, authorization, executable tools, provider fallback routes, and persistence.',
+          'No. Edgekit is an embeddable browser-native agent runtime for app-owned workflows. The host app owns state, authorization, executable tools, provider fallback routes, and persistence.',
         ],
       },
       {
@@ -567,7 +601,7 @@ onMounted(() => {
         id: 'profiles',
         title: 'Why Mission Profiles?',
         body: [
-          'Mission Profiles localize one sidecar experience. They keep mission instructions, Skills, required tools, defaults, and synthesis expectations reviewable and versionable while Edgekit core keeps moving.',
+          'Mission Profiles localize one agent workflow. They keep mission instructions, Skills, required tools, defaults, and synthesis expectations reviewable and versionable while Edgekit core keeps moving.',
         ],
       },
       {
@@ -604,11 +638,11 @@ onMounted(() => {
         title: 'Core terms',
         body: [],
         bullets: [
-          'Sidecar: the embedded agent experience that lives inside a host app workflow.',
+          'Sidecar: one possible UI shape for embedding the agent experience inside a host app workflow. It is an implementation pattern, not the product promise.',
           'Host app: the application that owns users, auth, state, business logic, persistence, and executable tools.',
           'Primitive: an Edgekit-owned runtime building block such as provider routing, event streams, approvals, telemetry, audit, rendering, memory, and policy execution.',
           'Skill: a packaged capability with description, instructions, examples, required tools, approval posture, synthesis expectations, and UI hints.',
-          'Mission Profile: the app-owned assembly of Skills, defaults, mission instructions, required tools, and output expectations for one sidecar experience.',
+          'Mission Profile: the app-owned assembly of Skills, defaults, mission instructions, required tools, and output expectations for one agent workflow.',
           'Tool: a typed executable capability registered by the host app, often using the Vercel AI SDK `tool()` helper.',
         ],
       },
@@ -855,7 +889,7 @@ chat.configure({
         title: 'Principle',
         body: [
           'Edgekit does not own retrieval infrastructure. A vector database, graph database, reranker, embedding model, SQL query, or external search API belongs to the host app or an adapter the host app chooses.',
-          'Edgekit owns the sidecar contract around that retrieval: when the Skill activates, which tool is visible, what citations must be surfaced, how stale knowledge is labeled, what telemetry is emitted, and how outcome tests prove the final answer stayed faithful.',
+          'Edgekit owns the agent-facing contract around that retrieval: when the Skill activates, which tool is visible, what citations must be surfaced, how stale knowledge is labeled, what telemetry is emitted, and how outcome tests prove the final answer stayed faithful.',
         ],
         bullets: [
           'Memory is for user/session/workflow context.',
@@ -912,7 +946,7 @@ const policySkill = createKnowledgeSkill({
         title: 'Faithfulness and citations',
         body: [
           'A retrieval call passing is not enough. The user-visible answer or generated UI must include the source-backed facts the user asked for, cite the source labels or URIs, and admit when no source supports the answer.',
-          'Use `synthesisFaithfulness` and knowledge-grounding scenarios to test that source facts survive out of the tool result and into the actual sidecar output.',
+          'Use `synthesisFaithfulness` and knowledge-grounding scenarios to test that source facts survive out of the tool result and into the actual agent output.',
         ],
       },
     ],
@@ -1102,7 +1136,7 @@ chat.registerTools({ searchProducts, addToCart })`,
         id: 'state-hydration',
         title: 'State hydration',
         body: [
-          'Use `stateProvider` to give the model a concise, host-owned view of the current page or workflow before the user asks anything. This reduces wasted tool calls and helps the sidecar act like it belongs inside the app.',
+          'Use `stateProvider` to give the model a concise, host-owned view of the current page or workflow before the user asks anything. This reduces wasted tool calls and helps the agent act like it belongs inside the app.',
         ],
         code: {
           language: 'ts',
@@ -1201,7 +1235,7 @@ const agent = createAgent({
         title: 'Supervisor routing',
         body: [
           '`createSupervisorRouter()` is a simpler route-by-intent layer for apps that want a supervisor/worker pattern without a heavy multi-agent framework. Keep navigation, filtering, and simple extraction on the local model; route synthesis, long planning, or account analysis to a developer-provided worker model.',
-          'The router can match explicit intent strings, regular expressions, or a custom `when(context)` predicate. Because it returns a normal `EdgeModelRouter`, teams can replace it later with a richer classifier without changing the sidecar integration.',
+          'The router can match explicit intent strings, regular expressions, or a custom `when(context)` predicate. Because it returns a normal `EdgeModelRouter`, teams can replace it later with a richer classifier without changing the agent integration.',
           'Worker routes can receive `onHandoff(envelope)`. The envelope contains the user intent, recent messages, selected memory records, public identity, app state, tool names, and trace ids without secret identity claims.',
         ],
         code: {
@@ -1225,7 +1259,7 @@ chat.configure({ modelRouter })`,
         id: 'handoffs',
         title: 'Cross-agent handoffs',
         body: [
-          'Use the handoff envelope when a local supervisor routes work to a cloud worker, AG-UI backend, or other specialist agent. The cloud worker should not wake up cold; it should receive a strict, bounded package of context that mirrors what the local sidecar already knows.',
+          'Use the handoff envelope when a local supervisor routes work to a cloud worker, AG-UI backend, or other specialist agent. The cloud worker should not wake up cold; it should receive a strict, bounded package of context that mirrors what the local agent already knows.',
           'Edgekit intentionally packages selected memory records and the host-provided state snapshot, not a raw DOM dump. If a developer wants DOM-derived context, they should summarize it through `stateProvider` first.',
         ],
         code: {
@@ -1248,7 +1282,7 @@ chat.configure({ modelRouter })`,
         title: 'MCP tool catalogs',
         body: [
           'Edgekit should not connect a browser directly to arbitrary MCP stdio servers with broad filesystem, database, or credential access. The scalable pattern is a safe MCP proxy or app backend that exposes only the approved tool catalog.',
-          '`mcpToolsFromDefinitions()` converts that catalog into normal Edgekit tools, so existing MCP resources can power the sidecar without hand-writing every wrapper.',
+          '`mcpToolsFromDefinitions()` converts that catalog into normal Edgekit tools, so existing MCP resources can power the agent workflow without hand-writing every wrapper.',
         ],
         code: {
           language: 'ts',
@@ -1544,7 +1578,7 @@ function Assistant({ agent }) {
     slug: 'ui',
     navLabel: 'Interface',
     title: 'The edge-chat component',
-    summary: 'Use the Lit web component for the default sidecar UI, prompts, and approval controls.',
+    summary: 'Use the Lit web component for the default agent UI, prompts, and approval controls.',
     sections: [
       {
         id: 'component',
@@ -1619,7 +1653,7 @@ function Assistant({ agent }) {
       {
         id: 'ag-ui-agent',
         title: 'AG-UI agent',
-        body: ['Use `useAgent()` when the sidecar should be powered by an AG-UI-compatible backend instead of the built-in browser model cascade.'],
+        body: ['Use `useAgent()` when the agent UI should be powered by an AG-UI-compatible backend instead of the built-in browser model cascade.'],
         code: {
           language: 'ts',
           text: `import { createAgUiAgent } from '@kevinmarmstrong/edgekit'
@@ -1713,14 +1747,14 @@ chat?.useAgent(agent)`,
     slug: 'mission-profiles',
     navLabel: 'Mission Profiles',
     title: 'Mission Profile authoring',
-    summary: 'Design Skills and Mission Profiles that localize one sidecar mission while executable tools remain app-owned.',
+    summary: 'Design Skills and Mission Profiles that localize one agent mission while executable tools remain app-owned.',
     sections: [
       {
         id: 'belongs-where',
         title: 'What belongs where',
         body: [
           'Primitives are Edgekit-owned runtime capabilities: model routing, execution, telemetry, audit, redaction, rendering, memory, and provider adapters.',
-          'Skills describe one capability with examples, approval posture, required facts, and UI hints. Mission Profiles assemble those Skills into one app-owned sidecar mission.',
+          'Skills describe one capability with examples, approval posture, required facts, and UI hints. Mission Profiles assemble those Skills into one app-owned agent mission.',
         ],
       },
       {
@@ -1758,7 +1792,7 @@ chat.registerTools({ searchTickets, createTicket })`,
         id: 'validation',
         title: 'Validate before mounting',
         body: [
-          '`validateMissionProfile()` catches structural foot-guns before users hit the sidecar: missing ids, duplicate required tools, `toolChoice: "required"` with no tool contract, and required tools that were never registered.',
+          '`validateMissionProfile()` catches structural foot-guns before users hit the agent workflow: missing ids, duplicate required tools, `toolChoice: "required"` with no tool contract, and required tools that were never registered.',
         ],
         code: {
           language: 'ts',
@@ -2103,7 +2137,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         id: 'ownership-boundary',
         title: 'Ownership boundary',
         body: [
-          'Edgekit is strongest when each responsibility has one owner. The host app owns identity truth, backend authorization, business state, retrieval infrastructure, persistence, and provider secrets. Edgekit owns the sidecar runtime, tool-call protocol, approval UX, telemetry/audit event contracts, and validation helpers.',
+          'Edgekit is strongest when each responsibility has one owner. The host app owns identity truth, backend authorization, business state, retrieval infrastructure, persistence, and provider secrets. Edgekit owns the agent runtime, tool-call protocol, approval UX, telemetry/audit event contracts, and validation helpers.',
           'Do not move app authority into prompts. Put authority in executable tools, backend policy, and outcome tests.',
         ],
         bullets: [
@@ -2125,7 +2159,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         id: 'rbac-state',
         title: 'RBAC and state',
         body: [
-          'Use `identityProvider`, `sessionProvider`, `stateProvider`, and RBAC-filtered tool manifests to pass public context into the sidecar without putting JWTs, cookies, or secret claims into the prompt.',
+          'Use `identityProvider`, `sessionProvider`, `stateProvider`, and RBAC-filtered tool manifests to pass public context into the agent without putting JWTs, cookies, or secret claims into the prompt.',
         ],
       },
       {
@@ -2184,7 +2218,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
     slug: 'migration-upgrades',
     navLabel: 'Upgrades',
     title: 'Migration and upgrades',
-    summary: 'How to move from raw configure calls to profile-owned sidecars and upgrade safely.',
+    summary: 'How to move from raw configure calls to profile-owned agent workflows and upgrade safely.',
     sections: [
       {
         id: 'raw-to-profile',
@@ -2308,7 +2342,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         title: 'Maintainer deterministic workflow tests',
         body: [
           'This public page documents the Edgekit maintainer test process. The ecommerce and admin demos include scripted provider modes. They are not the user-facing model path. They exist so CI can prove tool calling, approval prompts, rejection, and state mutation without depending on local model availability.',
-          'Scripted providers should validate EdgeKit contracts rather than patch a fixture. In particular, approval-loop tests should assert that the exact approved tool input survives resume, not just that the demo happens to add a known product or update a known account.',
+          'Scripted providers should validate Edgekit contracts rather than patch a fixture. In particular, approval-loop tests should assert that the exact approved tool input survives resume, not just that the demo happens to add a known product or update a known account.',
         ],
         code: {
           language: 'bash',
@@ -2343,7 +2377,7 @@ EDGEKIT_SUITE_TARGET=live pnpm research:suite`,
         title: 'Research loops',
         body: [
           '`pnpm research:agents` is the end-to-end product research harness. It opens the docs site and demos in Chromium, sends real user prompts, scores answer quality, verifies approval boundaries, checks app state after mutations, probes AG-UI component rendering, confirms site self-test coverage, and captures transcripts plus screenshots.',
-          'Run it locally before release work and against GitHub Pages after deploy. The goal is to tune EdgeKit contracts, reusable harnesses, prompts, and integration guidance. Do not use it as an excuse to add hardcoded patches that only satisfy one demo fixture.',
+          'Run it locally before release work and against GitHub Pages after deploy. The goal is to tune Edgekit contracts, reusable harnesses, prompts, and integration guidance. Do not use it as an excuse to add hardcoded patches that only satisfy one demo fixture.',
         ],
         code: {
           language: 'bash',

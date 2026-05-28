@@ -11,9 +11,30 @@ const curatedDocChunks: DocChunk[] = [
   {
     slug: 'overview',
     title: 'North Star',
-    tags: ['overview', 'runtime'],
+    tags: ['overview', 'runtime', 'agent-operable'],
     body:
-      'edgekit is a browser-native agent runtime. It lets developers add an AI sidecar to any web app that runs in the visitor browser using Chrome AI or WebLLM. No backend, no API keys, and zero marginal cost per user by default.',
+      'Edgekit helps teams make web apps agent-operable. It lets agents use app-owned tools inside existing workflows while the host app keeps control of state, auth, permissions, business logic, approvals, and execution.',
+  },
+  {
+    slug: 'overview',
+    title: 'Outcome Hierarchy',
+    tags: ['outcome', 'retrofit', 'agent-operated', 'first principles'],
+    body:
+      'Developers are not shopping for a sidecar as an end in itself. They need agents to do real work inside existing or new apps without rewriting the software, leaking sensitive context, creating unpredictable cloud-token costs, or bypassing the app authority model.',
+  },
+  {
+    slug: 'overview',
+    title: 'Agent Worker And Software Tool',
+    tags: ['worker', 'tool', 'lifecycle', 'architecture'],
+    body:
+      'Edgekit separates the agent worker from the software tool. The app is the durable system of record with stable state, auth, APIs, permissions, business logic, and releases. The worker layer can change quickly as models, prompts, Skills, routing, providers, and UX patterns improve.',
+  },
+  {
+    slug: 'overview',
+    title: 'Local Worker Role',
+    tags: ['local-first', 'chrome ai', 'webllm', 'cloud escalation', 'edge'],
+    body:
+      'Local-first in Edgekit is a role distinction, not ideology. Browser-local models are useful for bounded user-delegated app work such as reading context, searching records, comparing fields, filling forms, and stepping through workflows. Heavy or risky thinking can route to developer-owned cloud workers by explicit app choice.',
   },
   {
     slug: 'overview',
@@ -41,7 +62,7 @@ const curatedDocChunks: DocChunk[] = [
     title: 'Agent UX Inside Existing Apps',
     tags: ['tools', 'workflow', 'existing app', 'api'],
     body:
-      'Edgekit adds an agent sidecar to product workflows without moving business logic into a chatbot. Developers register existing app APIs and functions as typed tools while the host app keeps authority over identity, state, permissions, approvals, and execution.',
+      'Edgekit adds agentic workflows to product surfaces without moving business logic into a chatbot. Developers register existing app APIs and functions as typed tools while the host app keeps authority over identity, state, permissions, approvals, and execution.',
   },
   {
     slug: 'overview',
@@ -55,7 +76,7 @@ const curatedDocChunks: DocChunk[] = [
     title: 'Skills and Mission Profiles',
     tags: ['skills', 'mission profile', 'authoring', 'agentic'],
     body:
-      'The recommended production path is Primitives to Skills to Mission Profiles. Skills describe reusable capabilities, examples, approval posture, required facts, and UI hints. Mission Profiles assemble those Skills for one localized sidecar mission. Executable tools remain app-owned and are registered with registerTools. Use validateMissionProfile(profile, { registeredTools }) to catch missing required tools and unsafe profile shape before runtime.',
+      'The recommended production path is Primitives to Skills to Mission Profiles. Skills describe reusable capabilities, examples, approval posture, required facts, and UI hints. Mission Profiles assemble those Skills for one localized agent mission. Executable tools remain app-owned and are registered with registerTools. Use validateMissionProfile(profile, { registeredTools }) to catch missing required tools and unsafe profile shape before runtime.',
   },
   {
     slug: 'skill-optimization',
@@ -188,7 +209,7 @@ const curatedDocChunks: DocChunk[] = [
     title: 'Admin Workflow Demo',
     tags: ['saas', 'admin', 'approval', 'workflow'],
     body:
-      'The public site includes a SaaS admin sidecar demo. It registers searchAccounts, updatePlan, and suspendAccount tools, then requires approval before account plan changes or suspensions.',
+      'The public site includes a SaaS admin agent workflow demo. It registers searchAccounts, updatePlan, and suspendAccount tools, then requires approval before account plan changes or suspensions.',
   },
   {
     slug: 'testing',
@@ -374,7 +395,7 @@ const curatedDocChunks: DocChunk[] = [
   },
   {
     slug: '30-minute-sidecar',
-    title: '30-Minute Production Sidecar',
+    title: '30-Minute Agent Workflow',
     tags: ['starter', '30 minute', 'onboarding', 'mission profile', 'support workflow'],
     body:
       'The fastest adoption path is to copy the concrete support workflow starter, replace tool execute bodies with app APIs, mount edge-chat, apply the Mission Profile, register tools, validate with validateMissionProfile, and run harness-scenarios.json outcome checks.',
@@ -391,7 +412,7 @@ const curatedDocChunks: DocChunk[] = [
     title: 'Production Recipes',
     tags: ['production', 'telemetry', 'audit', 'rbac', 'state', 'cloud', 'ownership', 'recipes'],
     body:
-      'Production recipes cover telemetry, audit persistence, RBAC and session bridging, state hydration, ownership boundaries, recipe shape, and local-vs-cloud escalation. The host app owns identity, authorization, business state, retrieval infrastructure, persistence, and provider secrets. Edgekit owns the sidecar runtime, approval UX, tool-call protocol, telemetry and audit event contracts, and validation helpers.',
+      'Production recipes cover telemetry, audit persistence, RBAC and session bridging, state hydration, ownership boundaries, recipe shape, and local-vs-cloud escalation. The host app owns identity, authorization, business state, retrieval infrastructure, persistence, and provider secrets. Edgekit owns the agent runtime, approval UX, tool-call protocol, telemetry and audit event contracts, and validation helpers.',
   },
   {
     slug: 'reproducibility',
@@ -405,7 +426,7 @@ const curatedDocChunks: DocChunk[] = [
     title: 'Architecture Diagrams',
     tags: ['diagram', 'architecture', 'runtime loop', 'host app', 'edgekit owns'],
     body:
-      'The architecture diagrams show that the host app owns state, auth, APIs, business logic, executable tools, and knowledge infrastructure. Edgekit owns the sidecar runtime, provider cascade, approval loop, EdgeView, telemetry, audit primitives, and outcome evidence. The runtime loop hydrates context, routes the model, calls tools, gates risky mutations, renders outcomes, and records evidence.',
+      'The architecture diagrams show that the host app owns state, auth, APIs, business logic, executable tools, and knowledge infrastructure. Edgekit owns the agent runtime, provider cascade, approval loop, EdgeView, telemetry, audit primitives, and outcome evidence. The runtime loop hydrates context, routes the model, calls tools, gates risky mutations, renders outcomes, and records evidence.',
   },
   {
     slug: 'security-threat-model',

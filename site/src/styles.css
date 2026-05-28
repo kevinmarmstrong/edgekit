@@ -497,6 +497,96 @@ dl {
   background: rgb(20 23 19 / 92%);
 }
 
+.transformation-diagram,
+.home-outcome-stack {
+  position: relative;
+}
+
+.transformation-diagram {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.transformation-diagram article {
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  padding: 18px;
+  background: var(--panel);
+}
+
+.transformation-diagram article + article {
+  border-left: 1px solid rgb(184 243 111 / 16%);
+}
+
+.transformation-diagram span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.transformation-diagram strong {
+  font-size: 18px;
+}
+
+.transformation-diagram p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.thesis-bridge-diagram {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.thesis-bridge-diagram article {
+  display: grid;
+  gap: 10px;
+  min-height: 184px;
+  padding: 18px;
+  background: var(--panel-2);
+}
+
+.thesis-bridge-diagram span {
+  width: fit-content;
+  color: var(--accent);
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.thesis-bridge-diagram strong {
+  font-size: 17px;
+}
+
+.thesis-bridge-diagram p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .split-section {
   grid-template-columns: minmax(0, 0.9fr) minmax(360px, 460px);
   gap: 28px;
@@ -1077,7 +1167,10 @@ dl {
   box-shadow: 0 14px 34px rgb(18 24 38 / 8%);
 }
 
-.home-summary-grid,
+.home-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .home-proof-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -2567,6 +2660,8 @@ pre code {
 
   .architecture-diagram,
   .runtime-loop-diagram,
+  .transformation-diagram,
+  .thesis-bridge-diagram,
   .cascade-summary-grid,
   .cascade-live-steps,
   .cascade-live-output {
@@ -2655,7 +2750,9 @@ pre code {
   }
 
   .architecture-diagram,
-  .runtime-loop-diagram {
+  .runtime-loop-diagram,
+  .transformation-diagram,
+  .thesis-bridge-diagram {
     grid-template-columns: 1fr;
   }
 

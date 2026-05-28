@@ -82,7 +82,7 @@ Be concise but complete.`,
     style: 'explicit',
   },
   meta: {
-    description: 'Q&A sidecar over the edgekit documentation. Optimized for faithful retrieval and citation when using local models.',
+    description: 'Q&A agent workflow over the edgekit documentation. Optimized for faithful retrieval and citation when using local models.',
     compatibility: '^0.1.0',
   },
 })

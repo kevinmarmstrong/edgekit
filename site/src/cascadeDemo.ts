@@ -375,7 +375,7 @@ function liveDecision(snapshot: CascadeReadinessSnapshot) {
 }
 
 function liveDecisionCopy(snapshot: CascadeReadinessSnapshot) {
-  if (snapshot.shouldHideFeatures) return 'The host app should keep the sidecar launcher out of the UI until this preference or policy changes.'
+  if (snapshot.shouldHideFeatures) return 'The host app should keep the agent launcher out of the UI until this preference or policy changes.'
   if (snapshot.canRunAgent) return 'The app can enable the assistant, registered tools, EdgeView actions, approvals, telemetry, and audit hooks.'
   if (snapshot.mode === 'downloadable') return 'No model download has started. The user must pick the provider path first.'
   if (snapshot.canUseFallback) return 'The user can still search docs or use deterministic app help while local AI remains off.'
@@ -528,7 +528,7 @@ function userCopy(snapshot: CascadeReadinessSnapshot) {
     return [
       `Do not enable the full agent until ${snapshot.missingCapabilities.join(', ')} is resolved.`,
       'Show the exact missing setup step instead of a generic model error.',
-      'Keep the underlying app workflow usable without the sidecar.',
+      'Keep the underlying app workflow usable without the agent UI.',
     ]
   }
   if (snapshot.recommendedAction.type === 'continue') {
@@ -554,7 +554,7 @@ function userCopy(snapshot: CascadeReadinessSnapshot) {
   }
   if (snapshot.recommendedAction.type === 'hide') {
     return [
-      'Hide the sidecar entry point or show setup instructions.',
+      'Hide the agent entry point or show setup instructions.',
       'Do not imply local AI is running.',
       'Let the user retry after changing browser or policy settings.',
     ]
@@ -576,7 +576,7 @@ function featureState(snapshot: CascadeReadinessSnapshot, profileIsValid: boolea
 
 function featureMessage(snapshot: CascadeReadinessSnapshot) {
   if (snapshot.shouldHideFeatures) return 'Agent-only CTAs should be hidden or disabled until requirements pass.'
-  if (snapshot.canRunAgent) return 'The app can enable full sidecar behavior with model, tools, approvals, and EdgeView.'
+  if (snapshot.canRunAgent) return 'The app can enable full agent behavior with model, tools, approvals, and EdgeView.'
   if (snapshot.missingCapabilities.length > 0) return 'A required model, tool, permission, approval UI, or EdgeView capability is missing.'
   if (snapshot.canUseFallback) return 'The app can show basic mode while clearly disclosing that no local model is active.'
   return 'The app should block the agent surface and present setup guidance.'

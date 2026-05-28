@@ -659,7 +659,7 @@ export class EdgeChat extends LitElement {
         <header>
           <div>
             <div class="title">edgekit agent</div>
-            <div class="subtitle">Browser-native sidecar with tool calling</div>
+            <div class="subtitle">Browser-native agent with tool calling</div>
           </div>
           <div class="status" data-testid="agent-status">${this.statusText}</div>
         </header>

@@ -4,15 +4,34 @@
 
 ## North Star Goal (Target: Q3 2026)
 
-Edgekit is the production-grade, browser-native agent runtime that enables **any web application** to ship one or more *localized, high-fidelity, agentic sidecars* with the following properties:
+Edgekit is the production-grade, browser-native agent runtime that enables **any web application** to become agent-operable without surrendering authority over the software behind it.
+
+The hierarchy of needs is intentional:
+
+1. **Outcome**: teams need agents to do real work inside apps without a rewrite, data leak, runaway token bill, or unsafe mutation path.
+2. **Transformation**: software has moved work to users for decades; agents are becoming the worker that can operate software for the user.
+3. **Boundary**: the agent worker and the software tool have different lifecycles and must stay decoupled.
+4. **Runtime**: Edgekit provides the embeddable runtime, UI, model cascade, tools, approvals, telemetry, audit, memory, and validation needed to make that boundary usable.
+
+Edgekit may be embedded as an in-app sidecar, but "sidecar" is an implementation shape. The product promise is agent-operable software with app-owned authority.
+
+The runtime enables one or more localized, high-fidelity agent experiences with the following properties:
 
 - **Local-first by default**: Chrome AI (and WebLLM fallbacks) handle the majority of useful work and Q&A, with intelligent cascade/routing to specialized locals or cloud models (Grok, etc.) only when justified by the query, mission, or availability.
-- **Outcome quality is non-negotiable**: The sidecar reliably performs real work in the app (tool calling, approvals, state mutations, generative UI) **and** produces high-quality, faithful answers about the app's domain. Passing tests is necessary but insufficient — if the agent makes poor decisions or gives incomplete/misleading answers, the system has failed.
-- **Mission localization is first-class and owned by the app**: Every sidecar is explicitly localized to its specific mission via **Skills** and **Mission Profiles**. The application owns and versions this localization layer independently of Edgekit core.
+- **Outcome quality is non-negotiable**: The agent reliably performs real work in the app (tool calling, approvals, state mutations, generative UI) **and** produces high-quality, faithful answers about the app's domain. Passing tests is necessary but insufficient — if the agent makes poor decisions or gives incomplete/misleading answers, the system has failed.
+- **Mission localization is first-class and owned by the app**: Every agent workflow is explicitly localized to its specific mission via **Skills** and **Mission Profiles**. The application owns and versions this localization layer independently of Edgekit core.
 - **Upgrade safety & composability at scale**: The architecture (Primitives → Skills → Profiles) allows Edgekit core to move extremely fast (new routing strategies, synthesis techniques, model capabilities, MCP evolution, etc.) while giving consumers a stable, discoverable, and composable surface that does not require constant rewrites.
 - **Developer and agent ergonomics**: A competent developer (or another coding agent following clear guidelines) can create a new high-quality mission profile for a realistic app surface in hours, not days, and achieve strong outcome scores on the research harness.
 
 This is the "skills, not apps" pattern applied to in-app agentic experiences (in the spirit of Garry Tan's framing). We package the architecture correctly so the system remains scalable and resilient as the underlying technology moves at unprecedented speed.
+
+## Worker / Tool Separation
+
+The software tool needs durable state, clear permissions, stable APIs, predictable releases, audit trails, compliance boundaries, tests, and supportable interfaces.
+
+The agent worker changes quickly. Models improve. Prompts change. Skills get tuned. Providers come and go. Routing changes. Local models get better. Interaction patterns change.
+
+If those lifecycles are fused, prompts become hidden workflow code, models start acting like authorization layers, and teams cannot improve the agent without risking the application. Edgekit keeps the app as the durable system of record and makes the agent a replaceable worker that operates the app through explicit, governed interfaces.
 
 ## Three-Layer Model (The Core Abstraction)
 
@@ -32,12 +51,12 @@ This is the "skills, not apps" pattern applied to in-app agentic experiences (in
    - This is the primary mechanism for the "skills, not apps" composability.
 
 3. **Mission Profiles** (The consuming application owns these)
-   - The localization layer for one specific sidecar experience.
+   - The localization layer for one specific agentic workflow experience.
    - A Profile declares: "For *this* mission, here is the set of Skills, the system prompt tone, synthesis rules, defaults, and any mission-specific glue."
    - Profiles are the primary artifact developers (and dev agents) create and maintain.
    - They provide the upgrade boundary and mission-specific quality bar.
 
-This layering is the answer to "how do we move extremely fast on the core without breaking every integration?"
+This layering is the answer to "how do we move extremely fast on the worker layer without breaking every software tool it operates?"
 
 ### Before vs After (Conceptual)
 
@@ -86,7 +105,7 @@ The model deliberately pushes complexity down into Edgekit where it belongs, whi
 
 - **Host owns state and business logic.** Edgekit never duplicates or owns authoritative app state.
 - **Outcome quality over coverage.** The research harness (real local models, strict mode, realistic prompts across missions) is the ultimate arbiter. If answers are shit or tool decisions are wrong, we have not succeeded, even if all unit tests pass.
-- **Local-first with intelligent escalation.** Default to browser models for cost, privacy, and speed. Escalate deliberately.
+- **Local-first with intelligent escalation.** Default to browser models for routine user-delegated app work: reading context, searching records, comparing fields, preparing forms, and stepping through workflows. Escalate deliberately for complex, risky, or policy-sensitive reasoning.
 - **Skills are the composable unit.** Raw tools are implementation details. Skills are what agents (and other systems) reason about and compose.
 - **Profiles are the ownership boundary.** The app localizes the experience to its mission. This localization must be explicit, reviewable, and upgradable independently.
 - **Skills can be optimized, but only through validation gates.** Treat Skill files and Profile instructions as measured artifacts: bounded edits, held-out validation, protected slow-state sections, and per-skill scoring. Runtime inference should not pay for optimization loops.
@@ -113,7 +132,7 @@ We will consider the architecture successful when the following are true on the 
    - Skills defined for one mission can be usefully reused or adapted in another mission with clear, low-friction composition.
 
 5. **Developer Ergonomics**
-   - The Skills + Profiles pattern is the *recommended and primary* documented way to build sidecars.
+   - The Skills + Profiles pattern is the *recommended and primary* documented way to build agent workflows.
    - The amount of custom glue required outside of profiles has been driven down significantly compared to raw `configure()` + `registerTools()`.
 
 ## Current State (2026-05-26)

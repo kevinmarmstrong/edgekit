@@ -1,20 +1,18 @@
 # Edgekit
 
-**Add a local-first AI sidecar to your web app without giving up control of state, tools, or approvals.**
+**Add agents to existing web apps without rewriting the software behind them.**
 
-Edgekit is an embeddable browser-native agent runtime for product teams that want agentic help inside an existing web app, not a hosted chatbot bolted beside it. It runs local-first through Chrome AI or WebLLM when available, can escalate only through developer-provided routes, and calls the app capabilities you explicitly register as tools.
+Edgekit is open-source infrastructure for making web apps agent-operable. It lets an agent worker use the app capabilities you already own while the application remains the durable software tool: state, auth, permissions, business logic, persistence, and final execution stay with the host app.
 
-The host app keeps ownership of auth, business state, data access, permissions, and mutations. Edgekit provides the sidecar runtime: model routing, tool calling, approval UX, EdgeView rendering, telemetry hooks, audit events, memory adapters, AG-UI support, and validation helpers.
+The practical wedge is retrofit: start with one existing workflow, expose the relevant APIs or functions as governed tools, gate risky actions with approval, and test the outcome. The deeper architecture is separation: the agent worker can change quickly as models, prompts, Skills, routing, and UX patterns improve; the software tool can stay stable, governed, and trustworthy.
 
-For production work, start with **Skills + Mission Profiles**:
-
-- **Skills** package app capabilities with descriptions, examples, approval policy, synthesis expectations, and UI hints.
-- **Mission Profiles** assemble Skills, instructions, defaults, and glue for one localized sidecar experience.
-- **Tools** remain app-owned executable functions, registered explicitly by the host app.
+Edgekit runs local-first through Chrome AI or WebLLM when available. Routine app work can happen close to the user, current state, and allowed tools. Heavy, risky, or policy-sensitive reasoning can escalate only through developer-owned routes when the app chooses that path.
 
 ## Quick Start
 
-Install the workspace, build packages, and open the demo:
+Build your first workflow by choosing one narrow outcome, exposing the app capabilities it needs, applying a Mission Profile, and proving the result with outcome checks.
+
+For this repository, build packages and open the demo:
 
 ```bash
 pnpm install
@@ -26,36 +24,53 @@ Open the ecommerce demo at `http://127.0.0.1:5173`.
 Open the public docs and demo site at `https://kevinmarmstrong.github.io/edgekit/`.
 Open the full documentation at `https://kevinmarmstrong.github.io/edgekit/docs/`.
 
-Build a first sidecar by picking one narrow mission, creating Skills for the app capabilities it needs, assembling a Mission Profile, registering real app-owned tools, and mounting `<edge-chat>`.
-
 Recommended adoption path:
 
-- [30-Minute Production Sidecar](./docs/30-MINUTE-PRODUCTION-SIDECAR.md): fastest path from starter profile to tested sidecar.
+- [Marketing Brief](./docs/MARKETING-BRIEF.md): the outcome-first public message and audience model.
+- [Agent-Operated Software Thesis](./docs/AGENT-OPERATED-SOFTWARE-THESIS.md): the long-form transformation arc behind Edgekit.
+- [30-Minute Agent Workflow](./docs/30-MINUTE-PRODUCTION-SIDECAR.md): fastest path from starter profile to tested agentic workflow.
 - [Getting Started For Real Apps](./docs/GETTING-STARTED-REAL-APPS.md): the full Skills + Mission Profiles walkthrough.
 - [Recipe Catalog](./docs/RECIPE-CATALOG.md): scaffold repeatable app patterns such as support workflow, Knowledge Access, and Astro intake plus knowledge.
 - [Production Recipes](./docs/PRODUCTION-RECIPES.md): telemetry, audit, RBAC, state hydration, and escalation patterns.
 - [Runtime Guarantees](./docs/RUNTIME-GUARANTEES.md): what Edgekit enforces at runtime and what your app must own.
 
+Canonical diagram sources live in [docs/diagrams](./docs/diagrams/) so the README, docs site, thesis, and agent-readable exports can stay aligned.
+
+## Why Edgekit Exists
+
+```mermaid
+flowchart LR
+  Hunger["Need agents to do real work\ninside an app"] --> Blockers["Blockers\nrewrite risk, data exposure,\nunbounded token cost,\nunsafe mutations"]
+  Blockers --> Edgekit["Edgekit\nagent-operable workflow layer"]
+  Edgekit --> Outcome["Outcome\nadd agentic workflows\nwithout surrendering app authority"]
+```
+
+Software has spent decades moving work toward the edge of the organization: customers, employees, vendors, and operators became the people entering data, searching portals, and moving work between systems. Agents can take on more of that user-delegated work, but only if they operate software through explicit boundaries instead of becoming an unsafe second application.
+
+For production work, that boundary is packaged as **Skills + Mission Profiles**:
+
+- **Skills** package app capabilities with descriptions, examples, approval policy, synthesis expectations, and UI hints.
+- **Mission Profiles** assemble Skills, instructions, defaults, and glue for one localized agent workflow.
+- **Tools** remain app-owned executable functions, registered explicitly by the host app.
+
 ## Architecture At A Glance
 
 ```mermaid
 flowchart LR
-  App["Host app owns\nstate, auth, APIs, business logic"] --> Skills["Skills + Mission Profiles\nmission, tools, approvals, synthesis"]
-  Skills --> Runtime["Edgekit sidecar runtime\nprovider cascade, tool loop, UI, telemetry"]
-  Runtime --> Providers["Chrome AI\nWebLLM\nCloud route\nAG-UI\nFallback"]
-  Runtime --> Tools["App-owned tools\nKnowledge Access\nMCP adapters"]
-  Tools --> App
+  User["User asks for an outcome"] --> Worker["Agent worker\nfast-changing layer"]
+  Worker --> Edgekit["Edgekit runtime\ncascade, tools, UI, approvals,\ntelemetry, audit"]
+  Edgekit --> Tools["Governed tools\napp APIs, Knowledge Access,\nMCP catalogs, AG-UI"]
+  Tools --> App["Software tool\nsystem of record, auth,\nstate, permissions, business logic"]
+  App --> Tools
 ```
 
 ```mermaid
 flowchart LR
-  Context["Hydrate context\nidentity summary, app state, memory"] --> Route["Route model\nlocal first, explicit escalation"]
-  Route --> Calls["Call tools\nread tools, retrieval, app APIs"]
-  Calls --> Risk{"Risky mutation?"}
-  Risk -- yes --> Approval["Approval gate\nRBAC, audit, backend authorization"]
-  Risk -- no --> Render["Render outcome\ntext, EdgeView, activity states"]
-  Approval --> Render
-  Render --> Evidence["Telemetry + evidence\noutcome suite, provider matrix"]
+  Routine["Routine app work\nread context, search records,\nfill forms, step workflow"] --> Local["Local edge worker\nChrome AI / WebLLM"]
+  Complex["Heavy or risky thinking\nanalysis, policy, long planning"] --> Cloud["Explicit app-owned\ncloud escalation"]
+  Local --> Boundary["App boundary\nstate summary, allowed tools,\npermissions, approvals"]
+  Cloud --> Boundary
+  Boundary --> Outcome["Visible outcome\nanswer, form, CTA, approval,\naudit evidence"]
 ```
 
 ## Embed
@@ -198,7 +213,7 @@ The generated JSON is portable: register it behind a normal Edgekit tool and let
 
 ## Maintainer / Release Evidence
 
-This section is for maintainers and release reviewers. New adopters should start with the Quick Start, 30-minute sidecar guide, and production recipes above.
+This section is for maintainers and release reviewers. New adopters should start with the Quick Start, 30-minute guide, and production recipes above.
 
 Core release checks:
 

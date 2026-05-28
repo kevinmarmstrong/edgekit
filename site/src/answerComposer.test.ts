@@ -73,7 +73,7 @@ describe('composeEdgekitAnswer', () => {
     expect(answer).toMatch(/LlamaIndex|LangChain|Qdrant|Neo4j/i)
     expect(answer).toMatch(/host app owns.*indexing|host app owns/i)
     expect(answer).toMatch(/citations|freshness|stale/i)
-    expect(answer).not.toMatch(/EdgeKit core.*vector database/i)
+    expect(answer).not.toMatch(/Edgekit core.*vector database/i)
   })
 
   it('explains the adoption kit and recipe path without cluttering the core runtime', () => {

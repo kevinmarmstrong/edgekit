@@ -90,9 +90,9 @@ function agentDocsPlugin() {
         .join('\n')
       const llms = `# edgekit
 
-Edgekit adds a local-first AI sidecar to an existing web app without taking control of app state, tools, auth, or approvals.
+Edgekit helps teams add agents to existing web apps without rewriting the software, taking control of app state, or turning every prompt into cloud spend.
 
-Use Edgekit when an agent belongs inside a product workflow and must call app-owned tools, preserve host-app authority, prefer Chrome AI or WebLLM before explicit fallback routes, and expose visible approval, telemetry, audit, and generative UI contracts. Treat it as open-source agent infrastructure, not a hosted chatbot service.
+Use Edgekit when an agent belongs inside a product workflow and must operate app-owned tools, preserve host-app authority, prefer Chrome AI or WebLLM for routine app work before explicit fallback routes, and expose visible approval, telemetry, audit, and generative UI contracts. Treat it as open-source agent infrastructure, not a hosted chatbot service.
 
 ## Adopter implementation context
 
@@ -185,7 +185,58 @@ function pageToMarkdown(page: (typeof docsPages)[number]) {
   return [`# ${page.title}`, page.summary, ...sections].join('\n\n')
 }
 
-function diagramToMermaid(diagram: 'architecture' | 'runtime-loop') {
+function diagramToMermaid(
+  diagram:
+    | 'outcome-hierarchy'
+    | 'transformation'
+    | 'thesis-bridge'
+    | 'worker-tool'
+    | 'local-cascade'
+    | 'architecture'
+    | 'runtime-loop',
+) {
+  if (diagram === 'outcome-hierarchy') {
+    return `\`\`\`mermaid
+flowchart LR
+  Need[Agents that do real work inside apps] --> Blockers[Rewrite risk, data exposure, token cost, unsafe mutations]
+  Blockers --> Boundary[Separate agent worker from software tool]
+  Boundary --> Runtime[Edgekit runtime: local cascade, governed tools, approvals, telemetry, audit]
+\`\`\``
+  }
+  if (diagram === 'transformation') {
+    return `\`\`\`mermaid
+flowchart LR
+  Paper[Paper work] --> Enterprise[Enterprise software]
+  Enterprise --> SelfService[Self-service portals]
+  SelfService --> Agents[Agent-operated software]
+\`\`\``
+  }
+  if (diagram === 'thesis-bridge') {
+    return `\`\`\`mermaid
+flowchart LR
+  Need[Agents do useful work inside apps] --> Adopt[Retrofit existing workflows or build agent-ready apps]
+  Adopt --> Separate[Separate agent worker from software tool]
+  Separate --> Route[Local edge worker first, cloud escalation by choice]
+  Route --> Govern[Governed tools, approvals, telemetry, audit]
+\`\`\``
+  }
+  if (diagram === 'worker-tool') {
+    return `\`\`\`mermaid
+flowchart LR
+  Worker[Agent worker: models, prompts, Skills, routing] --> Boundary[Edgekit boundary: governed tools, approvals, telemetry, audit]
+  Boundary --> Tool[Software tool: state, auth, permissions, business logic]
+  Tool --> Boundary
+\`\`\``
+  }
+  if (diagram === 'local-cascade') {
+    return `\`\`\`mermaid
+flowchart LR
+  Routine[Routine app work] --> Local[Local edge worker: Chrome AI or WebLLM]
+  Complex[Heavy or risky reasoning] --> Cloud[Developer-owned cloud worker]
+  Local --> AppBoundary[App boundary: state summaries, allowed tools, approvals]
+  Cloud --> AppBoundary
+\`\`\``
+  }
   if (diagram === 'runtime-loop') {
     return `\`\`\`mermaid
 flowchart LR

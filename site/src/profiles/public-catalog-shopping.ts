@@ -1,7 +1,7 @@
 /**
  * Public Catalog Shopping Mission Profile + Skills
  *
- * This is the canonical example of localizing an Edgekit sidecar using the
+ * This is the canonical example of localizing an Edgekit agent workflow using the
  * Skills + Mission Profile pattern.
  *
  * The goal of this profile is to enable high-quality "agent does useful work"
@@ -120,7 +120,7 @@ Be precise and complete on attributes even when it makes the response slightly l
     style: 'explicit',
   },
   meta: {
-    description: 'Public-facing sidecar for browsing and purchasing from a product catalog. Optimized for local models with high synthesis faithfulness.',
+    description: 'Public-facing agent workflow for browsing and purchasing from a product catalog. Optimized for local models with high synthesis faithfulness.',
     compatibility: '^0.1.0',
   },
 })

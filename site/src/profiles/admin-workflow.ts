@@ -55,7 +55,7 @@ After tool results, restate the account name, current status, target change, and
   defaults: { downloadPolicy: 'never', toolChoice: 'required' },
   synthesis: { requiredAttributes: ['account', 'plan', 'status', 'approval boundary'], style: 'explicit' },
   meta: {
-    description: 'Internal admin sidecar for account search, plan changes, and suspensions behind approval gates.',
+    description: 'Internal admin agent workflow for account search, plan changes, and suspensions behind approval gates.',
     compatibility: '^0.1.0',
   },
 })

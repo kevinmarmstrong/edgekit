@@ -1,0 +1,4 @@
+flowchart LR
+  Worker["Agent worker\nmodels, prompts, Skills,\nrouting, memory, UX"] --> Edgekit["Edgekit boundary\ntools, Profiles, approvals,\npolicy, telemetry, audit"]
+  Edgekit --> Tool["Software tool\nstate, auth, APIs,\nbusiness logic, persistence"]
+  Tool --> Edgekit

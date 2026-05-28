@@ -135,7 +135,7 @@ function formatDemoAnswer(output: unknown, basePath: string) {
   const demos = isRecord(output) && Array.isArray(output.demos) ? output.demos : []
   if (demos.length === 0) return answerSiteQuestion('demos', basePath)
   return [
-    'You can try these EdgeKit demos:',
+    'You can try these Edgekit demos:',
     '',
     ...demos
       .filter(isRecord)
@@ -145,7 +145,7 @@ function formatDemoAnswer(output: unknown, basePath: string) {
 
 function formatDocsAnswer(output: unknown, input: string) {
   const results = isRecord(output) && Array.isArray(output.results) ? output.results : []
-  if (results.length === 0) return 'I did not find a matching EdgeKit docs section.'
+  if (results.length === 0) return 'I did not find a matching Edgekit docs section.'
   return composeEdgekitAnswer({
     input,
     results: results.filter(isRecord).slice(0, 3),

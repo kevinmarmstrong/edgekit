@@ -217,7 +217,7 @@ const commerceCascade = createCascadeReadinessController({
   messages: {
     ready: 'Chrome AI is ready for local tool-calling recommendations and guarded cart actions.',
     fallback: 'This public demo is running in basic mode because local browser AI is unavailable or not enabled. Search, CTAs, approvals, and app-owned actions remain testable.',
-    unavailable: 'Local browser AI is unavailable. Edgekit can either hide the sidecar or expose a transparent fallback.',
+    unavailable: 'Local browser AI is unavailable. Edgekit can either hide the agent UI or expose a transparent fallback.',
   },
 })
 commerceCascadeWizard?.configure(commerceCascade)
@@ -248,7 +248,7 @@ commerceChat?.registerActions(({ toolName, output }) => {
     id: `add-${product.id}`,
     label: `Add ${product.name} to cart`,
     toolName: 'addToCart',
-    description: `$${product.price.toFixed(2)}. Available sizes: ${product.sizes.join(', ')}. Color: ${product.color}. Choose a size and add it directly from the sidecar.`,
+    description: `$${product.price.toFixed(2)}. Available sizes: ${product.sizes.join(', ')}. Color: ${product.color}. Choose a size and add it directly from the agent UI.`,
     input: { productId: product.id, quantity: 1 },
     fields: [
       {
@@ -290,13 +290,13 @@ function renderHomePage() {
   home.innerHTML = `
     <section class="hero home-hero" aria-labelledby="home-title">
       <div class="hero-copy home-hero-copy">
-        <p class="hero-kicker">Browser-native agent sidecars</p>
-        <h1 id="home-title">Add a local-first AI sidecar to your web app without giving up control.</h1>
+        <p class="hero-kicker">Agent-operable software</p>
+        <h1 id="home-title">Add agents to existing apps without rewriting the software behind them.</h1>
         <p>
-          Mount an agent inside your product, expose existing app capabilities as typed tools,
-          and keep the host app authoritative over state, permissions, approvals, telemetry, and
-          audit. The default cascade is local-first: Chrome AI, WebLLM, then an explicit fallback
-          only when the app chooses one.
+          Edgekit lets an agent worker use the APIs, workflows, and knowledge your app already
+          owns. The app stays authoritative over state, permissions, business logic, approvals,
+          telemetry, and audit. Routine work can run at the browser edge; heavy or risky reasoning
+          escalates only through routes you provide.
         </p>
         <div class="hero-actions home-hero-actions" aria-label="Primary Edgekit links">
           <a class="button primary" href="${withBase('/docs/')}">Read the docs</a>
@@ -305,16 +305,16 @@ function renderHomePage() {
           <a class="button secondary" href="${withBase('/demos/ecommerce/')}">Open demos</a>
         </div>
       </div>
-      <div class="hero-visual home-architecture-card" aria-label="Edgekit architecture overview">
+      <div class="hero-visual home-architecture-card" aria-label="Edgekit transformation overview">
         <div class="home-stack">
           <div>
-            <span class="section-label">Host application</span>
-            <h2>State, identity, permissions, and business logic stay in your app.</h2>
+            <span class="section-label">Outcome first</span>
+            <h2>The hunger is not a sidecar. The hunger is useful agentic work without losing control.</h2>
           </div>
-          <ol class="home-architecture-stack">
-            <li><strong>Mission Profile</strong><span>App-owned instructions, defaults, synthesis rules, and workflow boundaries.</span></li>
-            <li><strong>Skills</strong><span>Composable capability packages with tools, examples, approval policy, and UI hints.</span></li>
-            <li><strong>Edgekit primitives</strong><span>Model cascade, guarded tools, EdgeView rendering, telemetry, audit, memory, MCP, and AG-UI.</span></li>
+          <ol class="home-architecture-stack home-outcome-stack">
+            <li><strong>Need</strong><span>Add agentic workflows to real software without a rewrite, data leak, or runaway cloud bill.</span></li>
+            <li><strong>Boundary</strong><span>Separate the agent worker from the durable software tool it operates.</span></li>
+            <li><strong>Runtime</strong><span>Use local-first models, governed tools, approvals, telemetry, audit, and tested outcomes.</span></li>
           </ol>
         </div>
       </div>
@@ -325,43 +325,72 @@ function renderHomePage() {
         <p class="section-label">Builder overview</p>
         <h2>Why teams use Edgekit</h2>
         <p>
-          Edgekit is for builders who need an agentic product surface without turning the app into
-          a hosted chatbot service. It favors inspectable contracts, local inference, and measured
-          outcome quality over landing-page abstractions.
+          Edgekit is for teams that already have, or are building, real software workflows. It
+          starts from the outcome: let agents operate the software through governed boundaries
+          instead of becoming a second, unsafe application.
         </p>
       </div>
       <div class="home-summary-grid">
         <article class="doc-card">
-          <span>Local-first economics</span>
-          <h3>Zero variable token cost on the default path.</h3>
-          <p>Browser models handle useful work before any cloud route is considered, reducing spend while keeping fast help close to the user.</p>
+          <span>Retrofit path</span>
+          <h3>Add agents where the work already happens.</h3>
+          <p>Expose existing APIs and functions as typed tools instead of rebuilding workflows around a new agent backend.</p>
         </article>
         <article class="doc-card">
-          <span>Privacy boundary</span>
-          <h3>Sensitive context does not leave by default.</h3>
-          <p>Use state providers, redaction, local memory, and explicit fallback routes instead of sending broad app context to a remote provider.</p>
+          <span>0-to-1 path</span>
+          <h3>Build agent-ready boundaries from day one.</h3>
+          <p>Design APIs, permissions, workflow state, and outcome tests so agents can operate the product without becoming the product.</p>
         </article>
         <article class="doc-card">
-          <span>Host authority</span>
-          <h3>The app owns execution and mutation.</h3>
-          <p>Edgekit calls registered tools; your app still enforces identity, RBAC, workflow state, approval, and persistence.</p>
+          <span>Worker / tool split</span>
+          <h3>Let the agent evolve without destabilizing the app.</h3>
+          <p>Models, prompts, Skills, and routing can change quickly while the software tool keeps durable state, rules, and release discipline.</p>
         </article>
+        <article class="doc-card">
+          <span>Local worker role</span>
+          <h3>Use local models for bounded app work.</h3>
+          <p>Reading context, searching records, filling forms, and stepping through workflows can run at the edge before cloud escalation is considered.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="docs-section home-arc-section" id="thesis">
+      <div class="section-heading">
+        <p class="section-label">Transformation arc</p>
+        <h2>From self-service software to agent-operated software.</h2>
+        <p>
+          Software has moved work outward for decades. Edgekit is built for the next step:
+          agents doing more of that user-delegated work through explicit app-owned tools.
+        </p>
+      </div>
+      <div class="transformation-diagram" aria-label="Software transformation from paper to agent-operated workflows">
+        <article><span>1</span><strong>Paper work</strong><p>Back offices and clerks carried the workflow.</p></article>
+        <article><span>2</span><strong>Enterprise software</strong><p>Operators moved records through systems.</p></article>
+        <article><span>3</span><strong>Self-service portals</strong><p>Customers and employees became the edge of the workflow.</p></article>
+        <article><span>4</span><strong>Agent-operated software</strong><p>Agent workers operate governed tools on behalf of the user.</p></article>
+      </div>
+      <div class="thesis-bridge-diagram" aria-label="Edgekit story from need to implementation">
+        <article><span>Need</span><strong>Agents do useful work</strong><p>Inside real software, with real app state and workflows.</p></article>
+        <article><span>Adopt</span><strong>Retrofit or build ready</strong><p>Start with one existing workflow, or design new apps with the boundary from day one.</p></article>
+        <article><span>Separate</span><strong>Worker from tool</strong><p>The agent changes fast; the software remains authoritative.</p></article>
+        <article><span>Route</span><strong>Local first, cloud by choice</strong><p>Bounded app work runs at the edge; heavy reasoning escalates deliberately.</p></article>
+        <article><span>Govern</span><strong>Tools, approvals, evidence</strong><p>Every action flows through app-owned permissions, telemetry, and audit.</p></article>
       </div>
     </section>
 
     <section class="how-section home-proof-section" id="how-it-works">
       <div class="section-heading">
         <p class="section-label">Proof and architecture</p>
-        <h2>Designed around the hard parts of production sidecars.</h2>
+        <h2>Designed around the hard parts of production agent workflows.</h2>
         <p>
-          The runtime packages agent capabilities as Skills, assembles them into Mission Profiles,
-          and then validates real user-visible outcomes with the research harness.
+          The runtime packages capabilities as Skills, assembles them into Mission Profiles, and
+          validates real user-visible outcomes with the research harness.
         </p>
       </div>
       <div class="home-proof-grid">
         <article>
           <span>Skills + profiles</span>
-          <h3>Localize the sidecar without forking the runtime.</h3>
+          <h3>Localize the agent without forking the runtime.</h3>
           <p>Skills describe capabilities. Mission Profiles compose those Skills for one app surface with mission-specific synthesis and safety rules.</p>
         </article>
         <article>
@@ -380,7 +409,7 @@ function renderHomePage() {
     <section class="docs-section home-quickstart-section" id="quick-start">
       <div class="section-heading">
         <p class="section-label">Quick start</p>
-        <h2>The shortest path to a real sidecar.</h2>
+        <h2>The shortest path to a real agentic workflow.</h2>
         <p>
           Start with one mission, define two or three Skills, mount the component, register tools,
           and run the outcome checks before adding broader routing or integrations.
@@ -422,7 +451,7 @@ chat.registerTools({ searchCases, createTicket })</code></pre>
         <p class="section-label">Demo catalog</p>
         <h2>Working surfaces that keep their integration boundaries visible.</h2>
         <p>
-          Each demo preserves the important truth: the sidecar assists inside an app workflow, tool
+          Each demo preserves the important truth: the agent assists inside an app workflow, tool
           execution remains app-owned, and scripted/provider modes are disclosed.
         </p>
       </div>
@@ -568,7 +597,7 @@ function createDocsSearchStream() {
 
 function formatDocsAnswer(output: unknown, input: string) {
   const results = isRecord(output) && Array.isArray(output.results) ? output.results.filter(isRecord).slice(0, 3) : []
-  if (results.length === 0) return 'I did not find a matching EdgeKit docs section.'
+  if (results.length === 0) return 'I did not find a matching Edgekit docs section.'
   return composeEdgekitAnswer({
     input,
     results,
