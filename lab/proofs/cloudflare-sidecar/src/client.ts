@@ -105,7 +105,7 @@ const profile = createMissionProfile({
   synthesis: { requiredAttributes: ['citation', 'intake approval boundary', 'hosted route'], style: 'explicit' },
   policy: { needsApproval: true, riskLevel: 'medium' },
   uiAffordances: { preferActionCards: true, suggestedFields: ['name', 'email', 'topic', 'summary'] },
-  meta: { description: 'Cloudflare-hosted sidecar with knowledge, intake, and explicit cloud route proof.', compatibility: '^0.1.0' },
+  meta: { description: 'Cloudflare-hosted sidecar with knowledge, intake, and explicit cloud route proof.', compatibility: '^0.3.0' },
 })
 
 const tools = {

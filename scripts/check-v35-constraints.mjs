@@ -79,8 +79,8 @@ function checkDocAudiences() {
 function checkPublicProofLanguage() {
   const files = [
     'README.md',
-    'docs/REPRODUCIBILITY.md',
-    'docs/DISTRIBUTION-READINESS.md',
+    'lab/proofs/REPRODUCIBILITY.md',
+    'lab/proofs/DISTRIBUTION-READINESS.md',
     'site/src/docsContent.ts',
   ]
   const banned = [

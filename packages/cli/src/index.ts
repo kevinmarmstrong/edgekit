@@ -115,7 +115,7 @@ export const supportWorkflowProfile = createMissionProfile({
   requiredTools: ['searchSupportCases', 'createSupportTicket'],
   defaults: { toolChoice: 'required', downloadPolicy: 'never' },
   synthesis: { requiredAttributes: ['case id', 'customer', 'priority', 'status', 'summary', 'approval boundary'], style: 'explicit' },
-  meta: { description: 'Support case Q&A and approval-gated ticket creation.', compatibility: '^0.1.0' },
+  meta: { description: 'Support case Q&A and approval-gated ticket creation.', compatibility: '^0.3.0' },
 })
 
 export const supportTools = { searchSupportCases, createSupportTicket }

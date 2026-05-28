@@ -385,7 +385,7 @@ Specifically:
 
 **Demos:** `adminDemo`, `cascadeDemo`, `opsDemo`, `siteAssistant`, AG-UI mock, mission-control. Keep `ecommerce`, optionally `docs`.
 
-**Examples:** `examples/cloudflare-sidecar`.
+**Examples:** `lab/proofs/cloudflare-sidecar`.
 
 ### Keep (this is v0.1)
 

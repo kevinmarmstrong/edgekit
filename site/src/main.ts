@@ -1,21 +1,16 @@
 import '@kevinmarmstrong/edgekit-ui'
 import {
-  chromeAI,
-  createCascadeReadinessController,
   createMissionControl,
   tool,
 } from '@kevinmarmstrong/edgekit'
 import { createAgUiAgent } from '@kevinmarmstrong/edgekit-agui'
-import { docsQaProfile } from './profiles/docs-qa'
 import { mountOpsDemo } from './opsDemo'
 import type { EdgeViewNode, MissionControlSnapshot } from '@kevinmarmstrong/edgekit'
 import type { AgUiRunInput } from '@kevinmarmstrong/edgekit-agui'
-import type { EdgeCascadeWizard, EdgeChat } from '@kevinmarmstrong/edgekit-ui'
+import type { EdgeChat } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
-import { mountAdminDemo } from './adminDemo'
 import { searchDocs } from './content'
 import { docsPages, docsPath } from './docsContent'
-import { composeEdgekitAnswer } from './answerComposer'
 import { mountSiteAssistant } from './siteAssistant'
 import { mountCascadeDemo } from './cascadeDemo'
 import './styles.css'
@@ -24,17 +19,8 @@ const missionControl = createMissionControl()
 missionControl.subscribe((_event, snapshot) => renderMissionControl(snapshot))
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
 const externalEcommerceDemoUrl = 'https://edgekit-demo-ecommerce.pages.dev/'
-
-const searchDocsTool = tool({
-  description: 'Search edgekit project documentation by natural language query.',
-  inputSchema: z.object({
-    query: z.string().describe('Question or topic to search for'),
-  }),
-  execute: async ({ query }) => ({
-    query,
-    results: searchDocs(query),
-  }),
-})
+const externalDocsDemoUrl = 'https://edgekit-demo-docs.pages.dev/'
+const externalAdminDemoUrl = 'https://edgekit-demo-admin.pages.dev/'
 
 const createSupportTicket = tool({
   description: 'Create a support ticket from a user-confirmed form.',
@@ -64,36 +50,6 @@ const submitDemoRequest = tool({
   }),
 })
 
-const docsChat = document.querySelector<EdgeChat>('edge-chat#docs-chat')
-const docsCascadeWizard = document.querySelector<EdgeCascadeWizard>('edge-cascade-wizard#docs-cascade')
-const docsCascade = createCascadeReadinessController({
-  providers: [chromeAI()],
-  downloadPolicy: 'never',
-  fallback: true,
-  requiredCapabilities: ['tools', 'edgeview'],
-  requiredTools: ['searchDocs'],
-  tools: { searchDocs: searchDocsTool },
-  visibilityPolicy: 'show-basic-when-local-unavailable',
-  messages: {
-    ready: 'Chrome AI is ready for local docs Q&A.',
-    fallback: 'This browser is using transparent docs-basic mode. Tool-backed answers still work, but local model reasoning is not active.',
-    unavailable: 'Local browser AI is not available here. The docs assistant can stay visible in basic mode.',
-  },
-})
-docsCascadeWizard?.configure(docsCascade)
-void docsCascade.check()
-// Docs Q&A mission (defined in ./profiles/docs-qa.ts using the recommended pattern)
-docsChat?.configure({
-  sessionId: 'site-docs-demo',
-  telemetry: missionControl,
-  model: [chromeAI()],
-  streamText: createDocsSearchStream() as never,
-  cascadeReadiness: docsCascade,
-  onNoModel: ({ input, readiness }) => `${readiness?.message ?? 'Basic mode active.'}\n\n${answerFromDocs(input)}`,
-})
-docsChat?.applyMissionProfile(docsQaProfile)
-docsChat?.registerTools({ searchDocs: searchDocsTool })
-
 const agUiChat = document.querySelector<EdgeChat>('edge-chat#agui-chat')
 agUiChat?.configure({ sessionId: 'site-agui-demo', telemetry: missionControl })
 agUiChat?.registerTools({ createSupportTicket, submitDemoRequest })
@@ -104,7 +60,6 @@ void renderGitHubStars()
 renderDocCards()
 renderMissionControl()
 wireDocSearch()
-mountAdminDemo()
 mountOpsDemo()
 mountCascadeDemo()
 mountSiteAssistant({ telemetry: missionControl })
@@ -312,8 +267,8 @@ chat.registerTools({ searchCases, createTicket })</code></pre>
         <p class="section-label">Demo catalog</p>
         <h2>Working surfaces that keep their integration boundaries visible.</h2>
         <p>
-          Ecommerce now runs as the external packed-package proof. The remaining demos are internal
-          previews until Phase F replacement repos are live.
+          Ecommerce, Docs Q&A, and SaaS admin now run as external packed-package proofs. The
+          remaining demos are internal previews until their replacement repos are live.
         </p>
       </div>
       <div class="demo-grid">
@@ -321,17 +276,17 @@ chat.registerTools({ searchCases, createTicket })</code></pre>
           <span>Public catalog</span>
           <strong>External COOP/COEP packed-package demo with product search, generated CTAs, and guarded add-to-cart.</strong>
         </a>
-        <a class="demo-card active-secondary" href="${withBase('/demos/docs/')}">
-          <span>Internal preview: Docs Q&A</span>
-          <strong>Project knowledge exposed as a search tool with synthesis-faithfulness checks.</strong>
+        <a class="demo-card active-secondary" href="${externalDocsDemoUrl}">
+          <span>External: Docs Q&A</span>
+          <strong>Knowledge Access over app-owned docs with citations and transparent fallback.</strong>
         </a>
         <a class="demo-card active-secondary" href="${withBase('/demos/operations/')}">
           <span>Internal preview: Field ops ERP</span>
           <strong>Work orders, inventory reservation, and technician dispatch in one workflow.</strong>
         </a>
-        <a class="demo-card active-secondary" href="${withBase('/demos/admin/')}">
-          <span>Internal preview: SaaS admin</span>
-          <strong>Guarded account changes, approvals, telemetry, and workflow recovery.</strong>
+        <a class="demo-card active-secondary" href="${externalAdminDemoUrl}">
+          <span>External: SaaS admin</span>
+          <strong>Account search, approval-gated plan changes, app-owned state, and audit.</strong>
         </a>
         <a class="demo-card" href="${withBase('/demos/ag-ui/')}">
           <span>Internal preview: AG-UI adapter</span>
@@ -409,52 +364,6 @@ function withBase(path: string) {
   if (path === '/') return `${basePath}/`
   if (path.startsWith('/#')) return `${basePath}/${path.slice(1)}`
   return `${basePath}${path}`
-}
-
-function answerFromDocs(input: string) {
-  const matches = searchDocs(input)
-  if (matches.length === 0) {
-    return 'Local browser AI is unavailable here, and the docs search did not find a matching section.'
-  }
-
-  return composeEdgekitAnswer({
-    input,
-    results: matches,
-    mode: 'docs-demo',
-  })
-}
-
-function createDocsSearchStream() {
-  return (options: { messages?: unknown[]; tools?: Record<string, unknown> }) => {
-    const input = latestUserInput(options.messages ?? [])
-    const toolName = 'searchDocs'
-    const toolInput = { query: input }
-    const outputPromise = executeTool(options.tools?.[toolName], toolInput)
-    const textPromise = outputPromise.then(output => formatDocsAnswer(output, input))
-
-    return {
-      fullStream: (async function* () {
-        const toolCallId = 'site-docs-search'
-        yield { type: 'tool-call', toolCallId, toolName, input: toolInput }
-        const output = await outputPromise
-        yield { type: 'tool-result', toolCallId, toolName, output }
-        yield { type: 'text-delta', delta: formatDocsAnswer(output, input) }
-      })(),
-      response: textPromise.then(text => ({
-        messages: [{ role: 'assistant', content: [{ type: 'text', text }] }],
-      })),
-    }
-  }
-}
-
-function formatDocsAnswer(output: unknown, input: string) {
-  const results = isRecord(output) && Array.isArray(output.results) ? output.results.filter(isRecord).slice(0, 3) : []
-  if (results.length === 0) return 'I did not find a matching Edgekit docs section.'
-  return composeEdgekitAnswer({
-    input,
-    results,
-    mode: 'docs-demo',
-  })
 }
 
 async function* mockAgUiRun({ input }: AgUiRunInput) {
@@ -669,25 +578,6 @@ function renderMissionControl(snapshot: MissionControlSnapshot = missionControl.
 function setText(selector: string, value: string) {
   const element = document.querySelector<HTMLElement>(selector)
   if (element) element.textContent = value
-}
-
-async function executeTool(toolDefinition: unknown, input: Record<string, unknown>) {
-  const candidate = toolDefinition as { execute?: (input: Record<string, unknown>) => unknown | Promise<unknown> }
-  if (!candidate.execute) return { error: 'Tool is not executable.' }
-  return candidate.execute(input)
-}
-
-function latestUserInput(messages: unknown[]) {
-  const userMessage = [...messages]
-    .reverse()
-    .find((message): message is { role: string; content: unknown } => {
-      return isRecord(message) && message.role === 'user'
-    })
-  return typeof userMessage?.content === 'string' ? userMessage.content : ''
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }
 
 function wireDocSearch() {

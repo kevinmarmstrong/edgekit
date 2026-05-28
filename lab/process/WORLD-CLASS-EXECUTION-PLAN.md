@@ -13,7 +13,7 @@ The plan has moved past the original "starter and distribution are missing" stat
 - **Skills + Mission Profiles are the dominant implementation path.** Public catalog, docs Q&A, admin, Field Ops, and starter materials use the Primitives -> Skills -> Mission Profiles model.
 - **The starter is concrete.** `docs/templates/mission-profile-starter/profile.ts` contains a support-workflow mission with read and approval-gated mutation tools, Skills, a Mission Profile, synthesis expectations, policy metadata, and starter scenarios in `harness-scenarios.json`.
 - **`edgekit-init` exists.** `packages/cli` exposes `edgekit-init`, with recipe scaffolding for `support-workflow`, `knowledge-skill`, and `astro-intake-knowledge`.
-- **Distribution smoke exists.** `pnpm test:fresh-app` builds from packed tarballs in an external temp app and is documented in `docs/DISTRIBUTION-READINESS.md`.
+- **Distribution smoke exists.** `pnpm test:fresh-app` builds from packed tarballs in an external temp app and is documented in `lab/proofs/DISTRIBUTION-READINESS.md`.
 - **Outcome harness evidence is strong.** Recent repo-owned runs include unit, typecheck, build, E2E, adoption eval, agent suite, live Pages suite, fresh-app smoke, and strict Chrome/Nano CDP lanes with 0 required failures.
 - **Provider reporting is substantially improved.** The suite can label proof lanes such as local resilience, strict Chrome/Nano CDP, WebLLM host, cloud route, no-model fallback, and live Pages.
 

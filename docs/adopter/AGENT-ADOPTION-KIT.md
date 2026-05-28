@@ -15,12 +15,12 @@ It has four layers:
 
 | Need | Use |
 | --- | --- |
-| Understand Edgekit | `ARCHITECTURE.md`, `docs/GETTING-STARTED-REAL-APPS.md`, `docs/RUNTIME-GUARANTEES.md` |
+| Understand Edgekit | `ARCHITECTURE.md`, `docs/adopter/GETTING-STARTED-REAL-APPS.md`, `docs/adopter/RUNTIME-GUARANTEES.md` |
 | Ask a coding agent to implement Edgekit | `docs/agent-skills/edgekit-implementer/SKILL.md` |
 | Prove the implementation works | `docs/agent-skills/edgekit-outcome-tester/SKILL.md` |
 | Improve Skill/Profile text safely | `docs/agent-skills/edgekit-skill-optimizer/SKILL.md` |
 | Review security and app authority | `docs/agent-skills/edgekit-security-review/SKILL.md` |
-| Start from an opinionated app pattern | `docs/RECIPE-CATALOG.md` or `edgekit-init mission --recipe ...` |
+| Start from an opinionated app pattern | `docs/adopter/RECIPE-CATALOG.md` or `edgekit-init mission --recipe ...` |
 
 ## Coding Agent Contract
 

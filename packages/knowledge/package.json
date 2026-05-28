@@ -1,6 +1,6 @@
 {
   "name": "@kevinmarmstrong/edgekit-knowledge",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Knowledge sources, tools, skills, and Markdown memory for Edgekit.",
   "publishConfig": {
@@ -10,7 +10,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/kevinmarmstrong/edgekit.git",
+    "url": "git+https://github.com/kevinmarmstrong/edgekit.git",
     "directory": "packages/knowledge"
   },
   "main": "./dist/index.js",

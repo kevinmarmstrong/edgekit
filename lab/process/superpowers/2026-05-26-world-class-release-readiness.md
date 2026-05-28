@@ -89,14 +89,14 @@ These lanes can run in parallel after the profile API stabilizes. Final verifica
   - Add decision records and upgrade story.
 - Modify: `AGENTS.md`
   - Add exact rules for primitives vs skills vs profiles.
-- Modify: `docs/GETTING-STARTED-REAL-APPS.md`
+- Modify: `docs/adopter/GETTING-STARTED-REAL-APPS.md`
   - Use `chat.applyMissionProfile()` in examples.
   - Explain executable tools vs profile metadata.
-- Create: `docs/MISSION-PROFILE-AUTHORING.md`
+- Create: `docs/adopter/MISSION-PROFILE-AUTHORING.md`
   - How to design Skills and Profiles.
-- Create: `docs/PRODUCTION-READINESS.md`
+- Create: `docs/adopter/PRODUCTION-READINESS.md`
   - Security, telemetry, upgrades, escalation, monitoring, and release checklist.
-- Create: `docs/TESTING-OUTCOME-QUALITY.md`
+- Create: `docs/adopter/TESTING-OUTCOME-QUALITY.md`
   - How to test outcomes, not just code paths.
 - Create: `docs/ADOPTER-SIMULATION.md`
   - 30-minute and 90-minute simulated adopter loops.
@@ -297,7 +297,7 @@ git commit -m "fix: harden mission profile application"
 
 **Files:**
 - Modify: `site/src/main.ts`
-- Modify: `docs/GETTING-STARTED-REAL-APPS.md`
+- Modify: `docs/adopter/GETTING-STARTED-REAL-APPS.md`
 - Modify: `ARCHITECTURE.md`
 - Modify: `README.md`
 
@@ -333,7 +333,7 @@ commerceChat?.registerTools({ searchProducts, addToCart })
 
 - [ ] **Step 2: Update docs examples**
 
-In `docs/GETTING-STARTED-REAL-APPS.md`, replace:
+In `docs/adopter/GETTING-STARTED-REAL-APPS.md`, replace:
 
 ```ts
 chat?.configure({
@@ -379,7 +379,7 @@ Expected: pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add site/src/main.ts docs/GETTING-STARTED-REAL-APPS.md ARCHITECTURE.md README.md
+git add site/src/main.ts docs/adopter/GETTING-STARTED-REAL-APPS.md ARCHITECTURE.md README.md
 git commit -m "docs: make mission profiles the default integration path"
 ```
 
@@ -479,13 +479,13 @@ git commit -m "feat: describe required tools in mission profiles"
 ### Task 1.1: Create Mission Profile Authoring Guide
 
 **Files:**
-- Create: `docs/MISSION-PROFILE-AUTHORING.md`
+- Create: `docs/adopter/MISSION-PROFILE-AUTHORING.md`
 - Modify: `site/src/docsContent.ts`
 - Modify: `site/vite.config.ts`
 
 - [ ] **Step 1: Create guide**
 
-Create `docs/MISSION-PROFILE-AUTHORING.md` with sections:
+Create `docs/adopter/MISSION-PROFILE-AUTHORING.md` with sections:
 
 ```md
 # Mission Profile Authoring
@@ -542,20 +542,20 @@ Expected: new markdown content appears in `site/dist` output.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/MISSION-PROFILE-AUTHORING.md site/src/docsContent.ts site/vite.config.ts
+git add docs/adopter/MISSION-PROFILE-AUTHORING.md site/src/docsContent.ts site/vite.config.ts
 git commit -m "docs: add mission profile authoring guide"
 ```
 
 ### Task 1.2: Production Readiness Guide
 
 **Files:**
-- Create: `docs/PRODUCTION-READINESS.md`
+- Create: `docs/adopter/PRODUCTION-READINESS.md`
 - Modify: `site/src/docsContent.ts`
 - Modify: `README.md`
 
 - [ ] **Step 1: Create guide with exact sections**
 
-`docs/PRODUCTION-READINESS.md` must include:
+`docs/adopter/PRODUCTION-READINESS.md` must include:
 
 ```md
 # Production Readiness
@@ -612,14 +612,14 @@ Expected: adoption eval still passes and answers production questions with the n
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/PRODUCTION-READINESS.md site/src/docsContent.ts README.md
+git add docs/adopter/PRODUCTION-READINESS.md site/src/docsContent.ts README.md
 git commit -m "docs: add production readiness guidance"
 ```
 
 ### Task 1.3: Testing Outcome Quality Guide
 
 **Files:**
-- Create: `docs/TESTING-OUTCOME-QUALITY.md`
+- Create: `docs/adopter/TESTING-OUTCOME-QUALITY.md`
 - Modify: `site/src/docsContent.ts`
 - Modify: `AGENTS.md`
 
@@ -680,7 +680,7 @@ Expected: docs render and testing docs are discoverable.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/TESTING-OUTCOME-QUALITY.md site/src/docsContent.ts AGENTS.md
+git add docs/adopter/TESTING-OUTCOME-QUALITY.md site/src/docsContent.ts AGENTS.md
 git commit -m "docs: document outcome quality testing"
 ```
 
@@ -1091,7 +1091,7 @@ Create `docs/templates/mission-profile-starter/harness-scenarios.json`:
 
 - [ ] **Step 3: Link starter kit**
 
-Add links in `site/src/docsContent.ts` and `docs/GETTING-STARTED-REAL-APPS.md`.
+Add links in `site/src/docsContent.ts` and `docs/adopter/GETTING-STARTED-REAL-APPS.md`.
 
 - [ ] **Step 4: Build site**
 
@@ -1104,7 +1104,7 @@ Expected: starter kit docs are included or linked.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/templates docs/GETTING-STARTED-REAL-APPS.md site/src/docsContent.ts
+git add docs/templates docs/adopter/GETTING-STARTED-REAL-APPS.md site/src/docsContent.ts
 git commit -m "docs: add mission profile starter kit"
 ```
 
@@ -1119,7 +1119,7 @@ git commit -m "docs: add mission profile starter kit"
 **Files:**
 - Modify: `packages/core/src/index.ts`
 - Test: `packages/core/test/profile.test.ts`
-- Modify: `docs/MISSION-PROFILE-AUTHORING.md`
+- Modify: `docs/adopter/MISSION-PROFILE-AUTHORING.md`
 
 - [ ] **Step 1: Add tests**
 
@@ -1194,14 +1194,14 @@ Expected: pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/core/src/index.ts packages/core/test/profile.test.ts docs/MISSION-PROFILE-AUTHORING.md
+git add packages/core/src/index.ts packages/core/test/profile.test.ts docs/adopter/MISSION-PROFILE-AUTHORING.md
 git commit -m "feat: validate mission profiles"
 ```
 
 ### Task 4.2: Expand Provider and Escalation Guidance
 
 **Files:**
-- Modify: `docs/PRODUCTION-READINESS.md`
+- Modify: `docs/adopter/PRODUCTION-READINESS.md`
 - Modify: `site/src/docsContent.ts`
 - Modify: `evals/adoption-quality/scenarios.json`
 
@@ -1239,7 +1239,7 @@ Expected: pass.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/PRODUCTION-READINESS.md site/src/docsContent.ts evals/adoption-quality/scenarios.json
+git add docs/adopter/PRODUCTION-READINESS.md site/src/docsContent.ts evals/adoption-quality/scenarios.json
 git commit -m "docs: clarify local and cloud routing decisions"
 ```
 

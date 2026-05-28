@@ -211,14 +211,15 @@ test('site assistant is mounted across docs and demo pages', async ({ page }) =>
   await expect(page.locator('#site-assistant edge-chat')).toBeVisible()
 
   await page.goto(`${siteURL}demos/docs/`)
-  await expect(page.getByRole('heading', { name: 'Docs Q&A demo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The Docs Q&A demo now runs outside the monorepo.' })).toBeVisible()
   await expect(page.locator('#site-assistant')).toBeVisible()
-  await expect(page.locator('#qa edge-chat#docs-chat')).toBeVisible()
+  await expect(page.locator('a[href="https://edgekit-demo-docs.pages.dev/"]')).toBeVisible()
+  await expect(page.locator('#qa edge-chat#docs-chat')).toHaveCount(0)
 })
 
 test('public demos expose cascade readiness without forcing model downloads', async ({ page }) => {
-  await page.goto(`${siteURL}demos/docs/?cacheBust=${Date.now()}`)
-  const docsWizard = page.locator('#qa edge-cascade-wizard').getByTestId('cascade-wizard')
+  await page.goto(`${siteURL}demos/cascade/?cacheBust=${Date.now()}`)
+  const docsWizard = page.locator('#cascade-lab edge-cascade-wizard').getByTestId('cascade-wizard')
   await expect(docsWizard).toBeVisible()
   await expect(docsWizard).toContainText(/Cascade readiness/)
   await expect(docsWizard).toContainText(/Chrome AI|basic mode|fallback|unavailable/i)

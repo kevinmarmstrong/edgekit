@@ -121,6 +121,6 @@ Be precise and complete on attributes even when it makes the response slightly l
   },
   meta: {
     description: 'Public-facing agent workflow for browsing and purchasing from a product catalog. Optimized for local models with high synthesis faithfulness.',
-    compatibility: '^0.1.0',
+    compatibility: '^0.3.0',
   },
 })

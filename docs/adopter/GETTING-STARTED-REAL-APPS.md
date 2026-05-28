@@ -178,9 +178,9 @@ Do not declare victory until your sidecar scores highly on your own version of t
 
 Look at these files for the current best examples:
 
-- `site/src/profiles/public-catalog-shopping.ts`
-- `site/src/profiles/docs-qa.ts`
-- `site/src/main.ts` (how the profiles are applied)
+- `examples/ecommerce/src/main.ts`
+- `docs/templates/mission-profile-starter/profile.ts`
+- `docs/templates/knowledge-skill-starter/mission-profile.ts`
 - `ARCHITECTURE.md` (deeper rationale)
 - `AGENTS.md` (how to work on this codebase with agents)
 

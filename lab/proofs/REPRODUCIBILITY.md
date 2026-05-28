@@ -80,7 +80,7 @@ Cross-Origin-Embedder-Policy: require-corp
 The suite environment probe records `crossOriginIsolated` so the report can
 distinguish a real WebLLM-capable host from a graceful fallback.
 
-The Cloudflare proof host in `examples/cloudflare-sidecar` is the current
+The Cloudflare proof host in `lab/proofs/cloudflare-sidecar` is the current
 non-GitHub-Pages architecture proof. It serves COOP/COEP headers, Worker-backed
 knowledge and intake routes, and a developer-owned cloud-route shape. See
 `lab/proofs/CLOUDFLARE-ARCHITECTURE-PROOF.md`.

@@ -2,7 +2,7 @@
 
 This proof exists because GitHub Pages can host the public Edgekit docs and static demos, but it cannot represent every production architecture Edgekit supports.
 
-`examples/cloudflare-sidecar` is a Cloudflare Workers example that adds the missing host capabilities:
+`lab/proofs/cloudflare-sidecar` is a Cloudflare Workers example that adds the missing host capabilities:
 
 - COOP/COEP headers for WebLLM-capable browser execution.
 - Worker-backed `/api/edgekit/knowledge/search` retrieval.
@@ -13,17 +13,17 @@ This proof exists because GitHub Pages can host the public Edgekit docs and stat
 ## Run Locally
 
 ```bash
-pnpm --dir examples/cloudflare-sidecar install
-pnpm --dir examples/cloudflare-sidecar build
-pnpm --dir examples/cloudflare-sidecar wrangler:dry-run
-pnpm --dir examples/cloudflare-sidecar dev
+pnpm --dir lab/proofs/cloudflare-sidecar install
+pnpm --dir lab/proofs/cloudflare-sidecar build
+pnpm --dir lab/proofs/cloudflare-sidecar wrangler:dry-run
+pnpm --dir lab/proofs/cloudflare-sidecar dev
 ```
 
 ## Deploy
 
 ```bash
-pnpm --dir examples/cloudflare-sidecar build
-pnpm --dir examples/cloudflare-sidecar deploy
+pnpm --dir lab/proofs/cloudflare-sidecar build
+pnpm --dir lab/proofs/cloudflare-sidecar deploy
 ```
 
 Current verified proof host:

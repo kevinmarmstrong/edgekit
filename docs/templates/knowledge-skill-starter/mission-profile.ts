@@ -18,7 +18,7 @@ export const supportKnowledgeProfile = createMissionProfile({
   },
   meta: {
     description: 'Starter Mission Profile for app-owned knowledge retrieval.',
-    compatibility: '^0.1.0',
+    compatibility: '^0.3.0',
   },
 })
 

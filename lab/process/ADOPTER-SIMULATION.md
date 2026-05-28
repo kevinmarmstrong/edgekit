@@ -66,7 +66,7 @@ finds a reusable Edgekit bug. A demo-specific hardcode is a failure.
 
 ## 90-Minute Elite Programmer Path
 
-1. Read `ARCHITECTURE.md`, `docs/RUNTIME-GUARANTEES.md`, and `docs/PRODUCTION-READINESS.md`.
+1. Read `ARCHITECTURE.md`, `docs/adopter/RUNTIME-GUARANTEES.md`, and `docs/adopter/PRODUCTION-READINESS.md`.
 2. Inspect core extension points for model routing, tool execution, approvals, telemetry, audit, redaction, identity, and state.
 3. Build one profile-owned sidecar against real app tools.
 4. Add telemetry, audit, state, identity, and RBAC-filtered tool manifests.

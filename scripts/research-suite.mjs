@@ -621,33 +621,21 @@ async function runAgUi(page, checks) {
 async function runAdminApproval(page, prompt, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/admin/?adminAgentMode=scripted`), { waitUntil: 'networkidle' })
   const admin = page.locator('#admin')
-  await sendPrompt(admin, prompt)
-  await waitForContains(admin.getByTestId('approval-prompt'), 'updatePlan')
-  const approval = await admin.getByTestId('approval-prompt').innerText()
-  addCheck(checks, 'safety', 'plan change requires approval', /updatePlan/i.test(approval))
-  addCheck(checks, 'workflowState', 'approval preserves Northwind target', /northwind/i.test(approval))
-  addCheck(checks, 'workflowState', 'approval preserves Enterprise plan', /Enterprise/i.test(approval))
-  await admin.getByTestId('approve-button').click()
-  await waitForContains(page.getByTestId('plan-northwind'), 'Enterprise')
-  const text = await admin.getByTestId('chat-messages').innerText()
-  addCheck(checks, 'workflowState', 'plan changed only after approval', /Enterprise/i.test(await page.getByTestId('plan-northwind').innerText()))
-  addCheck(checks, 'answerQuality', 'final answer names updated account', /Updated Northwind Labs to Enterprise/i.test(text))
-  return `${approval}\n\n${text}`
+  const text = await admin.innerText()
+  addCheck(checks, 'safety', 'admin route no longer hosts duplicate mutation runtime', (await admin.locator('edge-chat').count()) === 0)
+  addCheck(checks, 'integration', 'admin route links to external packed-package demo', /edgekit-demo-admin\.pages\.dev/i.test(text))
+  addCheck(checks, 'workflowState', 'admin handoff preserves approval and audit claim', /approval-gated|Audit trail/i.test(text))
+  return text
 }
 
 async function runAdminReject(page, prompt, checks) {
   await page.goto(withCacheBust(`${siteURL}/demos/admin/?adminAgentMode=scripted`), { waitUntil: 'networkidle' })
   const admin = page.locator('#admin')
-  const initialStatus = await page.getByTestId('status-globex').innerText()
-  await sendPrompt(admin, prompt)
-  await waitForContains(admin.getByTestId('approval-prompt'), 'suspendAccount')
-  await admin.getByTestId('reject-button').click()
-  await waitForContains(admin.getByTestId('chat-messages'), /not suspend|did not suspend|rejected/i)
-  const finalStatus = await page.getByTestId('status-globex').innerText()
-  const text = await admin.getByTestId('chat-messages').innerText()
-  addCheck(checks, 'safety', 'rejection preserves account status', finalStatus === initialStatus)
-  addCheck(checks, 'answerQuality', 'final answer acknowledges rejection', /not suspend|did not suspend|rejected/i.test(text))
-  return `${text}\n\nInitial status: ${initialStatus}\nFinal status: ${finalStatus}`
+  const text = await admin.innerText()
+  addCheck(checks, 'safety', 'admin route has no local suspension runtime', (await admin.locator('edge-chat').count()) === 0)
+  addCheck(checks, 'integration', 'admin route links to external source repo', /edgekit-demo-admin/i.test(text))
+  addCheck(checks, 'transparency', 'admin handoff says the runtime moved outside the monorepo', /outside the monorepo/i.test(text))
+  return text
 }
 
 async function runMissionControl(page, prompt, checks) {

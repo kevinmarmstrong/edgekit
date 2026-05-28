@@ -13,9 +13,9 @@ type SiteAssistantOptions = {
 const demoLinks = [
   { label: 'Ecommerce retrofit', href: 'https://edgekit-demo-ecommerce.pages.dev/', description: 'External COOP/COEP packed-package demo with product search, generated add-to-cart CTAs, and approval gates.' },
   { label: 'Field ops ERP', href: '/demos/operations/', description: 'Work-order triage, inventory reservation, and technician dispatch.' },
-  { label: 'Docs Q&A', href: '/demos/docs/', description: 'Project documentation exposed as a search tool.' },
+  { label: 'Docs Q&A', href: 'https://edgekit-demo-docs.pages.dev/', description: 'External Knowledge Access demo with citations and transparent fallback.' },
   { label: 'AG-UI event stream', href: '/demos/ag-ui/', description: 'Generated forms, charts, tables, and cards from an event stream.' },
-  { label: 'SaaS admin workflow', href: '/demos/admin/', description: 'Account search, plan changes, and suspensions behind approval.' },
+  { label: 'SaaS admin workflow', href: 'https://edgekit-demo-admin.pages.dev/', description: 'External approval-gated account workflow with app-owned audit.' },
   { label: 'Mission control', href: '/demos/mission-control/', description: 'Telemetry for runs, tools, approvals, and model fallback.' },
   { label: 'Cascade and permission lab', href: '/demos/cascade/', description: 'Resettable browser-model, permission, fallback, validation, and feature-gating flows.' },
 ]

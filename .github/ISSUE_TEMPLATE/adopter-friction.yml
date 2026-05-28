@@ -1,0 +1,40 @@
+name: Adopter friction
+description: Report where Edgekit slowed down an existing-app integration.
+title: "[adopter friction]: "
+labels: ["adopter-friction"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Audience: adopter
+
+        Use this when you tried to add Edgekit to an existing app and hit unclear docs, package install issues, browser-model states, approvals, tool wiring, identity/state bridging, telemetry, or demo mismatch.
+  - type: input
+    id: app_stack
+    attributes:
+      label: App stack
+      description: Framework, package manager, browser, and deployment target.
+      placeholder: "Next.js + pnpm + Chrome 126 + Vercel"
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What were you trying to add?
+      description: Name the workflow, tools, approvals, and model route you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Where did it get stuck?
+      description: Include the command, doc, demo, route, browser state, or API that caused the pause.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Paste logs, screenshots, snippets, or provider/readiness state. Remove secrets first.
+    validations:
+      required: false

@@ -11,7 +11,7 @@ Use this skill to test outcomes, not only runtime success.
 
 ## Read First
 
-1. `docs/TESTING-OUTCOME-QUALITY.md`
+1. `docs/adopter/TESTING-OUTCOME-QUALITY.md`
 2. `lab/process/ADOPTER-SIMULATION.md`
 3. `evals/agent-suite/rubric.json`
 4. `evals/agent-suite/scenarios.json`

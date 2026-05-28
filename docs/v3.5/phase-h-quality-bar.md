@@ -12,7 +12,7 @@ Phase H keeps `pnpm research:suite` as deterministic regression coverage and add
 - Updated provider-matrix defaults to the six Phase H rows: `chrome-ready`, `chrome-downloading`, `webllm-auto`, `webllm-declined`, `server`, and `no-model`.
 - Updated `research-results/provider-matrix.md` rendering to show latency, success rate, and tool-call accuracy columns.
 - Added `scripts/check-v35-constraints.mjs` and wired it into `pnpm test`.
-- Added the `UPGRADE.md` template with a worked v0.2.x to v0.3.x example.
+- Added the `docs/adopter/UPGRADE.md` template with a worked v0.2.x to v0.3.x example.
 - Added cross-package dependency ADRs for React -> UI, React -> Skills, UI -> Governance, and UI -> Skills; missing ADRs now fail the v3.5 constraint check.
 
 ## Constraint Scope

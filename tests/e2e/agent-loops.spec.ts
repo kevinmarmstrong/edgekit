@@ -38,12 +38,9 @@ test('docs Q&A and site assistant answer project questions instead of generic ch
   await page.goto(`${siteURL}demos/docs/?cacheBust=${Date.now()}`)
 
   const docsDemo = page.locator('#qa')
-  await docsDemo.getByTestId('chat-input').fill('what problem does edgekit solve for token costs?')
-  await docsDemo.getByTestId('send-button').click()
-
-  const docsMessages = docsDemo.getByTestId('chat-messages')
-  await expect(docsMessages).toContainText(/token|cost|cloud/i)
-  await expect(docsMessages).toContainText(/edgekit|browser|local/i)
+  await expect(docsDemo.getByRole('heading', { name: 'The Docs Q&A demo now runs outside the monorepo.' })).toBeVisible()
+  await expect(docsDemo.locator('a[href="https://edgekit-demo-docs.pages.dev/"]')).toBeVisible()
+  await expect(docsDemo.locator('edge-chat')).toHaveCount(0)
 
   await page.locator('#site-assistant .site-assistant-toggle').click()
   const assistant = page.locator('#site-assistant')
@@ -191,14 +188,9 @@ test('admin and mission-control loops keep risky work observable and gated', asy
   await page.goto(`${siteURL}demos/admin/?adminAgentMode=scripted&cacheBust=${Date.now()}`)
 
   const admin = page.locator('#admin')
-  await admin.getByTestId('chat-input').fill('upgrade Northwind to Enterprise')
-  await admin.getByTestId('send-button').click()
-
-  await expect(admin.getByTestId('chat-messages')).toContainText('Approval is required')
-  await expect(admin.getByTestId('approval-prompt')).toContainText('updatePlan')
-  await admin.getByTestId('approve-button').click()
-  await expect(admin.getByTestId('chat-messages')).toContainText('Updated Northwind Labs to Enterprise')
-  await expect(page.getByTestId('plan-northwind')).toContainText('Enterprise')
+  await expect(admin.getByRole('heading', { name: 'The SaaS admin workflow now runs outside the monorepo.' })).toBeVisible()
+  await expect(admin.locator('a[href="https://edgekit-demo-admin.pages.dev/"]')).toBeVisible()
+  await expect(admin.locator('edge-chat')).toHaveCount(0)
 
   await page.goto(`${siteURL}demos/mission-control/?cacheBust=${Date.now()}`)
   await expect(page.locator('#mc-runs')).toHaveText('0')

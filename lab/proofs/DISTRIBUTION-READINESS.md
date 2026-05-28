@@ -28,7 +28,7 @@ The fresh app must import `@kevinmarmstrong/edgekit`, `@kevinmarmstrong/edgekit-
   WebLLM COOP/COEP, cloud route, no-model fallback, and live Pages.
 - Provider matrix rows are regenerated from the same release candidate, or the
   release notes explain why provider proof is deferred to a specific host.
-- `examples/cloudflare-sidecar` is deployed and smoke-tested when claiming
+- `lab/proofs/cloudflare-sidecar` is deployed and smoke-tested when claiming
   Worker-hosted COOP/COEP, knowledge, intake, or cloud-route architecture proof.
 
 ## Provider Release Evidence

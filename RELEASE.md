@@ -1,47 +1,58 @@
 Audience: maintainer
 
-# edgekit public release checklist
+# edgekit v0.3.0 release checklist
 
-## Current package names
+## Package names
 
-The unscoped `edgekit` package name already exists on npm (`0.1.6` as of May 23, 2026), so this repo is configured to publish:
+The publishable package set is:
 
 - `@kevinmarmstrong/edgekit`
+- `@kevinmarmstrong/edgekit-skills`
+- `@kevinmarmstrong/edgekit-knowledge`
+- `@kevinmarmstrong/edgekit-governance`
+- `@kevinmarmstrong/edgekit-mcp`
+- `@kevinmarmstrong/edgekit-agui`
 - `@kevinmarmstrong/edgekit-ui`
+- `@kevinmarmstrong/edgekit-react`
 - `@kevinmarmstrong/edgekit-cli`
 
-Both scoped names returned 404 from npm registry lookup, which means they are not currently published or visible.
+The unscoped `edgekit` package name already exists on npm, so v0.3.0 uses the scoped packages above.
 
 ## Verified locally
 
-- `pnpm test`
-- `pnpm typecheck`
-- `pnpm build`
-- `pnpm test:e2e`
-- `npm pack --dry-run` in `packages/core`
-- `npm pack --dry-run` in `packages/ui`
-- `npm pack --dry-run` in `packages/cli`
+- `pnpm pack:packages`
+- `npm install && npm run typecheck && npm run build` in `edgekit-demo-admin`
+- `npm install && npm run typecheck && npm run build` in `edgekit-demo-docs`
+- Cloudflare Pages deploy for ecommerce, admin, and docs demos
 
-## Before publishing
+## Before npm publish
 
-1. Confirm npm account access to the `@kevinmarmstrong` scope.
-2. Confirm whether the public import should remain scoped or whether you own/want to acquire the unscoped `edgekit` name.
-3. Test a browser with WebGPU or Chrome AI manually against `pnpm dev:ecommerce` so the real model path is verified, not only the no-model fallback.
-4. Publish core first, then UI, then CLI:
+This machine is not authenticated to npm (`npm whoami` returns `E401`). After logging in with an account that can publish to `@kevinmarmstrong`, publish in dependency order:
 
 ```bash
-cd packages/core
-npm publish --access public
-
-cd ../ui
-npm publish --access public
-
-cd ../cli
-npm publish --access public
+npm login
+cd packages/core && npm publish --access public
+cd ../skills && npm publish --access public
+cd ../knowledge && npm publish --access public
+cd ../governance && npm publish --access public
+cd ../mcp && npm publish --access public
+cd ../agui && npm publish --access public
+cd ../ui && npm publish --access public
+cd ../react && npm publish --access public
+cd ../cli && npm publish --access public
 ```
 
-5. Create a GitHub release after the npm publish succeeds.
+After npm publish succeeds:
 
-## Known release note
+1. Replace vendored tarball dependencies in the three external demo repos with `^0.3.0`.
+2. Run each demo's `npm install`, `npm run typecheck`, and `npm run build`.
+3. Commit and push the demo dependency switch.
+4. Create GitHub release `v0.3.0` from the shipped repo tag.
 
-The ecommerce demo production build includes a large lazy WebLLM chunk. The publishable `@kevinmarmstrong/edgekit-ui` package stays small; the demo chunk is expected because it bundles the browser model provider for local use.
+## Live demos
+
+- Ecommerce: https://edgekit-demo-ecommerce.pages.dev/
+- Docs Q&A: https://edgekit-demo-docs.pages.dev/
+- SaaS admin: https://edgekit-demo-admin.pages.dev/
+
+All three are external repos and currently install Edgekit from v0.3.0 packed tarballs until npm publication is complete.

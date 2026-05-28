@@ -14,15 +14,15 @@ const started = Date.now()
 const commands = []
 const friction = []
 const packages = [
-  { dir: 'packages/core', name: '@kevinmarmstrong/edgekit', tarball: 'kevinmarmstrong-edgekit-0.1.0.tgz' },
-  { dir: 'packages/skills', name: '@kevinmarmstrong/edgekit-skills', tarball: 'kevinmarmstrong-edgekit-skills-0.1.0.tgz' },
-  { dir: 'packages/knowledge', name: '@kevinmarmstrong/edgekit-knowledge', tarball: 'kevinmarmstrong-edgekit-knowledge-0.1.0.tgz' },
-  { dir: 'packages/governance', name: '@kevinmarmstrong/edgekit-governance', tarball: 'kevinmarmstrong-edgekit-governance-0.1.0.tgz' },
-  { dir: 'packages/mcp', name: '@kevinmarmstrong/edgekit-mcp', tarball: 'kevinmarmstrong-edgekit-mcp-0.1.0.tgz' },
-  { dir: 'packages/agui', name: '@kevinmarmstrong/edgekit-agui', tarball: 'kevinmarmstrong-edgekit-agui-0.1.0.tgz' },
-  { dir: 'packages/ui', name: '@kevinmarmstrong/edgekit-ui', tarball: 'kevinmarmstrong-edgekit-ui-0.1.0.tgz' },
-  { dir: 'packages/react', name: '@kevinmarmstrong/edgekit-react', tarball: 'kevinmarmstrong-edgekit-react-0.1.0.tgz' },
-  { dir: 'packages/cli', name: '@kevinmarmstrong/edgekit-cli', tarball: 'kevinmarmstrong-edgekit-cli-0.1.0.tgz' },
+  { dir: 'packages/core', name: '@kevinmarmstrong/edgekit' },
+  { dir: 'packages/skills', name: '@kevinmarmstrong/edgekit-skills' },
+  { dir: 'packages/knowledge', name: '@kevinmarmstrong/edgekit-knowledge' },
+  { dir: 'packages/governance', name: '@kevinmarmstrong/edgekit-governance' },
+  { dir: 'packages/mcp', name: '@kevinmarmstrong/edgekit-mcp' },
+  { dir: 'packages/agui', name: '@kevinmarmstrong/edgekit-agui' },
+  { dir: 'packages/ui', name: '@kevinmarmstrong/edgekit-ui' },
+  { dir: 'packages/react', name: '@kevinmarmstrong/edgekit-react' },
+  { dir: 'packages/cli', name: '@kevinmarmstrong/edgekit-cli' },
 ]
 
 async function main() {
@@ -46,7 +46,7 @@ await writeFile(join(appDir, 'package.json'), `${JSON.stringify({
     outcome: 'tsx scripts/outcome-check.ts',
   },
   dependencies: {
-    ...Object.fromEntries(packages.map(item => [item.name, `file:${join(packsDir, item.tarball)}`])),
+    ...Object.fromEntries(await Promise.all(packages.map(async item => [item.name, `file:${join(packsDir, await packageTarball(item))}`]))),
     '@vitejs/plugin-react': '^5.1.1',
     '@types/node': '^25.9.1',
     '@types/react': '^19.2.7',
@@ -128,6 +128,11 @@ const report = {
   score: outcome.summary.averageScore,
   requiredFailures: outcome.summary.requiredFailures,
   pass: outcome.summary.averageScore >= 0.95 && outcome.summary.requiredFailures === 0,
+}
+
+async function packageTarball(item) {
+  const manifest = JSON.parse(await readFile(resolve(repoRoot, item.dir, 'package.json'), 'utf8'))
+  return `${manifest.name.replace('@', '').replace('/', '-')}-${manifest.version}.tgz`
 }
 await writeFile(join(outDir, 'clean-room-adoption.json'), `${JSON.stringify(report, null, 2)}\n`)
 await writeFile(join(outDir, 'clean-room-adoption.md'), renderMarkdown(report))
@@ -298,7 +303,7 @@ export const facilitiesProfile = createMissionProfile({
   synthesis: { requiredAttributes: ['work order id', 'facility', 'priority', 'status', 'summary', 'approval boundary'], style: 'explicit' },
   policy: { needsApproval: true, riskLevel: 'medium' },
   uiAffordances: { preferActionCards: true, suggestedFields: ['technician', 'etaMinutes'] },
-  meta: { description: 'Facilities work order Q&A and approval-gated technician dispatch.', compatibility: '^0.1.0' },
+  meta: { description: 'Facilities work order Q&A and approval-gated technician dispatch.', compatibility: '^0.3.0' },
 })
 
 export const facilitiesTools = { searchWorkOrders, assignTechnician }

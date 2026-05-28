@@ -161,6 +161,6 @@ Keep the ERP system authoritative for stock counts, technician availability, wor
   },
   meta: {
     description: 'Internal ERP agent workflow for field-service work order triage, part reservation, and technician dispatch.',
-    compatibility: '^0.1.0',
+    compatibility: '^0.3.0',
   },
 })

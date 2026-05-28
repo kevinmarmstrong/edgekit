@@ -1,6 +1,6 @@
 {
   "name": "@kevinmarmstrong/edgekit-cli",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Documentation indexing CLI for edgekit demos and RAG tools.",
   "publishConfig": {
@@ -8,12 +8,12 @@
   },
   "license": "MIT",
   "bin": {
-    "edgekit-index": "./dist/index.js",
-    "edgekit-init": "./dist/index.js"
+    "edgekit-index": "dist/index.js",
+    "edgekit-init": "dist/index.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kevinmarmstrong/edgekit.git",
+    "url": "git+https://github.com/kevinmarmstrong/edgekit.git",
     "directory": "packages/cli"
   },
   "exports": {

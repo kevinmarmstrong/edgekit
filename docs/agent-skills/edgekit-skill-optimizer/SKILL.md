@@ -11,7 +11,7 @@ Use this skill after outcome data exists. Do not optimize from vibes.
 
 ## Read First
 
-1. `docs/SKILL-OPTIMIZATION.md`
+1. `docs/adopter/SKILL-OPTIMIZATION.md`
 2. `evals/skill-optimization/skill-map.json`
 3. `evals/skill-optimization/candidates.json`
 4. The latest `research-results/agent-suite.json`

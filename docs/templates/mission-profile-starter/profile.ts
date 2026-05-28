@@ -123,7 +123,7 @@ The host app owns customer data, permissions, ticket creation, telemetry, and au
   uiAffordances: { preferActionCards: true, suggestedFields: ['category', 'priority', 'summary'] },
   meta: {
     description: 'Starter mission for support case Q&A and approval-gated ticket creation.',
-    compatibility: '^0.1.0',
+    compatibility: '^0.3.0',
   },
 })
 

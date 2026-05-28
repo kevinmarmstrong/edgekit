@@ -75,13 +75,13 @@ Use local providers first. Add a developer-owned cloud route only when your app 
 
 ## Docs
 
-- [30-minute workflow](./docs/30-MINUTE-PRODUCTION-SIDECAR.md)
-- [Getting started for real apps](./docs/GETTING-STARTED-REAL-APPS.md)
-- [Production recipes](./docs/PRODUCTION-RECIPES.md)
-- [Runtime guarantees](./docs/RUNTIME-GUARANTEES.md)
-- [Reproducibility](./docs/REPRODUCIBILITY.md)
-- [Migration and upgrades](./docs/MIGRATION-AND-UPGRADES.md)
-- [Upgrade template and v0.3 worked example](./UPGRADE.md)
+- [30-minute workflow](./docs/adopter/30-MINUTE-PRODUCTION-SIDECAR.md)
+- [Getting started for real apps](./docs/adopter/GETTING-STARTED-REAL-APPS.md)
+- [Production recipes](./docs/adopter/PRODUCTION-RECIPES.md)
+- [Runtime guarantees](./docs/adopter/RUNTIME-GUARANTEES.md)
+- [Reproducibility](./lab/proofs/REPRODUCIBILITY.md)
+- [Migration and upgrades](./docs/adopter/MIGRATION-AND-UPGRADES.md)
+- [Upgrade template and v0.3 worked example](./docs/adopter/UPGRADE.md)
 - [Architecture](./ARCHITECTURE.md)
 
 ## Release Checks

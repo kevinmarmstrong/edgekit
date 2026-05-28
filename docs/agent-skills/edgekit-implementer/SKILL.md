@@ -13,9 +13,9 @@ Use this skill to add a production-shaped Edgekit sidecar to an existing app.
 
 1. `ARCHITECTURE.md`
 2. `AGENTS.md`
-3. `docs/GETTING-STARTED-REAL-APPS.md`
-4. `docs/RUNTIME-GUARANTEES.md`
-5. `docs/AGENT-ADOPTION-KIT.md`
+3. `docs/adopter/GETTING-STARTED-REAL-APPS.md`
+4. `docs/adopter/RUNTIME-GUARANTEES.md`
+5. `docs/adopter/AGENT-ADOPTION-KIT.md`
 
 ## Workflow
 

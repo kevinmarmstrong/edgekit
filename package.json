@@ -1,6 +1,6 @@
 {
   "name": "edgekit",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Browser-native agent runtime for adding AI sidecars to web apps.",
@@ -8,7 +8,7 @@
   "packageManager": "pnpm@10.8.1",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kevinmarmstrong/edgekit.git"
+    "url": "git+https://github.com/kevinmarmstrong/edgekit.git"
   },
   "scripts": {
     "build": "pnpm --filter @kevinmarmstrong/edgekit build && pnpm --filter @kevinmarmstrong/edgekit-skills build && pnpm --filter @kevinmarmstrong/edgekit-knowledge build && pnpm --filter @kevinmarmstrong/edgekit-governance build && pnpm --filter @kevinmarmstrong/edgekit-mcp build && pnpm --filter @kevinmarmstrong/edgekit-agui build && pnpm --filter @kevinmarmstrong/edgekit-ui build && pnpm --filter @kevinmarmstrong/edgekit-react build && pnpm --filter @kevinmarmstrong/edgekit-cli build && pnpm --filter @edgekit/ecommerce-demo build && pnpm --filter @edgekit/site build",
@@ -31,7 +31,7 @@
     "pack:packages": "pnpm build && mkdir -p research-results/package-smoke/packs && pnpm --dir packages/core pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/skills pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/knowledge pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/governance pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/mcp pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/agui pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/ui pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/react pack --pack-destination ../../research-results/package-smoke/packs && pnpm --dir packages/cli pack --pack-destination ../../research-results/package-smoke/packs",
     "test:fresh-app": "pnpm build && node scripts/fresh-app-smoke.mjs",
     "adoption:clean-room": "node scripts/clean-room-adoption.mjs",
-    "test:cloudflare-sidecar": "pnpm --dir examples/cloudflare-sidecar build && pnpm --dir examples/cloudflare-sidecar wrangler:dry-run",
+    "test:cloudflare-sidecar": "pnpm --dir lab/proofs/cloudflare-sidecar build && pnpm --dir lab/proofs/cloudflare-sidecar wrangler:dry-run",
     "chrome:profile": "node scripts/launch-chrome-profile.mjs",
     "test:routes": "node scripts/serve-test-routes.mjs",
     "deploy:cloudflare": "pnpm build && pnpm --dir site dlx wrangler pages deploy dist --project-name edgekit",

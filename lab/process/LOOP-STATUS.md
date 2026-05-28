@@ -24,7 +24,7 @@ This file is the current loop dashboard. It intentionally distinguishes concrete
 - **Live Pages lane:** Public GitHub Pages smoke and live research suite have passed with required failures/skips at 0 for that lane.
 - **Provider lane semantics:** Docs and harness output now separate local resilience, strict Chrome/Nano CDP, WebLLM host requirements, cloud route, no-model fallback, and live Pages.
 - **Clean-room adoption:** `pnpm proof:clean-room-adoption` created a fresh app outside the monorepo, installed packed tarballs, ran the public `edgekit-init` recipe, created a new facilities-maintenance Mission Profile, validated it, built it, and scored outcome checks at `1.0` with required failures `0`.
-- **Hosted Cloudflare proof:** `examples/cloudflare-sidecar` is deployed at `https://edgekit-cloudflare-sidecar.kevinmichaelarmstrong.workers.dev`, serves COOP/COEP/CORP headers, verifies `crossOriginIsolated === true`, exposes Worker-backed knowledge/intake routes, and passes the strict hosted cloud-route provider matrix.
+- **Hosted Cloudflare proof:** `lab/proofs/cloudflare-sidecar` is deployed at `https://edgekit-cloudflare-sidecar.kevinmichaelarmstrong.workers.dev`, serves COOP/COEP/CORP headers, verifies `crossOriginIsolated === true`, exposes Worker-backed knowledge/intake routes, and passes the strict hosted cloud-route provider matrix.
 
 ## What Is Not Yet Proven
 
@@ -50,7 +50,7 @@ This file is the current loop dashboard. It intentionally distinguishes concrete
 - `research-results/provider-matrix-cloudflare.md`: hosted Cloudflare cloud-route row passed with proof level `strict-real-providers`.
 - `research-results/provider-matrix-no-model.md`: no-model fallback row passed with proof level `local-resilience`.
 - `research-results/adopter-simulations/latest.md`: clean-room packed-artifact adoption proof scored `1.0` with required failures `0`.
-- `docs/DISTRIBUTION-READINESS.md`: package smoke, fresh-app, provider release evidence, and compatibility policy.
+- `lab/proofs/DISTRIBUTION-READINESS.md`: package smoke, fresh-app, provider release evidence, and compatibility policy.
 - `docs/WORLD-CLASS-READINESS-ANALYSIS.md`: current criterion-by-criterion threshold analysis.
 
 ## Next Actions

@@ -5,6 +5,8 @@ type DemoSlug = 'ecommerce' | 'operations' | 'docs' | 'ag-ui' | 'admin' | 'missi
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
 const externalEcommerceDemoUrl = 'https://edgekit-demo-ecommerce.pages.dev/'
 const fallbackEcommerceDemoUrl = 'https://kevinmarmstrong.github.io/edgekit-demo-ecommerce/'
+const externalDocsDemoUrl = 'https://edgekit-demo-docs.pages.dev/'
+const externalAdminDemoUrl = 'https://edgekit-demo-admin.pages.dev/'
 const root = document.querySelector<HTMLElement>('#demo-root')
 const demoSlug = (document.body.dataset.demoPage ?? 'ecommerce') as DemoSlug
 
@@ -317,40 +319,30 @@ function cascadeDemo() {
 
 function docsDemo() {
   return `
-    <section class="split-section" id="qa">
-      <div>
-        <p class="section-label">Docs Q&A demo</p>
-        <h2>Ask edgekit about its own design.</h2>
+    <section class="ecommerce-demo external-demo-bridge" id="qa">
+      <div class="section-heading">
+        <p class="section-label">Phase F demo retirement</p>
+        <h2>The Docs Q&A demo now runs outside the monorepo.</h2>
         <p>
-          This demo registers a project documentation search tool with edgekit. Browsers with
-          Chrome AI can answer using local model calls; unsupported browsers switch into basic
-          docs mode and keep the docs searchable below.
+          The Knowledge Access workflow has a verified external replacement built from packed
+          Edgekit package tarballs. This site keeps the pointer, but no longer hosts the duplicate
+          docs agent runtime.
         </p>
         ${proofGrid([
-          ['Read-only tool', 'searchDocs is the only mission tool, so answers are grounded without giving the docs page mutation authority.'],
-          ['Faithfulness gate', 'The agent must carry section titles and relevant facts from retrieval into the visible answer.'],
-          ['Fallback path', 'Basic docs search stays usable when no browser-local model is available.'],
+          ['External repo', 'The demo installs Edgekit from package tarballs rather than workspace aliases.'],
+          ['Knowledge Access', 'A tiny app-owned corpus is exposed as a cited retrieval tool through the knowledge sibling.'],
+          ['Honest mode', 'No-model fallback says it is basic retrieval, not model-backed agent execution.'],
         ])}
         ${productionNotes([
-          'Replace the in-memory docs index with your own search or retrieval API.',
-          'Keep the docs search tool read-only and cacheable when possible.',
-          'Use outcome-quality tests to reject generic docs-search snippets.',
+          'Use the external repo when testing the adopter install path.',
+          'Replace the in-memory corpus with your own search or retrieval API.',
+          'Switch the demo from vendored tarballs to npm dependencies after package publication.',
         ])}
-        <div class="quick-search">
-          <label for="doc-search">Basic docs search</label>
-          <div class="search-row">
-            <input id="doc-search" placeholder="Try: model cascade or HITL" />
-            <button id="doc-search-button">Search</button>
-          </div>
-          <div id="doc-results" class="doc-results" aria-live="polite"></div>
-        </div>
       </div>
-      <edge-cascade-wizard id="docs-cascade"></edge-cascade-wizard>
-      <edge-chat
-        id="docs-chat"
-        system-prompt="You answer questions about the edgekit project. Always call searchDocs before answering. Cite the matching section titles in concise language."
-        placeholder="Ask: how does the model cascade work?"
-      ></edge-chat>
+      <div class="demo-proof-grid">
+        <a class="button primary" href="${externalDocsDemoUrl}">Open Cloudflare demo</a>
+        <a class="button secondary" href="https://github.com/kevinmarmstrong/edgekit-demo-docs">View repo</a>
+      </div>
     </section>
   `
 }
@@ -568,56 +560,29 @@ function agUiDemo() {
 
 function adminDemo() {
   return `
-    <section class="admin-demo" id="admin">
+    <section class="admin-demo external-demo-bridge" id="admin">
       <div class="section-heading">
-        <p class="section-label">Live demo</p>
-        <h2>SaaS admin workflow demo.</h2>
+        <p class="section-label">Phase F demo retirement</p>
+        <h2>The SaaS admin workflow now runs outside the monorepo.</h2>
         <p>
-          The admin console exposes account search, plan updates, and suspension tools. edgekit keeps
-          high-impact account changes behind explicit approval.
+          The approval-gated account workflow has a verified external replacement built from packed
+          Edgekit package tarballs. This site keeps the pointer, but no longer hosts the duplicate
+          admin agent runtime.
         </p>
         ${proofGrid([
-          ['Admin authority', 'Account records, selected role, and mutation outcomes remain owned by the SaaS console.'],
-          ['Approval gate', 'Plan changes and suspensions require visible approval before tool execution.'],
-          ['RBAC + audit', 'The visible tool manifest, approval counts, and workflow log show what production telemetry would capture.'],
+          ['External repo', 'The demo installs Edgekit from package tarballs rather than workspace aliases.'],
+          ['Approval gate', 'Plan changes require visible approval before the host app tool executes.'],
+          ['Audit trail', 'Approved mutations write app-owned audit entries with stable hashes.'],
         ])}
         ${productionNotes([
-          'Bind tool manifests to the signed-in user and tenant.',
-          'Keep account mutations behind approval, audit, and backend authorization.',
-          'Never place tokens or secret claims in state summaries or prompts.',
+          'Use the external repo when testing the adopter install path.',
+          'Bind tool manifests to the signed-in user and tenant in production.',
+          'Switch the demo from vendored tarballs to npm dependencies after package publication.',
         ])}
       </div>
-      <div class="admin-layout">
-        <section class="admin-console" aria-label="SaaS account console">
-          <div class="admin-command-strip">
-            <article><span>Selected role</span><strong id="admin-role-state">Admin</strong><p id="admin-role-detail">Can search accounts, update plans, and suspend accounts with approval.</p></article>
-            <article><span>Visible tools</span><strong id="admin-visible-tools">3 tools</strong><p id="admin-tool-detail">searchAccounts, updatePlan, suspendAccount</p></article>
-            <article><span>Approvals</span><strong id="admin-approval-count">0 requested</strong><p>High-impact account actions stay reviewable.</p></article>
-          </div>
-          <label class="role-picker">
-            Role
-            <select id="admin-role" aria-label="SaaS admin role">
-              <option value="admin">Admin</option>
-              <option value="billing">Billing manager</option>
-              <option value="support">Support viewer</option>
-            </select>
-          </label>
-          <section class="account-list" aria-label="Customer accounts" id="admin-accounts"></section>
-        </section>
-        <aside class="admin-agent">
-          <aside class="ops-scripted-note" aria-label="Demo mode">
-            This public demo can run a scripted SaaS admin agent with <code>?adminAgentMode=scripted</code>. Scripted mode is honest: it exercises the same tools, approvals, account state, and workflow log without requiring provider secrets.
-          </aside>
-          <edge-chat
-            id="admin-chat"
-            system-prompt="You are a precise SaaS admin assistant. Always search accounts before recommending or changing account state. Ask for approval before changing plans or suspending accounts."
-            placeholder="Try: upgrade Northwind to Enterprise"
-          ></edge-chat>
-          <section class="activity-log" aria-live="polite">
-            <div class="cart-title">Workflow log</div>
-            <ul id="admin-activity"></ul>
-          </section>
-        </aside>
+      <div class="demo-proof-grid">
+        <a class="button primary" href="${externalAdminDemoUrl}">Open Cloudflare demo</a>
+        <a class="button secondary" href="https://github.com/kevinmarmstrong/edgekit-demo-admin">View repo</a>
       </div>
     </section>
   `
@@ -717,7 +682,7 @@ function honestModeCopy(slug: DemoSlug) {
   if (slug === 'ecommerce') return 'This page is a link-out. The Cloudflare Pages demo is the COOP/COEP local-model proof; GitHub Pages remains the fallback/no-model reference.'
   if (slug === 'ag-ui') return 'Scripted public event stream; production requires an AG-UI backend endpoint.'
   if (slug === 'operations') return 'Provider mode uses Chrome AI when available; scripted mode is opt-in with ?opsAgentMode=scripted.'
-  if (slug === 'admin') return 'Provider mode uses Chrome AI when available; scripted mode is opt-in with ?adminAgentMode=scripted.'
+  if (slug === 'admin') return 'This page is a link-out. The Cloudflare Pages demo is the external approval and audit proof.'
   if (slug === 'cascade') return 'No surprise model downloads; every local-model setup path requires consent or policy.'
   if (slug === 'mission-control') return 'Reads local demo telemetry only; production persistence is app-owned.'
   return 'Runs local-first when possible and falls back transparently when no local model is available.'

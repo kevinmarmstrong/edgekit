@@ -2,45 +2,13 @@ import { expect, test } from '@playwright/test'
 
 const siteURL = 'http://127.0.0.1:4174/edgekit/'
 
-test('public site exposes the SaaS admin workflow demo', async ({ page }) => {
+test('public site hands the SaaS admin workflow to the external demo', async ({ page }) => {
   await page.goto(`${siteURL}demos/admin/`)
 
-  await expect(page.getByText('SaaS admin workflow demo.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The SaaS admin workflow now runs outside the monorepo.' })).toBeVisible()
   await expect(page.getByRole('complementary', { name: 'Production notes' })).toBeVisible()
-  await expect(page.getByText('Bind tool manifests to the signed-in user and tenant.')).toBeVisible()
-  await expect(page.getByTestId('account-row')).toHaveCount(3)
-  await expect(page.getByTestId('plan-northwind')).toContainText('Pro')
-})
-
-test('admin scripted workflow upgrades an account after approval', async ({ page }) => {
-  await page.goto(`${siteURL}demos/admin/?adminAgentMode=scripted`)
-
-  const admin = page.locator('#admin')
-  await admin.locator('[data-testid="chat-input"]').fill('upgrade Northwind to Enterprise')
-  await admin.locator('[data-testid="send-button"]').click()
-
-  await expect(admin.locator('[data-testid="approval-prompt"]')).toBeVisible()
-  await expect(admin.locator('[data-testid="approval-prompt"]')).toContainText('updatePlan')
-
-  await admin.locator('[data-testid="approve-button"]').click()
-
-  await expect(admin.locator('[data-testid="chat-messages"]')).toContainText('Updated Northwind Labs to Enterprise')
-  await expect(page.getByTestId('plan-northwind')).toContainText('Enterprise')
-  await expect(page.locator('#admin-activity')).toContainText('Updated Northwind Labs to Enterprise')
-})
-
-test('admin scripted workflow can reject account suspension', async ({ page }) => {
-  await page.goto(`${siteURL}demos/admin/?adminAgentMode=scripted`)
-
-  const admin = page.locator('#admin')
-  await admin.locator('[data-testid="chat-input"]').fill('suspend Globex account')
-  await admin.locator('[data-testid="send-button"]').click()
-  await expect(admin.locator('[data-testid="approval-prompt"]')).toBeVisible()
-  await expect(admin.locator('[data-testid="approval-prompt"]')).toContainText('suspendAccount')
-
-  await admin.locator('[data-testid="reject-button"]').click()
-
-  await expect(admin.locator('[data-testid="chat-messages"]')).toContainText('I did not suspend Globex Retail')
-  await expect(page.getByTestId('status-globex')).toContainText('At risk')
-  await expect(page.locator('#admin-activity')).toContainText('No workflow actions yet')
+  await expect(page.getByText('Use the external repo when testing the adopter install path.')).toBeVisible()
+  await expect(page.locator('a[href="https://edgekit-demo-admin.pages.dev/"]')).toBeVisible()
+  await expect(page.locator('a[href="https://github.com/kevinmarmstrong/edgekit-demo-admin"]')).toBeVisible()
+  await expect(page.locator('#admin edge-chat')).toHaveCount(0)
 })

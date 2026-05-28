@@ -122,9 +122,9 @@ ${maintainerLinks}
 
 - [Ecommerce retrofit](https://edgekit-demo-ecommerce.pages.dev/)
 - [Field ops ERP](${publicDocsPath('/demos/operations/')})
-- [Docs Q&A](${publicDocsPath('/demos/docs/')})
+- [Docs Q&A](https://edgekit-demo-docs.pages.dev/)
 - [AG-UI event stream](${publicDocsPath('/demos/ag-ui/')})
-- [SaaS admin workflow](${publicDocsPath('/demos/admin/')})
+- [SaaS admin workflow](https://edgekit-demo-admin.pages.dev/)
 - [Mission control telemetry](${publicDocsPath('/demos/mission-control/')})
 - [Cascade and permission lab](${publicDocsPath('/demos/cascade/')})
 

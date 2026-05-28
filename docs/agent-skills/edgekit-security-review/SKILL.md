@@ -11,9 +11,9 @@ Use this skill before calling an Edgekit integration production-ready.
 
 ## Read First
 
-1. `docs/SECURITY-THREAT-MODEL.md`
-2. `docs/PRODUCTION-RECIPES.md`
-3. `docs/RUNTIME-GUARANTEES.md`
+1. `docs/adopter/SECURITY-THREAT-MODEL.md`
+2. `docs/adopter/PRODUCTION-RECIPES.md`
+3. `docs/adopter/RUNTIME-GUARANTEES.md`
 4. `AGENTS.md`
 
 ## Checklist
