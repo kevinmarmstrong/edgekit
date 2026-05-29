@@ -1592,10 +1592,10 @@ describe('createAgent', () => {
       fullStream: (async function* () {
         yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'who are you?' } }
         yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { results: ['site assistant'] } }
-        yield { type: 'text-delta', delta: 'I am Kevin site assistant.' }
+        yield { type: 'text-delta', delta: 'I am Product docs assistant.' }
       })(),
       response: Promise.resolve({
-        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am Kevin site assistant.' }] }],
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am Product docs assistant.' }] }],
       }),
       options,
     }))
@@ -1604,7 +1604,7 @@ describe('createAgent', () => {
       model: [fakeModel],
       tools: { searchSite: {} },
       agentIdentity: {
-        name: 'Kevin site assistant',
+        name: 'Product docs assistant',
         description: 'Built with Edgekit.',
         modelDisclosure: 'technical',
       },
@@ -1617,7 +1617,7 @@ describe('createAgent', () => {
     }
 
     expect(streamText.mock.calls[0][0]).toMatchObject({ toolChoice: 'required' })
-    expect(String(streamText.mock.calls[0][0].system)).toContain('You are Kevin site assistant')
+    expect(String(streamText.mock.calls[0][0].system)).toContain('You are Product docs assistant')
     expect(String(streamText.mock.calls[0][0].system)).toContain('Strict grounding mode is enabled')
   })
 
@@ -1728,21 +1728,21 @@ describe('createAgent', () => {
       model: [fakeModel],
       tools: { searchSite: {} },
       grounding: 'strict',
-      validateResponse: ({ text }) => text.includes('rockets') ? 'I do not know from this site.' : null,
+      validateResponse: ({ text }) => text.includes('unsupported-topic') ? 'I do not know from this site.' : null,
       streamText: (() => ({
         fullStream: (async function* () {
-          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'rockets' } }
-          yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { results: [{ title: 'Projects', excerpt: 'Kevin writes about software.' }] } }
-          yield { type: 'text-delta', delta: 'Kevin works on rockets.' }
+          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'unsupported-topic' } }
+          yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { results: [{ title: 'Projects', excerpt: 'Docs mention supported product guides.' }] } }
+          yield { type: 'text-delta', delta: 'The assistant claims unsupported-topic expertise.' }
         })(),
         response: Promise.resolve({
-          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Kevin works on rockets.' }] }],
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'The assistant claims unsupported-topic expertise.' }] }],
         }),
       })) as never,
     })
     const events = []
 
-    for await (const event of agent.send('is Kevin involved in rockets?')) {
+    for await (const event of agent.send('does the assistant have unsupported-topic expertise?')) {
       events.push(event)
     }
 
@@ -1762,18 +1762,18 @@ describe('createAgent', () => {
       },
       streamText: (() => ({
         fullStream: (async function* () {
-          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'Ohio Software rockets' } }
-          yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { query: 'Ohio Software rockets', results: [] } }
-          yield { type: 'text-delta', delta: 'Kevin is associated with Ohio Software and rockets.' }
+          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'unsupported affiliation' } }
+          yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { query: 'unsupported affiliation', results: [] } }
+          yield { type: 'text-delta', delta: 'The assistant asserts an unsupported external affiliation.' }
         })(),
         response: Promise.resolve({
-          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Kevin is associated with Ohio Software and rockets.' }] }],
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'The assistant asserts an unsupported external affiliation.' }] }],
         }),
       })) as never,
     })
     const events = []
 
-    for await (const event of agent.send('is Kevin associated with Ohio Software and rockets?')) {
+    for await (const event of agent.send('is the assistant tied to an unsupported external affiliation?')) {
       events.push(event)
     }
 
