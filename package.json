@@ -13,9 +13,10 @@
   "scripts": {
     "build": "pnpm --filter @kevinmarmstrong/edgekit build && pnpm --filter @kevinmarmstrong/edgekit-skills build && pnpm --filter @kevinmarmstrong/edgekit-knowledge build && pnpm --filter @kevinmarmstrong/edgekit-governance build && pnpm --filter @kevinmarmstrong/edgekit-mcp build && pnpm --filter @kevinmarmstrong/edgekit-agui build && pnpm --filter @kevinmarmstrong/edgekit-ui build && pnpm --filter @kevinmarmstrong/edgekit-react build && pnpm --filter @kevinmarmstrong/edgekit-cli build && pnpm --filter @edgekit/ecommerce-demo build && pnpm --filter @edgekit/site build",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest run && node scripts/check-core-banned-patterns.mjs && node scripts/check-demo-isolation.mjs && node scripts/check-lite-entrypoints.mjs && node scripts/check-v35-constraints.mjs",
+    "test": "vitest run && node scripts/check-core-banned-patterns.mjs && node scripts/check-demo-isolation.mjs && node scripts/check-package-canary-boundary.mjs && node scripts/check-lite-entrypoints.mjs && node scripts/check-v35-constraints.mjs",
     "check:core-banned-patterns": "node scripts/check-core-banned-patterns.mjs",
     "check:demo-isolation": "node scripts/check-demo-isolation.mjs",
+    "check:package-canaries": "node scripts/check-package-canary-boundary.mjs",
     "check:lite-entrypoints": "node scripts/check-lite-entrypoints.mjs",
     "check:v35": "node scripts/check-v35-constraints.mjs",
     "test:e2e": "pnpm build && EDGEKIT_E2E_FRESH=1 playwright test",
