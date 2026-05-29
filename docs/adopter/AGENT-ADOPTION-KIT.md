@@ -2,7 +2,11 @@ Audience: adopter
 
 # Agent Adoption Kit
 
-The Adoption Kit is the low-friction path for developers and coding agents that need to add Edgekit to a real app without drifting into a generic chatbot.
+The Adoption Kit is the low-friction path for developers and coding agents that need to add local-first tool-using Edgekit agents to a real app without drifting into a generic chatbot.
+
+Start from the mission: Edgekit lets a browser-local model use app-owned tools
+to operate an existing workflow. Q&A is one read-only tool workflow. Basic mode
+is a fallback, not the product success path.
 
 ## If An Agent Starts On The Website
 
@@ -18,7 +22,7 @@ It has four layers:
 
 1. **Guides** for humans: architecture, quick start, production recipes, and runtime guarantees.
 2. **Agent skills** for coding agents: procedural `SKILL.md` files that tell an implementation agent what to inspect, create, test, and avoid.
-3. **Recipes** for opinionated install paths: support workflow, Knowledge Access, Astro intake plus knowledge, and future framework/app patterns.
+3. **Recipes** for opinionated install paths: support workflow, Knowledge Access, worker handoff, Astro intake plus knowledge, and future framework/app patterns.
 4. **Outcome harnesses** that prove final answers, app actions, approvals, citations, telemetry, and state changes.
 
 ## When To Use Each Layer
@@ -29,24 +33,49 @@ It has four layers:
 | Ask a coding agent to implement Edgekit | `docs/agent-skills/edgekit-implementer/SKILL.md` |
 | Add grounded Q&A to a public site | `docs/agent-skills/edgekit-public-site-qa/SKILL.md`, `docs/adopter/PUBLIC-SITE-QA-CONTRACT.md` |
 | Prove the implementation works | `docs/agent-skills/edgekit-outcome-tester/SKILL.md` |
+| Verify governed workflow invariants | `packages/core/test/workflow-invariants-harness.ts`, exercised by `packages/core/test/workflow-invariants.test.ts` |
 | Improve Skill/Profile text safely | `docs/agent-skills/edgekit-skill-optimizer/SKILL.md` |
 | Review security and app authority | `docs/agent-skills/edgekit-security-review/SKILL.md` |
 | Start from an opinionated app pattern | `docs/adopter/RECIPE-CATALOG.md` or `edgekit-init mission --recipe ...` |
+| Escalate from a browser-local flow to an app-owned worker | `docs/adopter/WORKER-HANDOFF-RECIPE.md` |
 
 ## Coding Agent Contract
 
 A coding agent should not start by editing random app files. It should:
 
 1. Identify one narrow mission.
-2. Inventory existing app capabilities, auth, state, and UI surface.
-3. Create 2-5 Skills.
-4. Create one Mission Profile.
-5. Register app-owned tools.
-6. Add approval gates for risky mutations.
-7. Add Knowledge Access only when the mission needs source-owned retrieval.
-8. Add outcome scenarios.
-9. Run the verification loop.
-10. Tune Skills/Profile text only when test data proves a gap.
+2. Inventory existing app capabilities, auth, state, UI surface, and app APIs a human user already operates.
+3. Define the app-owned tool surface first: read state, search knowledge, inspect workflow context, fill forms, propose actions, call APIs, and perform approved mutations.
+4. Create 2-5 Skills around those tools.
+5. Create one Mission Profile.
+6. Register executable app-owned tools.
+7. Add approval gates for risky mutations.
+8. Wire cascade/readiness so a known local-model browser does not silently stay in Basic mode.
+9. Add Knowledge Access only when the mission needs source-owned retrieval.
+10. Add outcome scenarios that fail if the agent answers without required tools.
+11. Run the verification loop.
+12. Tune Skills/Profile text only when test data proves a gap.
+
+## Workflow Invariant Acceptance Harness
+
+Maintainers can copy or adapt `packages/core/test/workflow-invariants-harness.ts`
+when a recipe, demo, or adopter app needs to prove the common governed-workflow
+bundle rather than a single scripted transcript. The harness accepts generic
+fixtures and drives them through strict grounding, an app-owned read tool, an
+approval-gated risky mutation, a host adapter/action boundary, Mission Control
+telemetry, and audit trail assertions.
+
+The core regression at `packages/core/test/workflow-invariants.test.ts` runs the
+same harness against two different minimal fixtures. Keep new fixtures
+app-agnostic: use generic tool names, evidence payloads, and state transitions;
+do not promote demo-specific proper nouns, sample data, or business rules into
+shared package tests.
+
+Run the focused proof with:
+
+```bash
+pnpm vitest run packages/core/test/workflow-invariants.test.ts
+```
 
 ## Recipe Philosophy
 
