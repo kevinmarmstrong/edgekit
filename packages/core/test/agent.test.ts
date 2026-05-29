@@ -7,6 +7,7 @@ import {
   createAgent,
   createAgUiAgent,
   createAuditTrail,
+  createCascadeOnboardingController,
   createCascadeReadinessController,
   createHandoffEnvelope,
   createHybridModelRouter,
@@ -1127,6 +1128,128 @@ describe('createCascadeReadinessController', () => {
     expect(snapshot.shouldHideFeatures).toBe(true)
     expect(snapshot.missingCapabilities).toEqual(['local-model'])
     expect(snapshot.recommendedAction.type).toBe('hide')
+  })
+
+  it('adds adopter-facing display fields that distinguish local, cloud, downloadable, hidden, and basic modes', async () => {
+    const local = createCascadeReadinessController({
+      providers: [createModelProvider({ id: 'chrome-ai', label: 'Chrome AI', resolve: async () => fakeModel })],
+    })
+    const cloud = createCascadeReadinessController({
+      providers: [createModelProvider({ id: 'server-route', label: 'Server route', resolve: async () => fakeModel })],
+    })
+    const downloadable = createCascadeReadinessController({
+      providers: [
+        createModelProvider({
+          id: 'webllm',
+          label: 'WebLLM',
+          resolve: async context => {
+            await context.requestDownload({ provider: 'webllm', modelSize: 'small', message: 'Download a local model?' })
+            return null
+          },
+        }),
+      ],
+      downloadPolicy: 'prompt',
+    })
+    const downloading = createCascadeReadinessController()
+    const hidden = createCascadeReadinessController()
+    const basic = createCascadeReadinessController({ fallback: true })
+
+    await expect(local.check()).resolves.toMatchObject({
+      mode: 'local-ready',
+      displayMode: 'local-ready',
+      providerKind: 'local',
+      choiceState: 'ready',
+    })
+    await expect(cloud.check()).resolves.toMatchObject({
+      mode: 'local-ready',
+      displayMode: 'cloud-ready',
+      providerKind: 'cloud',
+      choiceState: 'ready',
+    })
+    await expect(downloadable.check()).resolves.toMatchObject({
+      mode: 'downloadable',
+      displayMode: 'local-downloadable',
+      providerKind: 'local',
+      choiceState: 'downloadable',
+    })
+    expect(downloading.recordStatus({ provider: 'webllm', status: 'downloading' })).toMatchObject({
+      mode: 'downloadable',
+      displayMode: 'local-downloading',
+      providerKind: 'local',
+      choiceState: 'downloading',
+    })
+    expect(hidden.hideAgent('Hidden by preference.')).toMatchObject({
+      mode: 'hidden',
+      displayMode: 'hidden',
+      providerKind: 'none',
+      choiceState: 'hidden',
+    })
+    expect(basic.useFallback()).toMatchObject({
+      mode: 'fallback-ready',
+      displayMode: 'basic-fallback',
+      providerKind: 'basic',
+      choiceState: 'fallback',
+    })
+  })
+
+  it('provides a local-first onboarding controller with reusable switching methods and injected preferences', async () => {
+    const writes: Array<{ mode: string; providerId?: string; reason?: string }> = []
+    let openReason = ''
+    let preference: { mode: 'auto' | 'local' | 'server' | 'basic'; providerId?: string; reason?: string } = { mode: 'auto' }
+    const preferenceStore = {
+      read: () => preference,
+      write: (choice: { mode: 'auto' | 'local' | 'server' | 'basic'; providerId?: string; reason?: string }) => {
+        preference = choice
+        writes.push(choice)
+      },
+      clear: vi.fn(() => {
+        preference = { mode: 'auto' }
+      }),
+    }
+    const controller = createCascadeOnboardingController({
+      providers: [
+        createModelProvider({ id: 'chrome-ai', label: 'Chrome AI', resolve: async () => fakeModel }),
+        createModelProvider({ id: 'server-route', label: 'Server route', resolve: async () => fakeModel }),
+      ],
+      fallback: true,
+      preferenceStore,
+      onChoiceOpen: reason => {
+        openReason = reason ?? ''
+      },
+    })
+
+    await expect(controller.check()).resolves.toMatchObject({
+      displayMode: 'local-ready',
+      providerKind: 'local',
+      choiceState: 'ready',
+      capabilities: expect.not.arrayContaining(['no-model-fallback']),
+    })
+    expect(controller.openChoice('settings')).toMatchObject({ displayMode: 'local-ready' })
+    expect(openReason).toBe('settings')
+
+    expect(controller.chooseBasic('user-choice')).toMatchObject({
+      displayMode: 'basic-fallback',
+      providerKind: 'basic',
+      choiceState: 'fallback',
+    })
+    expect(writes.at(-1)).toMatchObject({ mode: 'basic', reason: 'user-choice' })
+
+    await expect(controller.chooseServer('server-route')).resolves.toMatchObject({
+      displayMode: 'cloud-ready',
+      providerKind: 'cloud',
+      choiceState: 'ready',
+    })
+    expect(writes.at(-1)).toMatchObject({ mode: 'server', providerId: 'server-route' })
+
+    await expect(controller.chooseLocal('chrome-ai')).resolves.toMatchObject({
+      displayMode: 'local-ready',
+      providerKind: 'local',
+      choiceState: 'ready',
+    })
+    expect(writes.at(-1)).toMatchObject({ mode: 'local', providerId: 'chrome-ai' })
+
+    await controller.resetChoice()
+    expect(preferenceStore.clear).toHaveBeenCalledOnce()
   })
 })
 

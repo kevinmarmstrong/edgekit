@@ -133,29 +133,61 @@ const chat = mountChat('#my-sidecar', {
 })
 ```
 
-For public or mixed-browser surfaces, add a cascade readiness check before promising a full local agent experience:
+For public or mixed-browser surfaces, make cascade onboarding part of the install path before promising a full local agent experience. A browser with a known local model should reach **local-ready full agent mode**. Basic/search-only fallback is explicit degraded behavior after the local path is unavailable, declined, hidden by policy, or not appropriate for the current user.
 
 ```ts
-const readiness = createCascadeReadinessController({
-  providers: [chromeAI()],
-  downloadPolicy: 'never',
+import { chromeAI, createCascadeOnboardingController, webLLM, type CascadeReadinessSnapshot } from '@kevinmarmstrong/edgekit'
+
+const readiness = createCascadeOnboardingController({
+  providers: [
+    chromeAI(),
+    webLLM({ model: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC' }),
+    // Optional app-owned server/cloud provider: label it as server fallback,
+    // not as browser-local mode.
+  ],
   fallback: true,
-  requiredCapabilities: ['tools', 'approvals', 'edgeview'],
+  requiredCapabilities: ['local-model', 'tools', 'approvals', 'edgeview'],
   requiredTools: ['searchProducts', 'addToCart'],
   tools: { searchProducts, addToCart },
-  visibilityPolicy: 'show-basic-when-local-unavailable',
+  preferenceStore: appOwnedPreferenceStore,
 })
 
 chat.configure({
   cascadeReadiness: readiness,
   onNoModel: ({ input, readiness }) =>
-    `${readiness?.message}\n\n${answerWithBasicCatalogMode(input)}`,
+    `${readiness?.message ?? 'Local AI is unavailable.'}\n\nBasic mode only: ${answerWithBasicCatalogMode(input)}`,
 })
 
+readiness.subscribe(snapshot => renderCapabilityMode(toCapabilityMode(snapshot)))
 void readiness.check()
 ```
 
-Render the readiness snapshot however your product wants: onboarding wizard, settings panel, banner, disabled CTA, or hidden agent surface. The optional `<edge-cascade-wizard>` component is only the demo UI.
+Use the snapshot to surface the capability mode in your product, not as hidden developer state:
+
+| User-visible mode | Snapshot signal | What the app should promise |
+| --- | --- | --- |
+| Local-ready | `snapshot.displayMode === 'local-ready'`, `snapshot.providerKind === 'local'`, and `snapshot.canRunAgent === true` | Full browser-local agent path with registered tools, approvals, EdgeView, telemetry, and audit hooks. |
+| Downloading/downloadable | `snapshot.displayMode === 'local-downloading'` or `snapshot.displayMode === 'local-downloadable'` | Ask for consent, show setup/progress, and keep agent-only actions disabled until ready. |
+| Cloud/server fallback | `snapshot.displayMode === 'cloud-ready'` and `snapshot.providerKind === 'cloud'` | Explicit escalation through your backend. Useful, but not local-ready browser mode. |
+| Basic/no-model fallback | `snapshot.displayMode === 'basic-fallback'` or `snapshot.recommendedAction.type === 'fallback'` | Labeled degraded behavior such as search-only or deterministic guidance. Do not count this as release-proof success for a known local-model browser. |
+| Hidden/unavailable/error | `snapshot.choiceState === 'hidden'`, `snapshot.displayMode === 'unavailable'`, or `snapshot.displayMode === 'error'` | Hide the launcher, show setup guidance, or offer retry. Do not imply agent behavior. |
+
+```ts
+function toCapabilityMode(snapshot: CascadeReadinessSnapshot) {
+  if (snapshot.displayMode === 'cloud-ready') return 'cloud/server fallback'
+  if (snapshot.displayMode === 'local-ready' && snapshot.canRunAgent) return 'local-ready'
+  if (snapshot.displayMode === 'local-downloading') return 'downloading'
+  if (snapshot.displayMode === 'local-downloadable') return 'downloadable'
+  if (snapshot.displayMode === 'basic-fallback') return 'Basic/no-model fallback'
+  if (snapshot.displayMode === 'error') return 'setup error'
+  if (snapshot.shouldHideFeatures) return 'hidden'
+  return 'unavailable'
+}
+```
+
+First visit and later switching should use the same controller contract. Your app owns copy, styling, preference storage, and authorization; Edgekit provides the reusable readiness snapshot plus `check()`, `chooseLocal(providerId)`, `chooseServer(providerId)`, `chooseBasic()`, `openChoice(reason)`, `resetChoice()`, `hideAgent()`, and `retry()` methods. Wire those methods from places where users naturally revisit capability choice: settings, a task trigger that needs agent mode, or an app prompt when the current mode cannot satisfy the request.
+
+Render the readiness snapshot however your product wants: onboarding wizard, settings panel, banner, disabled CTA, or hidden agent surface. The optional `<edge-cascade-wizard>` component is demo UI; do not copy demo-local persistence wiring as the API. If you persist a user preference, keep it app-owned and inject it with `preferenceStore` so local, server, Basic, and reset choices flow through the same controller.
 
 `<edge-chat>` has supported theming hooks: `agent-title`, `agent-subtitle`, `status-text`, CSS custom properties such as `--edge-chat-accent`, and `::part()` selectors for header, messages, inputs, and buttons. Use those before reaching into the shadow DOM.
 
