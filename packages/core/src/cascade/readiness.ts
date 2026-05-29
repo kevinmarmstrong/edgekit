@@ -28,6 +28,29 @@ export type CascadeMode =
   | 'unavailable'
   | 'error'
 
+export type CascadeDisplayMode =
+  | 'checking'
+  | 'local-ready'
+  | 'local-downloadable'
+  | 'local-downloading'
+  | 'cloud-ready'
+  | 'basic-fallback'
+  | 'hidden'
+  | 'unavailable'
+  | 'error'
+
+export type CascadeProviderKind = 'local' | 'cloud' | 'basic' | 'none'
+
+export type CascadeChoiceState =
+  | 'checking'
+  | 'ready'
+  | 'downloadable'
+  | 'downloading'
+  | 'fallback'
+  | 'hidden'
+  | 'unavailable'
+  | 'error'
+
 export type CascadeActionType =
   | 'continue'
   | 'prompt'
@@ -62,6 +85,9 @@ export interface CascadeRecommendedAction {
 
 export interface CascadeReadinessSnapshot {
   mode: CascadeMode
+  displayMode: CascadeDisplayMode
+  providerKind: CascadeProviderKind
+  choiceState: CascadeChoiceState
   message: string
   providers: CascadeProviderSnapshot[]
   capabilities: CascadeCapability[]
@@ -88,6 +114,7 @@ export interface CascadeReadinessMessages {
 
 export interface CascadeReadinessOptions {
   providers?: Array<ModelProvider | LanguageModelV3>
+  preferredProviderId?: string
   downloadPolicy?: DownloadPolicy
   requiredCapabilities?: CascadeCapability[]
   tools?: Record<string, unknown>
@@ -121,6 +148,34 @@ export interface EdgeCascadeReadinessController {
   useFallback(): CascadeReadinessSnapshot
   hideAgent(message?: string): CascadeReadinessSnapshot
   retry(): Promise<CascadeReadinessSnapshot>
+}
+
+export type CascadePreferenceMode = 'auto' | 'local' | 'server' | 'basic'
+
+export interface CascadePreference {
+  mode: CascadePreferenceMode
+  providerId?: string
+  reason?: string
+  updatedAt?: string
+}
+
+export interface CascadePreferenceStore {
+  read(): CascadePreference | null | undefined
+  write(choice: CascadePreference): void
+  clear?(): void
+}
+
+export interface CascadeOnboardingOptions extends CascadeReadinessOptions {
+  preferenceStore?: CascadePreferenceStore
+  onChoiceOpen?: (reason?: string, snapshot?: CascadeReadinessSnapshot) => void
+}
+
+export interface EdgeCascadeOnboardingController extends EdgeCascadeReadinessController {
+  chooseLocal(providerId?: string): Promise<CascadeReadinessSnapshot>
+  chooseServer(providerId?: string): Promise<CascadeReadinessSnapshot>
+  chooseBasic(reason?: string): CascadeReadinessSnapshot
+  openChoice(reason?: string): CascadeReadinessSnapshot
+  resetChoice(): Promise<CascadeReadinessSnapshot>
 }
 
 export function createCascadeReadinessController(
@@ -272,6 +327,88 @@ export function createCascadeReadinessController(
   }
 }
 
+export function createCascadeOnboardingController(
+  options: CascadeOnboardingOptions = {},
+): EdgeCascadeOnboardingController {
+  const { preferenceStore, onChoiceOpen, ...readinessOptions } = options
+  const fallbackAllowed = readinessOptions.fallback === true
+  const controller = createCascadeReadinessController({
+    ...readinessOptions,
+    downloadPolicy: readinessOptions.downloadPolicy ?? 'prompt',
+    fallback: false,
+  })
+
+  const timestamp = () => (readinessOptions.now ?? (() => new Date().toISOString()))()
+  const writePreference = (choice: CascadePreference) => {
+    preferenceStore?.write({ ...choice, updatedAt: choice.updatedAt ?? timestamp() })
+  }
+
+  const shouldUseBasicAfterCheck = (next: CascadeReadinessSnapshot) => {
+    if (!fallbackAllowed) return false
+    if (next.mode === 'local-ready' || next.mode === 'downloadable' || next.mode === 'checking') return false
+    return next.providers.length > 0
+      && next.providers.every(provider => ['unavailable', 'skipped', 'denied', 'error'].includes(provider.status))
+  }
+
+  const checkWithPreference = async (checkOptions: CascadeReadinessCheckOptions = {}) => {
+    const preference = preferenceStore?.read()
+    if (!checkOptions.providerId && preference?.mode === 'basic' && fallbackAllowed) {
+      controller.update({ fallback: true, preferredProviderId: undefined })
+      return controller.useFallback()
+    }
+
+    const providerId = checkOptions.providerId
+      ?? (preference?.mode === 'local' || preference?.mode === 'server' ? preference.providerId : undefined)
+    controller.update({ fallback: false, preferredProviderId: providerId })
+    const next = await controller.check({ ...checkOptions, providerId })
+    if (shouldUseBasicAfterCheck(next)) {
+      controller.update({ fallback: true, preferredProviderId: undefined })
+      return controller.useFallback()
+    }
+    return next
+  }
+
+  return {
+    check: checkWithPreference,
+    getSnapshot: controller.getSnapshot,
+    subscribe: controller.subscribe,
+    recordStatus: controller.recordStatus,
+    update: controller.update,
+    promptDownload(providerId) {
+      controller.update({ fallback: false, preferredProviderId: providerId })
+      return controller.promptDownload(providerId)
+    },
+    useFallback: controller.useFallback,
+    hideAgent: controller.hideAgent,
+    retry() {
+      return checkWithPreference()
+    },
+    chooseLocal(providerId) {
+      writePreference({ mode: 'local', providerId })
+      return checkWithPreference({ providerId })
+    },
+    chooseServer(providerId) {
+      writePreference({ mode: 'server', providerId })
+      return checkWithPreference({ providerId })
+    },
+    chooseBasic(reason) {
+      writePreference({ mode: 'basic', reason })
+      controller.update({ fallback: true, preferredProviderId: undefined })
+      return controller.useFallback()
+    },
+    openChoice(reason) {
+      const current = controller.getSnapshot()
+      onChoiceOpen?.(reason, current)
+      return current
+    },
+    async resetChoice() {
+      preferenceStore?.clear?.()
+      controller.update({ fallback: false, preferredProviderId: undefined })
+      return checkWithPreference()
+    },
+  }
+}
+
 function defaultBrowserModelProviders(): ModelProvider[] {
   return [
     createModelProvider({
@@ -341,10 +478,10 @@ function buildCascadeSnapshot(
   if (options.edgeView !== false) capabilities.add('edgeview')
 
   const missingCapabilities = requiredCapabilities.filter(capability => !capabilities.has(capability))
-  const downloading = providers.find(provider => provider.status === 'downloading')
-  const ready = providers.find(provider => provider.status === 'ready')
-  const downloadable = providers.find(provider => provider.status === 'downloadable')
-  const error = providers.find(provider => provider.status === 'error')
+  const downloading = preferredProvider(providers, options.preferredProviderId, provider => provider.status === 'downloading')
+  const ready = preferredProvider(providers, options.preferredProviderId, provider => provider.status === 'ready')
+  const downloadable = preferredProvider(providers, options.preferredProviderId, provider => provider.status === 'downloadable')
+  const error = preferredProvider(providers, options.preferredProviderId, provider => provider.status === 'error')
   const checking = providers.some(provider => provider.status === 'checking')
 
   let mode: CascadeMode = forcedMode ?? 'unavailable'
@@ -357,8 +494,12 @@ function buildCascadeSnapshot(
     else if (error) mode = 'error'
   }
 
+  const temporaryView = describeCascadeView(mode, { ready, downloadable, downloading, error })
   const temporarySnapshot = {
     mode,
+    displayMode: temporaryView.displayMode,
+    providerKind: temporaryView.providerKind,
+    choiceState: temporaryView.choiceState,
     message: '',
     providers,
     capabilities: [...capabilities],
@@ -397,8 +538,12 @@ function buildCascadeSnapshot(
   })
 
   const message = forcedMessage ?? recommendedAction.message
+  const view = describeCascadeView(mode, { ready, downloadable, downloading, error })
   return {
     mode,
+    displayMode: view.displayMode,
+    providerKind: view.providerKind,
+    choiceState: view.choiceState,
     message,
     providers,
     capabilities: [...capabilities],
@@ -411,6 +556,58 @@ function buildCascadeSnapshot(
     downloadPolicy,
     updatedAt: (options.now ?? (() => new Date().toISOString()))(),
   }
+}
+
+function preferredProvider(
+  providers: CascadeProviderSnapshot[],
+  preferredProviderId: string | undefined,
+  predicate: (provider: CascadeProviderSnapshot) => boolean,
+) {
+  const matches = providers.filter(predicate)
+  if (preferredProviderId) return matches.find(provider => provider.id === preferredProviderId) ?? matches[0]
+  return matches[0]
+}
+
+function describeCascadeView(
+  mode: CascadeMode,
+  context: {
+    ready?: CascadeProviderSnapshot
+    downloadable?: CascadeProviderSnapshot
+    downloading?: CascadeProviderSnapshot
+    error?: CascadeProviderSnapshot
+  },
+): Pick<CascadeReadinessSnapshot, 'displayMode' | 'providerKind' | 'choiceState'> {
+  if (mode === 'hidden') return { displayMode: 'hidden', providerKind: 'none', choiceState: 'hidden' }
+  if (mode === 'checking') return { displayMode: 'checking', providerKind: 'none', choiceState: 'checking' }
+  if (mode === 'fallback-ready') return { displayMode: 'basic-fallback', providerKind: 'basic', choiceState: 'fallback' }
+  if (mode === 'error') return { displayMode: 'error', providerKind: providerKindFor(context.error), choiceState: 'error' }
+  if (context.downloading && mode === 'downloadable') {
+    return {
+      displayMode: isCloudRouteProvider(context.downloading.id) ? 'cloud-ready' : 'local-downloading',
+      providerKind: providerKindFor(context.downloading),
+      choiceState: 'downloading',
+    }
+  }
+  if (context.downloadable && mode === 'downloadable') {
+    return {
+      displayMode: isCloudRouteProvider(context.downloadable.id) ? 'cloud-ready' : 'local-downloadable',
+      providerKind: providerKindFor(context.downloadable),
+      choiceState: 'downloadable',
+    }
+  }
+  if (context.ready && mode === 'local-ready') {
+    return {
+      displayMode: isCloudRouteProvider(context.ready.id) ? 'cloud-ready' : 'local-ready',
+      providerKind: providerKindFor(context.ready),
+      choiceState: 'ready',
+    }
+  }
+  return { displayMode: 'unavailable', providerKind: 'none', choiceState: 'unavailable' }
+}
+
+function providerKindFor(provider?: CascadeProviderSnapshot): CascadeProviderKind {
+  if (!provider) return 'none'
+  return isCloudRouteProvider(provider.id) ? 'cloud' : 'local'
 }
 
 function recommendedCascadeAction(

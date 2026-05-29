@@ -6,8 +6,8 @@ import type { WebLLMOptions } from './providers/web-llm'
 export { stepCountIs, tool, modelOptional } from './tools'
 export type { DownloadPolicy, DownloadPromptEvent, ModelProvider, ModelStatusEvent, NoModelEvent, ResolveModelContext } from './cascade'
 export { createModelProvider, resolveModel } from './cascade'
-export type { CascadeReadinessOptions, CascadeReadinessSnapshot, CascadeRecommendedAction, EdgeCascadeReadinessController } from './cascade/readiness'
-export { createCascadeReadinessController } from './cascade/readiness'
+export type { CascadeOnboardingOptions, CascadePreference, CascadePreferenceMode, CascadePreferenceStore, CascadeReadinessOptions, CascadeReadinessSnapshot, CascadeRecommendedAction, EdgeCascadeOnboardingController, EdgeCascadeReadinessController } from './cascade/readiness'
+export { createCascadeOnboardingController, createCascadeReadinessController } from './cascade/readiness'
 export type { AgentEvent, CreateAgentOptions, EdgeAgent, EdgeAgentIdentity, EdgeGroundingMode, EdgeResponseValidationContext, EdgeResponseValidator, EdgeToolRepairOptions } from './agent'
 export type { CreateClaimEvidenceOptions, CreateClaimSupportValidatorOptions, EdgeClaimEvidenceHandle, EdgeClaimSupportIssue, EdgeClaimSupportIssueCode, EdgeClaimValidationState, EdgeResponseClaim, EdgeResponseValidationResult, ValidateClaimSupportOptions } from './claims'
 export { createClaimEvidence, createClaimSupportValidator, extractClaimEvidenceFromToolResults, validateClaimSupport } from './claims'
@@ -73,7 +73,7 @@ export { agUiEventToAgentEvents, createHandoffEnvelope } from './compat/agui'
 export { createAgUiAgent } from './compat/agui'
 
 /** @deprecated Not part of the v0.3 public API contract; scheduled for removal in v0.4. */
-export type { CascadeActionType, CascadeCapability, CascadeMode, CascadeProviderSnapshot, CascadeProviderStatus, CascadeReadinessCheckOptions, CascadeReadinessMessages, CascadeVisibilityPolicy } from './cascade/readiness'
+export type { CascadeActionType, CascadeCapability, CascadeChoiceState, CascadeDisplayMode, CascadeMode, CascadeProviderKind, CascadeProviderSnapshot, CascadeProviderStatus, CascadeReadinessCheckOptions, CascadeReadinessMessages, CascadeVisibilityPolicy } from './cascade/readiness'
 /** @deprecated Not part of the v0.3 public API contract; scheduled for removal in v0.4. */
 export type { ContextualToolExecute, EdgeAuthContext, EdgeIdentity, EdgePublicIdentity, EdgeStateSnapshot } from './context'
 /** @deprecated Not part of the v0.3 public API contract; scheduled for removal in v0.4. */
