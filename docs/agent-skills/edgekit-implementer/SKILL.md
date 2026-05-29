@@ -44,16 +44,18 @@ Import Skills/Mission Profiles from `@kevinmarmstrong/edgekit-skills`, Knowledge
 1. Identify one narrow mission.
 2. Inspect the host app for existing APIs, state, auth, routes, UI surface, and tests.
 3. Choose the closest recipe:
+   - `public-site-qa`
    - `support-workflow`
    - `knowledge-skill`
    - `astro-intake-knowledge`
-4. Create 2-5 Skills with explicit descriptions, instructions, examples, approval policy, and synthesis requirements.
-5. Create one Mission Profile.
-6. Register app-owned tools with `registerTools()`.
-7. Add `needsApproval: true` to risky executable tools.
-8. Add `stateProvider`, `identityProvider`, telemetry, and audit hooks when the app has those concepts.
-9. Mount `<edge-chat>` or the React wrapper.
-10. Add outcome scenarios before tuning.
+4. For public websites, prefer `docs/agent-skills/edgekit-public-site-qa/SKILL.md`; it is stricter than the general implementer path.
+5. Create 2-5 Skills with explicit descriptions, instructions, examples, approval policy, and synthesis requirements.
+6. Create one Mission Profile.
+7. Register app-owned tools with `registerTools()`.
+8. Add `needsApproval: true` to risky executable tools.
+9. Add `stateProvider`, `identityProvider`, telemetry, and audit hooks when the app has those concepts.
+10. Mount `<edge-chat>` or the React wrapper.
+11. Add outcome scenarios before tuning.
 
 ## Rules
 

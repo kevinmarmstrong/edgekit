@@ -17,6 +17,9 @@ Use this page when deciding what Edgekit guarantees and what the host app must s
 | `requiredTools` | Declare executable tools the host must register | Validation detects missing registered tools when provided | Research suite checks validation failures | Register real app-owned implementations |
 | `EdgeKnowledgeSource` | Normalize app-owned retrieval into cited results | `createKnowledgeTool()` returns source, results, and optional freshness metadata | Knowledge grounding and citation scenarios | Own indexing, authorization, reranking, and freshness policy |
 | `defaults.toolChoice` | Configure model/tool behavior | Applied through `applyMissionProfile()`/`profileToAgentOptions()` | Browser and architecture probes | Choose mission-appropriate defaults |
+| `agentIdentity` | Define what the assistant says it is | Injected into runtime prompt context and no-model defaults | Identity regression prompts | Keep visitor identity separate from assistant identity |
+| `grounding` | Control evidence discipline for factual answers | `strict` sets required tool use, buffers final text, tracks evidence, and applies response validation/no-evidence replacement | Grounding and no-evidence scenarios | Provide read-only evidence tools and test unsupported claims |
+| `validateResponse` | Replace unsupported final text before user-visible release | Runs before strict-mode final text is emitted | Transcript regression prompts | Keep domain-specific forbidden claims in app/profile tests |
 | `tools` on profile | Optional executable tools | Non-empty maps are passed to agent config; empty maps do not wipe registered tools | Unit tests cover no tool-wiping | Prefer `registerTools()` for app functions |
 | `synthesis` | Facts that must survive into final UI/text | Authoring-only warning today | `synthesisFaithfulness` scenarios | Write prompts/tests that prove final answers |
 | `policy` on profile | Mission-level safety intent | Authoring-only warning today | Adoption/security checks | Enforce approvals on executable tools |
@@ -28,6 +31,7 @@ Use this page when deciding what Edgekit guarantees and what the host app must s
 | Redactors | Keep sensitive tool data out of visible and future model context | Tool outputs are redacted before UI, telemetry, audit, and stored model history | Unit tests and privacy scenarios | Minimize prompts and add domain-specific redactors |
 | Telemetry sink | Observe runs/tools/approvals/errors | Events emitted by agent/UI | Mission-control checks | Forward to production observability |
 | Audit trail | Hash-chain tool/approval events | Core audit primitive records entries | Architecture probes | Persist/sign server-side for compliance |
+| `onNoModel.callTool()` | Reuse evidence tools when no browser model is available | Calls the active tool surface with session context and blocks non-read-only manifest tools by default | No-model fallback checks | Keep fallback answers grounded in the same source as model answers |
 
 ## Practical Rule
 

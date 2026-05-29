@@ -5,7 +5,7 @@ import { mountSiteAssistant } from './siteAssistant'
 const navGroups = [
   {
     title: 'Start',
-    slugs: ['overview', 'should-i-use-edgekit', 'getting-started', '30-minute-sidecar', 'faq', 'glossary'],
+    slugs: ['overview', 'should-i-use-edgekit', 'getting-started', 'public-site-qa', '30-minute-sidecar', 'faq', 'glossary'],
   },
   {
     title: 'Concepts',

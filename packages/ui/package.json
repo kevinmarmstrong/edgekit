@@ -8,7 +8,9 @@
   },
   "license": "MIT",
   "sideEffects": [
-    "./dist/index.js"
+    "./dist/index.js",
+    "./dist/lite.js",
+    "./dist/component-*.js"
   ],
   "repository": {
     "type": "git",
@@ -29,6 +31,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./lite": {
+      "types": "./dist/lite.d.ts",
+      "import": "./dist/lite.js"
     }
   },
   "files": [

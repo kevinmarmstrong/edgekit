@@ -1,10 +1,12 @@
-import type { CreateAgentOptions } from '@kevinmarmstrong/edgekit'
+import type { CreateAgentOptions, EdgeAgentIdentity, EdgeGroundingMode } from '@kevinmarmstrong/edgekit'
 
 export interface EdgeMissionProfile {
   id: string
   mission: 'public-catalog-shopping' | 'docs-qa' | 'internal-admin' | 'support-workflow' | string
   version: string
   systemPrompt: string
+  agentIdentity?: EdgeAgentIdentity
+  grounding?: EdgeGroundingMode
   tools?: Record<string, unknown>
   requiredTools?: string[]
   defaults?: Partial<Pick<CreateAgentOptions,
@@ -128,6 +130,24 @@ export function validateMissionProfile(
     })
   }
 
+  if (profile.grounding === 'strict' && !executableTools && !hasRequiredTools(profile)) {
+    issues.push({
+      severity: 'error',
+      code: 'strict-grounding-without-tools',
+      path: 'grounding',
+      message: 'Strict grounding needs executable profile tools or requiredTools metadata so factual answers are backed by host evidence.',
+    })
+  }
+
+  if (profile.agentIdentity && !profile.agentIdentity.name?.trim()) {
+    issues.push({
+      severity: 'error',
+      code: 'missing-agent-identity-name',
+      path: 'agentIdentity.name',
+      message: 'Agent identity must include a stable name when provided.',
+    })
+  }
+
   const registeredTools = toolNamesFrom(options.registeredTools)
   if (registeredTools) {
     for (const requiredTool of uniqueRequiredTools) {
@@ -185,6 +205,17 @@ export function profileToAgentOptions(profile: EdgeMissionProfile): Partial<Crea
   const result: Partial<CreateAgentOptions> = {
     systemPrompt: profile.systemPrompt,
     ...profile.defaults,
+  }
+
+  if (profile.agentIdentity) {
+    result.agentIdentity = profile.agentIdentity
+  }
+
+  if (profile.grounding) {
+    result.grounding = profile.grounding
+    if (profile.grounding === 'strict' && result.toolChoice == null && (hasExecutableTools(profile) || hasRequiredTools(profile))) {
+      result.toolChoice = 'required'
+    }
   }
 
   if (profile.tools && Object.keys(profile.tools).length > 0) {

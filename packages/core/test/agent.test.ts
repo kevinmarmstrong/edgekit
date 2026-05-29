@@ -1178,6 +1178,196 @@ describe('createAgent', () => {
     })
   })
 
+  it('validates no-model fallback text in strict grounding mode', async () => {
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [createModelProvider({ id: 'none', label: 'None', resolve: async () => null })],
+      tools: { searchSite: { execute: vi.fn() } },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      downloadPolicy: 'never',
+      onNoModel: () => 'I am created by the Gemma team.',
+    })
+    const events = []
+
+    for await (const event of agent.send('who are you?')) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'no-model',
+      message: 'I do not know from this site.',
+    }))
+    expect(events).not.toContainEqual(expect.objectContaining({
+      message: 'I am created by the Gemma team.',
+    }))
+  })
+
+  it('treats no-model callTool results as strict grounding evidence', async () => {
+    const searchSite = vi.fn(async () => ({ results: [{ title: 'Identity', excerpt: 'I am the Site assistant.' }] }))
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [createModelProvider({ id: 'none', label: 'None', resolve: async () => null })],
+      tools: { searchSite: { execute: searchSite, readOnly: true } },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      downloadPolicy: 'never',
+      onNoModel: async ({ callTool }) => {
+        await callTool('searchSite', { query: 'identity' })
+        return 'I am the Site assistant.'
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('who are you?')) {
+      events.push(event)
+    }
+
+    expect(searchSite).toHaveBeenCalledWith({ query: 'identity' }, expect.objectContaining({ session: expect.any(Object) }))
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'no-model',
+      message: 'I am the Site assistant.',
+    }))
+  })
+
+  it('redacts no-model callTool results before fallback handlers consume them', async () => {
+    const searchSite = vi.fn(async () => ({
+      results: [{ title: 'Contact', excerpt: 'Reach Kevin at kevin@example.test.' }],
+    }))
+    const redactor = (value: unknown, context: { phase?: string }) => {
+      if (context.phase !== 'tool-result' || typeof value !== 'string') return value
+      return value.replaceAll('kevin@example.test', '[REDACTED:email]')
+    }
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [createModelProvider({ id: 'none', label: 'None', resolve: async () => null })],
+      tools: { searchSite: { execute: searchSite, readOnly: true } },
+      redactors: redactor,
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      downloadPolicy: 'never',
+      onNoModel: async ({ callTool }) => {
+        const output = await callTool('searchSite', { query: 'contact' })
+        return JSON.stringify(output)
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('how do I contact Kevin?')) {
+      events.push(event)
+    }
+
+    const noModelEvent = events.find(event => event.type === 'no-model')
+    expect(noModelEvent).toMatchObject({
+      message: expect.stringContaining('[REDACTED:email]'),
+    })
+    expect(noModelEvent).toMatchObject({
+      message: expect.not.stringContaining('kevin@example.test'),
+    })
+  })
+
+  it('denies unmanifested mutating tools in no-model fallback by default', async () => {
+    const addToCart = vi.fn(async () => ({ ok: true }))
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [createModelProvider({ id: 'none', label: 'None', resolve: async () => null })],
+      tools: { addToCart: { execute: addToCart, needsApproval: true } },
+      downloadPolicy: 'never',
+      onNoModel: async ({ callTool }) => {
+        try {
+          await callTool('addToCart', { productId: 'dunk' })
+          return 'tool ran'
+        } catch (error) {
+          return error instanceof Error ? error.message : 'blocked'
+        }
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('add dunk to cart')) {
+      events.push(event)
+    }
+
+    expect(addToCart).not.toHaveBeenCalled()
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'no-model',
+      message: 'Tool "addToCart" requires approval and cannot run in no-model fallback.',
+    }))
+  })
+
+  it('evaluates function-valued approval gates before no-model tool execution', async () => {
+    const addToCart = vi.fn(async () => ({ ok: true }))
+    const needsApproval = vi.fn((input: Record<string, unknown>) => input.productId === 'dunk')
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [createModelProvider({ id: 'none', label: 'None', resolve: async () => null })],
+      tools: { addToCart: { execute: addToCart, readOnly: true, needsApproval } },
+      downloadPolicy: 'never',
+      onNoModel: async ({ callTool }) => {
+        try {
+          await callTool('addToCart', { productId: 'dunk' })
+          return 'tool ran'
+        } catch (error) {
+          return error instanceof Error ? error.message : 'blocked'
+        }
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('add dunk to cart')) {
+      events.push(event)
+    }
+
+    expect(needsApproval).toHaveBeenCalledWith(
+      { productId: 'dunk' },
+      expect.objectContaining({ session: expect.any(Object), args: { productId: 'dunk' } }),
+    )
+    expect(addToCart).not.toHaveBeenCalled()
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'no-model',
+      message: 'Tool "addToCart" requires approval and cannot run in no-model fallback.',
+    }))
+  })
+
+  it('lets approval gates dominate read-only manifests in no-model fallback', async () => {
+    const addToCart = vi.fn(async () => ({ ok: true }))
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [createModelProvider({ id: 'none', label: 'None', resolve: async () => null })],
+      tools: { addToCart: { execute: addToCart, needsApproval: true } },
+      toolManifests: [{ name: 'addToCart', tool: { execute: addToCart, needsApproval: true }, readOnly: true }],
+      downloadPolicy: 'never',
+      onNoModel: async ({ callTool }) => {
+        try {
+          await callTool('addToCart', { productId: 'dunk' })
+          return 'tool ran'
+        } catch (error) {
+          return error instanceof Error ? error.message : 'blocked'
+        }
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('add dunk to cart')) {
+      events.push(event)
+    }
+
+    expect(addToCart).not.toHaveBeenCalled()
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'no-model',
+      message: 'Tool "addToCart" requires approval and cannot run in no-model fallback.',
+    }))
+  })
+
   it('returns a cached response without invoking model inference', async () => {
     const responseCache = createMemoryResponseCache()
     await responseCache.set({
@@ -1209,6 +1399,85 @@ describe('createAgent', () => {
     })
     expect(events).toContainEqual({ type: 'text-delta', text: 'Cached answer.' })
     expect(events).toContainEqual({ type: 'done', text: 'Cached answer.' })
+  })
+
+  it('skips strict cached responses that do not carry evidence metadata', async () => {
+    const responseCache = createMemoryResponseCache()
+    await responseCache.set({
+      key: 'edgekit-cache:identity',
+      text: 'I am created by the Gemma team.',
+      createdAt: '2026-05-24T00:00:00.000Z',
+    })
+    const streamText = vi.fn(() => ({
+      fullStream: (async function* () {
+        yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'identity' } }
+        yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { results: [{ title: 'Identity' }] } }
+        yield { type: 'text-delta', delta: 'I am the Site assistant.' }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am the Site assistant.' }] }],
+      }),
+    }))
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      streamText: streamText as never,
+      responseCache,
+      cachePolicy: {
+        key: () => 'edgekit-cache:identity',
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('who are you?')) {
+      events.push(event)
+    }
+
+    expect(streamText).toHaveBeenCalled()
+    expect(events).not.toContainEqual({ type: 'text-delta', text: 'I am created by the Gemma team.' })
+    expect(events).toContainEqual({ type: 'text-delta', text: 'I am the Site assistant.' })
+    expect(events).toContainEqual({ type: 'done', text: 'I am the Site assistant.' })
+  })
+
+  it('uses strict cached responses that carry prior evidence metadata', async () => {
+    const responseCache = createMemoryResponseCache()
+    await responseCache.set({
+      key: 'edgekit-cache:grounded',
+      text: 'Cached grounded answer.',
+      createdAt: '2026-05-24T00:00:00.000Z',
+      metadata: { grounding: 'strict', hasUsableEvidence: true },
+    })
+    const streamText = vi.fn()
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      streamText: streamText as never,
+      responseCache,
+      cachePolicy: {
+        key: () => 'edgekit-cache:grounded',
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('what did search find?')) {
+      events.push(event)
+    }
+
+    expect(streamText).not.toHaveBeenCalled()
+    expect(events).toContainEqual({ type: 'text-delta', text: 'Cached grounded answer.' })
+    expect(events).toContainEqual({ type: 'done', text: 'Cached grounded answer.' })
   })
 
   it('caches clean text responses and skips caching tool workflows', async () => {
@@ -1316,6 +1585,229 @@ describe('createAgent', () => {
     }
 
     expect(streamText).toHaveBeenCalledWith(expect.objectContaining({ toolChoice: 'required' }))
+  })
+
+  it('injects configured agent identity and strict grounding into the model system prompt', async () => {
+    const streamText = vi.fn((options: Record<string, unknown>) => ({
+      fullStream: (async function* () {
+        yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'who are you?' } }
+        yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { results: ['site assistant'] } }
+        yield { type: 'text-delta', delta: 'I am Kevin site assistant.' }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am Kevin site assistant.' }] }],
+      }),
+      options,
+    }))
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      agentIdentity: {
+        name: 'Kevin site assistant',
+        description: 'Built with Edgekit.',
+        modelDisclosure: 'technical',
+      },
+      grounding: 'strict',
+      streamText: streamText as never,
+    })
+
+    for await (const _ of agent.send('who are you?')) {
+      // drain
+    }
+
+    expect(streamText.mock.calls[0][0]).toMatchObject({ toolChoice: 'required' })
+    expect(String(streamText.mock.calls[0][0].system)).toContain('You are Kevin site assistant')
+    expect(String(streamText.mock.calls[0][0].system)).toContain('Strict grounding mode is enabled')
+  })
+
+  it('buffers and replaces strict grounded answers that have no evidence', async () => {
+    const events = []
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      streamText: (() => ({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'I am created by the Gemma team.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am created by the Gemma team.' }] }],
+        }),
+      })) as never,
+    })
+
+    for await (const event of agent.send('who are you?')) {
+      events.push(event)
+    }
+
+    expect(events).not.toContainEqual({ type: 'text-delta', text: 'I am created by the Gemma team.' })
+    expect(events).toContainEqual({ type: 'text-delta', text: 'I do not know from this site.' })
+    expect(events).toContainEqual({ type: 'done', text: 'I do not know from this site.' })
+  })
+
+  it('allows configured assistant identity answers in strict grounding mode', async () => {
+    const agent = createAgent({
+      systemPrompt: 'Answer from configured identity.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      streamText: (() => ({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'I am the Site assistant built with the Edgekit runtime.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am the Site assistant built with the Edgekit runtime.' }] }],
+        }),
+      })) as never,
+    })
+    const events = []
+
+    for await (const event of agent.send('who are you?')) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual({ type: 'text-delta', text: 'I am the Site assistant built with the Edgekit runtime.' })
+    expect(events).toContainEqual({ type: 'done', text: 'I am the Site assistant built with the Edgekit runtime.' })
+  })
+
+  it('stores the validated strict response in history instead of the rejected model text', async () => {
+    const streamText = vi.fn()
+      .mockReturnValueOnce({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'I am created by the Gemma team.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'I am created by the Gemma team.' }] }],
+        }),
+      })
+      .mockReturnValueOnce({
+        fullStream: (async function* () {
+          yield { type: 'text-delta', delta: 'safe followup' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'safe followup' }] }],
+        }),
+      })
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      streamText: streamText as never,
+    })
+
+    for await (const _ of agent.send('who are you?')) {
+      // drain
+    }
+    for await (const _ of agent.send('can you expand?')) {
+      // drain
+    }
+
+    const secondCallMessages = JSON.stringify(streamText.mock.calls[1][0].messages)
+    expect(secondCallMessages).toContain('I do not know from this site.')
+    expect(secondCallMessages).not.toContain('I am created by the Gemma team.')
+  })
+
+  it('lets custom validators replace unsupported strict grounded answers after tool evidence', async () => {
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      validateResponse: ({ text }) => text.includes('rockets') ? 'I do not know from this site.' : null,
+      streamText: (() => ({
+        fullStream: (async function* () {
+          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'rockets' } }
+          yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { results: [{ title: 'Projects', excerpt: 'Kevin writes about software.' }] } }
+          yield { type: 'text-delta', delta: 'Kevin works on rockets.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Kevin works on rockets.' }] }],
+        }),
+      })) as never,
+    })
+    const events = []
+
+    for await (const event of agent.send('is Kevin involved in rockets?')) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual({ type: 'text-delta', text: 'I do not know from this site.' })
+    expect(events).toContainEqual({ type: 'done', text: 'I do not know from this site.' })
+  })
+
+  it('treats empty retrieval results as no evidence in strict grounding mode', async () => {
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [fakeModel],
+      tools: { searchSite: {} },
+      grounding: 'strict',
+      agentIdentity: {
+        name: 'Site assistant',
+        noEvidenceMessage: 'I do not know from this site.',
+      },
+      streamText: (() => ({
+        fullStream: (async function* () {
+          yield { type: 'tool-call', toolCallId: 'tool-1', toolName: 'searchSite', input: { query: 'Ohio Software rockets' } }
+          yield { type: 'tool-result', toolCallId: 'tool-1', toolName: 'searchSite', output: { query: 'Ohio Software rockets', results: [] } }
+          yield { type: 'text-delta', delta: 'Kevin is associated with Ohio Software and rockets.' }
+        })(),
+        response: Promise.resolve({
+          messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Kevin is associated with Ohio Software and rockets.' }] }],
+        }),
+      })) as never,
+    })
+    const events = []
+
+    for await (const event of agent.send('is Kevin associated with Ohio Software and rockets?')) {
+      events.push(event)
+    }
+
+    expect(events).toContainEqual({ type: 'text-delta', text: 'I do not know from this site.' })
+    expect(events).toContainEqual({ type: 'done', text: 'I do not know from this site.' })
+  })
+
+  it('gives no-model fallback a scoped tool caller with the current session', async () => {
+    const execute = vi.fn(async input => ({ ok: true, input }))
+    const unavailable = createModelProvider({ id: 'none', label: 'None', resolve: async () => null })
+    const agent = createAgent({
+      systemPrompt: 'Answer from site evidence.',
+      model: [unavailable],
+      toolManifests: [{ name: 'searchSite', tool: { execute }, readOnly: true }],
+      sessionProvider: () => ({ identity: { id: 'user-1' }, state: { summary: 'home page' } }),
+      onNoModel: async ({ input, callTool, session }) => {
+        const result = await callTool('searchSite', { query: input })
+        return `${session.identity?.id}:${JSON.stringify(result)}`
+      },
+    })
+    const events = []
+
+    for await (const event of agent.send('contact')) {
+      events.push(event)
+    }
+
+    expect(execute).toHaveBeenCalledWith({ query: 'contact' }, expect.objectContaining({
+      identity: { id: 'user-1' },
+      state: { summary: 'home page' },
+    }))
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'no-model',
+      message: expect.stringContaining('user-1'),
+    }))
   })
 
   it('resumes a paused tool approval with an approval response message', async () => {

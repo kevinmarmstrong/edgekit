@@ -1,6 +1,7 @@
-import '@kevinmarmstrong/edgekit-ui'
+import { EdgeChat as EdgeChatElement } from '@kevinmarmstrong/edgekit-ui'
 import { chromeAI, createModelProvider, modelOptional, tool, webLLM } from '@kevinmarmstrong/edgekit'
 import type { LanguageModelV3 } from '@kevinmarmstrong/edgekit'
+import type { EdgeChat } from '@kevinmarmstrong/edgekit-ui'
 import { z } from 'zod'
 import './styles.css'
 
@@ -106,7 +107,8 @@ const addToCart = tool({
 })
 
 const catalog = document.querySelector<HTMLElement>('#catalog')
-const chat = document.querySelector('edge-chat')
+ensureEdgeChatDefined()
+const chat = document.querySelector<EdgeChat>('edge-chat')
 const params = new URLSearchParams(window.location.search)
 const scriptedMode = params.get('agentMode') === 'scripted'
 const modelMode = params.get('modelMode') ?? 'chrome'
@@ -156,6 +158,12 @@ function commerceModelCascade(mode: string) {
   if (mode === 'webllm') return [webLLM({ modelSize: 'about 400 MB' })]
   if (mode === 'cascade') return [chromeAI(), webLLM({ modelSize: 'about 400 MB' })]
   return [chromeAI()]
+}
+
+function ensureEdgeChatDefined() {
+  if (!customElements.get('edge-chat')) {
+    customElements.define('edge-chat', EdgeChatElement)
+  }
 }
 
 function commerceToolsForInput(input: string) {

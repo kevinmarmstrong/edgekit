@@ -665,7 +665,7 @@ describe('edge-chat form actions', () => {
   it('mountChat applies profile, tools, labels, and fallback config in one call', async () => {
     const host = document.createElement('div')
     document.body.appendChild(host)
-    const searchSite = { execute: vi.fn() }
+    const searchSite = { execute: vi.fn(async () => ({ results: [{ title: 'Contact' }] })), readOnly: true }
     const chat = mountChat(host, {
       missionProfile: {
         id: 'site-qa-v1',
@@ -681,7 +681,12 @@ describe('edge-chat form actions', () => {
       agentSubtitle: 'About the site',
       statusText: '',
       downloadPolicy: 'never',
-      onNoModel: ({ input }) => `Basic answer: ${input}`,
+      agentIdentity: { name: 'Site assistant' },
+      grounding: 'strict',
+      onNoModel: async ({ input, callTool }) => {
+        await callTool('searchSite', { query: input })
+        return `Basic answer: ${input}`
+      },
     })
 
     await chat.updateComplete
@@ -692,5 +697,72 @@ describe('edge-chat form actions', () => {
     expect(chat.shadowRoot?.textContent).toContain('Ready for site Q&A.')
     await send(chat, 'contact')
     await waitFor(() => chat.shadowRoot?.textContent?.includes('Basic answer: contact'))
+  })
+
+  it('mountChat passes runtime identity and grounding separately from UI labels', async () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const searchSite = { execute: vi.fn() }
+    const chat = mountChat(host, {
+      missionProfile: {
+        id: 'site-qa-v1',
+        mission: 'site-qa',
+        version: '1.0.0',
+        systemPrompt: 'Answer from site content.',
+        requiredTools: ['searchSite'],
+        agentIdentity: { name: 'Runtime assistant' },
+        grounding: 'strict',
+      },
+      tools: { searchSite },
+      agentTitle: 'Visible title',
+      downloadPolicy: 'never',
+      onNoModel: ({ message }) => message,
+    })
+
+    await chat.updateComplete
+
+    expect(chat.shadowRoot?.textContent).toContain('Visible title')
+    expect(chat.validateMissionProfile({
+      id: 'site-qa-v1',
+      mission: 'site-qa',
+      version: '1.0.0',
+      systemPrompt: 'Answer from site content.',
+      requiredTools: ['searchSite'],
+      agentIdentity: { name: 'Runtime assistant' },
+      grounding: 'strict',
+    }).ok).toBe(true)
+  })
+
+  it('mountChat composes profile tools with separately registered tools', async () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const profileTool = { execute: vi.fn(async () => ({ value: 'profile' })), readOnly: true }
+    const registeredTool = { execute: vi.fn(async () => ({ value: 'registered' })), readOnly: true }
+    const chat = mountChat(host, {
+      missionProfile: {
+        id: 'site-qa-v1',
+        mission: 'site-qa',
+        version: '1.0.0',
+        systemPrompt: 'Answer from site content.',
+        requiredTools: ['searchSite'],
+        tools: { searchSite: profileTool },
+        agentIdentity: { name: 'Runtime assistant' },
+        grounding: 'strict',
+      },
+      tools: { listDemos: registeredTool },
+      downloadPolicy: 'never',
+      onNoModel: async ({ callTool }) => {
+        const search = await callTool('searchSite', { query: 'edgekit' }) as { value: string }
+        const demos = await callTool('listDemos', {}) as { value: string }
+        return `${search.value} ${demos.value}`
+      },
+    })
+
+    await chat.updateComplete
+    await send(chat, 'edgekit demos')
+    await waitFor(() => chat.shadowRoot?.textContent?.includes('profile registered'))
+
+    expect(profileTool.execute).toHaveBeenCalled()
+    expect(registeredTool.execute).toHaveBeenCalled()
   })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createGroundedQaSkill,
   createKnowledgeSkill,
   createKnowledgeTool,
   createMarkdownMemoryStore,
@@ -24,5 +25,32 @@ describe('knowledge package', () => {
 
     expect(Object.keys(createKnowledgeTool({ name: 'searchDocs', source }))).toEqual(['searchDocs'])
     expect(createKnowledgeSkill({ id: 'docs', name: 'Docs', description: 'Search docs.', source }).requiredTools).toEqual(['searchDocs'])
+  })
+
+  it('creates a strict grounded Q&A skill and profile', () => {
+    const source: EdgeKnowledgeSource = {
+      id: 'site',
+      search: async query => [{ id: 'about', title: 'About', excerpt: `Evidence for ${query}`, uri: '/about' }],
+    }
+    const kit = createGroundedQaSkill({
+      id: 'site',
+      name: 'Site Q&A',
+      description: 'Answer questions from the public site.',
+      source,
+      identity: { name: 'Site assistant', noEvidenceMessage: 'I do not know from this site.' },
+      toolName: 'searchSite',
+    })
+
+    expect(kit.profile).toMatchObject({
+      agentIdentity: { name: 'Site assistant', noEvidenceMessage: 'I do not know from this site.' },
+      grounding: 'strict',
+      requiredTools: ['searchSite'],
+      defaults: { toolChoice: 'required', downloadPolicy: 'never' },
+    })
+    expect(Object.keys(kit.tools)).toEqual(['searchSite'])
+    expect(kit.answerFromResults('contact', { results: [] })).toBe('I do not know from this site.')
+    expect(kit.answerFromResults('about', {
+      results: [{ id: 'about', title: 'About', excerpt: 'Kevin works on Edgekit.', uri: '/about' }],
+    })).toContain('Kevin works on Edgekit.')
   })
 })

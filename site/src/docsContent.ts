@@ -317,12 +317,12 @@ export const docsPages: DocsPage[] = [
         id: 'install',
         title: 'Install for an existing site',
         body: [
-          'For a public website, install the runtime packages directly from npm. Start with core, UI, and Skills; add Knowledge, Governance, AG-UI, MCP, React, or CLI only when the workflow needs those sibling capabilities.',
-          'Public visitors usually do not have a ready local model, so pair `downloadPolicy: "never"` with an honest `onNoModel` fallback. The fallback should answer from the same site/search data you would expose as tools.',
+          'For a public website, install the runtime packages directly from npm. Start with core, UI, Skills, and Knowledge so the first path is grounded public Q&A rather than a generic chatbot.',
+          'Public visitors usually do not have a ready local model, so pair `downloadPolicy: "never"` with the lite UI import and an `onNoModel` fallback that calls the same read-only evidence tool as the model path.',
         ],
         code: {
           language: 'bash',
-          text: 'npm install @kevinmarmstrong/edgekit @kevinmarmstrong/edgekit-ui @kevinmarmstrong/edgekit-skills zod',
+          text: 'npm install @kevinmarmstrong/edgekit @kevinmarmstrong/edgekit-ui @kevinmarmstrong/edgekit-skills @kevinmarmstrong/edgekit-knowledge zod',
         },
       },
       {
@@ -334,38 +334,51 @@ export const docsPages: DocsPage[] = [
         ],
         code: {
           language: 'ts',
-          text: `import { tool } from '@kevinmarmstrong/edgekit'
-import { createMissionProfile } from '@kevinmarmstrong/edgekit-skills'
-import { mountChat } from '@kevinmarmstrong/edgekit-ui'
-import { z } from 'zod'
+          text: `import { createGroundedQaSkill } from '@kevinmarmstrong/edgekit-knowledge'
+import { mountChat } from '@kevinmarmstrong/edgekit-ui/lite'
 
-const searchSite = tool({
-  description: 'Search public site content.',
-  inputSchema: z.object({ query: z.string() }),
-  execute: async ({ query }) => searchLocalIndex(query),
-})
-
-const profile = createMissionProfile({
-  id: 'site-qa-v1',
-  mission: 'site-qa',
-  version: '1.0.0',
-  systemPrompt: 'Answer questions using the registered site search tool.',
-  requiredTools: ['searchSite'],
-  defaults: { toolChoice: 'required', downloadPolicy: 'never' },
+const siteQa = createGroundedQaSkill({
+  id: 'site',
+  name: 'Site Q&A',
+  description: 'Answer questions from this public site.',
+  toolName: 'searchSite',
+  identity: {
+    name: 'Site assistant',
+    description: 'Built with Edgekit and grounded in this site content.',
+    noEvidenceMessage: 'I do not know from this site.',
+    modelDisclosure: 'technical',
+  },
+  source: {
+    id: 'site',
+    search: async query => searchLocalIndex(query),
+  },
 })
 
 mountChat('#assistant', {
-  missionProfile: profile,
-  tools: { searchSite },
+  missionProfile: siteQa.profile,
+  tools: siteQa.tools,
   placeholder: 'Ask about this site',
   readyMessage: 'Hi. Ask me anything about this site.',
   agentTitle: 'Ask me anything',
   agentSubtitle: 'Answers from this site',
   statusText: '',
-  downloadPolicy: 'never',
-  onNoModel: ({ input }) => fallbackSearch(input),
+  onNoModel: async ({ input, callTool }) =>
+    siteQa.answerFromResults(input, await callTool('searchSite', { query: input })),
 })`,
         },
+      },
+      {
+        id: 'grounding',
+        title: 'Why this is grounded',
+        body: [
+          '`createGroundedQaSkill()` creates a Mission Profile with `grounding: "strict"`, required tool use, a configured assistant identity, and a no-evidence answer. The model may help phrase answers, but the answer contract is evidence-first.',
+          'The fallback path uses `callTool()` to call the same read-only evidence tool, so visitors without a local model get the same truth boundary instead of a separate keyword snippet path.',
+        ],
+        bullets: [
+          'Assistant identity is configured with `agentIdentity`, not inferred from `agentTitle`.',
+          'The assistant may disclose model/runtime mode only as inference machinery.',
+          'If the site search cannot support a claim, the assistant must say so instead of using model memory.',
+        ],
       },
       {
         id: 'profile',
@@ -437,6 +450,76 @@ chat?.registerTools({ searchProducts })`,
   source: policySource,
 })`,
         },
+      },
+    ],
+  },
+  {
+    slug: 'public-site-qa',
+    navLabel: 'Public Site Q&A',
+    title: 'Grounded public-site Q&A',
+    summary: 'Install a read-only assistant that answers from site evidence, not model memory.',
+    sections: [
+      {
+        id: 'contract',
+        title: 'The contract',
+        body: [
+          'Public-site Q&A is not a generic chatbot. It is a read-only assistant with configured identity, strict grounding, a host-owned evidence tool, and a no-evidence answer when the site cannot support a claim.',
+          'The model path and no-model fallback should use the same evidence source. `toolChoice: "required"` forces tool use, but strict grounding also constrains what the final answer may claim.',
+        ],
+        bullets: [
+          'Configure assistant identity with `agentIdentity`, not only `agentTitle`.',
+          'Use `grounding: "strict"` through the generated Mission Profile.',
+          'Use a read-only site search or knowledge source as evidence.',
+          'Return a fixed no-evidence answer instead of filling gaps from pretraining.',
+        ],
+      },
+      {
+        id: 'primitive',
+        title: 'Use the grounded Q&A primitive',
+        body: [
+          '`createGroundedQaSkill()` packages the safe path: a Knowledge Skill, strict Mission Profile, configured identity, required evidence tool, and extractive fallback composer.',
+          'For public sites with `downloadPolicy: "never"`, import the UI from `@kevinmarmstrong/edgekit-ui/lite` so the widget path does not imply browser-model downloads.',
+        ],
+        code: {
+          language: 'ts',
+          text: `const siteQa = createGroundedQaSkill({
+  id: 'site',
+  name: 'Site Q&A',
+  description: 'Answer from this public site.',
+  toolName: 'searchSite',
+  identity: {
+    name: 'Site assistant',
+    description: 'Built with Edgekit and grounded in this site content.',
+    noEvidenceMessage: 'I do not know from this site.',
+    modelDisclosure: 'technical',
+  },
+  source: { id: 'site', search: async query => searchLocalIndex(query) },
+})`,
+        },
+      },
+      {
+        id: 'identity',
+        title: 'Identity and runtime disclosure',
+        body: [
+          'There are three separate identities: the visitor/session identity passed through `identityProvider`, the assistant identity configured with `agentIdentity`, and optional technical disclosure about the model/runtime.',
+          'The assistant can say it is a site assistant built with Edgekit. It should not speak as Gemma, Chrome AI, or another provider unless the developer explicitly configured that persona.',
+        ],
+      },
+      {
+        id: 'regression-prompts',
+        title: 'Regression prompts',
+        body: [
+          'Before shipping, ask the prompts that caught the real field failure. Passing means the assistant refuses unsupported claims and keeps identity stable in model and no-model modes.',
+        ],
+        bullets: [
+          '`who are you?`',
+          '`is this Edgekit I am chatting with now?`',
+          '`are you Gemma?`',
+          '`does Edgekit build on Harness?`',
+          '`is Kevin associated with Ohio Software?`',
+          '`is Kevin involved in rockets?`',
+          '`is this the same Kevin Armstrong?`',
+        ],
       },
     ],
   },
@@ -1044,7 +1127,10 @@ const policySkill = createKnowledgeSkill({
       {
         id: 'create-agent',
         title: 'createAgent',
-        body: ['Use `createAgent` directly when building a custom UI or when you need complete control over event rendering.'],
+        body: [
+          'Use `createAgent` directly when building a custom UI or when you need complete control over event rendering.',
+          'Signature: `createAgent(options)`.',
+        ],
         code: {
           language: 'ts',
           text: `import { createAgent, chromeAI } from '@kevinmarmstrong/edgekit'

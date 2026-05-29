@@ -2,6 +2,15 @@ Audience: adopter
 
 # Changelog
 
+## Unreleased - Grounded Public Q&A
+
+- Added `agentIdentity`, `grounding`, and `validateResponse` runtime options so public Q&A assistants can distinguish configured assistant identity from user/session identity and model/runtime disclosure.
+- Added strict grounding behavior: required tool use by default, evidence tracking, buffered final answer emission, no-evidence replacement, and response validation before user-visible text is released.
+- Enriched `onNoModel` with a scoped `callTool()` helper so public-site fallbacks can reuse the same read-only evidence path as model mode.
+- Added `createGroundedQaSkill()` in `@kevinmarmstrong/edgekit-knowledge` for public-site/docs Q&A over host-owned evidence.
+- Added `@kevinmarmstrong/edgekit/lite` and `@kevinmarmstrong/edgekit-ui/lite` subpaths for static public-site installs that do not want browser model provider imports by default.
+- Added the Public Site Q&A contract, a coding-agent installer skill, and adoption scenarios for identity, grounding, and no-evidence regressions.
+
 ## v0.3.2 - First Website Install Followups
 
 - Added first-class `<edge-chat>` labeling and theming hooks: `agent-title`, `agent-subtitle`, `status-text`, CSS custom properties, and `::part()` selectors for host-site styling.

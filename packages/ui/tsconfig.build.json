@@ -5,9 +5,10 @@
     "noEmit": false,
     "rootDir": "src",
     "paths": {
-      "@kevinmarmstrong/edgekit": ["../core/dist/index.d.ts"]
+      "@kevinmarmstrong/edgekit": ["../core/dist/index.d.ts"],
+      "@kevinmarmstrong/edgekit/lite": ["../core/dist/lite.d.ts"]
     }
   },
-  "include": ["src/index.ts"],
+  "include": ["src/index.ts", "src/lite.ts", "src/component.ts"],
   "exclude": ["src/**/*.test.ts"]
 }

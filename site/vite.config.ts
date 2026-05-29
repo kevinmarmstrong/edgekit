@@ -36,6 +36,7 @@ export default defineConfig({
         'docs-enterprise-evaluation': resolve(__dirname, 'docs/enterprise-evaluation/index.html'),
         'docs-concepts': resolve(__dirname, 'docs/concepts/index.html'),
         'docs-knowledge-access': resolve(__dirname, 'docs/knowledge-access/index.html'),
+        'docs-public-site-qa': resolve(__dirname, 'docs/public-site-qa/index.html'),
         'docs-api': resolve(__dirname, 'docs/api/index.html'),
         'docs-advanced': resolve(__dirname, 'docs/advanced/index.html'),
         'docs-ecosystem': resolve(__dirname, 'docs/ecosystem/index.html'),
@@ -105,6 +106,7 @@ ${maintainerLinks}
 ## Agent ingestion
 
 - If you are an implementation agent starting from the website, read this file first, then [Adoption Kit Markdown](${publicDocsPath('/docs/adoption-kit.md')}), then [Adopter implementation export](${publicDocsPath('/llms-full.txt')}).
+- If you are adding Q&A to a public website, read [Public Site Q&A Markdown](${publicDocsPath('/docs/public-site-qa.md')}) before implementing. It is the grounded, identity-safe install path.
 - If the task asks you to implement Edgekit in a repo, use the GitHub docs/agent-skills SKILL.md files as procedural guides after you understand the public docs.
 - [Adopter implementation export](${publicDocsPath('/llms-full.txt')})
 - [Maintainer/release export](${publicDocsPath('/llms-maintainers.txt')})
@@ -114,6 +116,7 @@ ${maintainerLinks}
 - [FAQ Markdown](${publicDocsPath('/docs/faq.md')})
 - [Glossary Markdown](${publicDocsPath('/docs/glossary.md')})
 - [Adoption Kit Markdown](${publicDocsPath('/docs/adoption-kit.md')})
+- [Public Site Q&A Markdown](${publicDocsPath('/docs/public-site-qa.md')})
 - [Recipe Catalog Markdown](${publicDocsPath('/docs/recipes.md')})
 - [Enterprise controls Markdown](${publicDocsPath('/docs/advanced.md')})
 - [Ecosystem Markdown](${publicDocsPath('/docs/ecosystem.md')})
@@ -123,6 +126,7 @@ ${maintainerLinks}
 ## Coding-agent skills
 
 - [edgekit-implementer](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-implementer/SKILL.md)
+- [edgekit-public-site-qa](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-public-site-qa/SKILL.md)
 - [edgekit-outcome-tester](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-outcome-tester/SKILL.md)
 - [edgekit-security-review](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-security-review/SKILL.md)
 - [edgekit-skill-optimizer](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-skill-optimizer/SKILL.md)

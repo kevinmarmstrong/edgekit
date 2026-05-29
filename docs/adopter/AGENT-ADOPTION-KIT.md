@@ -27,6 +27,7 @@ It has four layers:
 | --- | --- |
 | Understand Edgekit | `ARCHITECTURE.md`, `docs/adopter/GETTING-STARTED-REAL-APPS.md`, `docs/adopter/RUNTIME-GUARANTEES.md` |
 | Ask a coding agent to implement Edgekit | `docs/agent-skills/edgekit-implementer/SKILL.md` |
+| Add grounded Q&A to a public site | `docs/agent-skills/edgekit-public-site-qa/SKILL.md`, `docs/adopter/PUBLIC-SITE-QA-CONTRACT.md` |
 | Prove the implementation works | `docs/agent-skills/edgekit-outcome-tester/SKILL.md` |
 | Improve Skill/Profile text safely | `docs/agent-skills/edgekit-skill-optimizer/SKILL.md` |
 | Review security and app authority | `docs/agent-skills/edgekit-security-review/SKILL.md` |

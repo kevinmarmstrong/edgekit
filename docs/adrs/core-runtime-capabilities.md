@@ -26,10 +26,12 @@ These one-line ADR notes apply the v3.5 friction-absorption test to every KEEP-C
 | `AgentEvent` | Absorbs agent-to-UI streaming friction by exposing one event union for status, text, tool calls/results, approvals, activity, views, errors, and done. |
 | `CreateAgentOptions` | Absorbs integration-wiring friction by collecting model cascade, tools, providers, policy, context, telemetry, and callbacks into one entry-point contract. |
 | `EdgeAgent` | Absorbs UI/runtime boundary friction by exposing send, approval-resume, and reset as the small agent contract web components and wrappers consume. |
+| `EdgeAgentIdentity` | Absorbs assistant-identity configuration friction so public agents do not inherit model-provider self descriptions or force adopters to hide identity rules in prompts. |
+| `EdgeGroundingMode` | Absorbs answer-grounding policy friction by giving adopters one runtime switch for strict evidence-first answers instead of hand-rolling tool-choice and validation rules. |
 | `EdgeToolRepairOptions` | Absorbs bounded tool-repair configuration friction so validation retries stay explicit and limited instead of becoming hidden self-repair loops. |
 | `createAgent` | Absorbs the wiring friction of provider cascade, tools, approvals, telemetry, history, and context so adopters do not rebuild an unsafe mini-orchestrator for every app. |
-| `chromeAI` | Absorbs Chrome AI availability and gesture-state friction so adopters do not expose raw browser API failures or skip the zero-marginal-cost path. |
 | `WebLLMOptions` | Absorbs WebLLM provider selection friction by making model ID and label configurable without exposing the underlying runtime setup. |
+| `chromeAI` | Absorbs Chrome AI availability and gesture-state friction so adopters do not expose raw browser API failures or skip the zero-marginal-cost path. |
 | `webLLM` | Absorbs WebGPU/WebLLM provider setup friction so adopters can offer a browser fallback without learning model registry and worker details first. |
 | `EdgeActivityEvent` | Absorbs progress-state UI friction by exposing safe orchestration activity without leaking hidden reasoning or chain-of-thought. |
 | `EdgeTelemetryEvent` | Absorbs observability payload friction by giving adopters one typed event shape for runs, model choice, tools, approvals, errors, and UI actions. |

@@ -15,14 +15,52 @@ describe('skills package', () => {
       version: '1.0.0',
       systemPrompt: 'Use catalog tools.',
       tools: {},
+      agentIdentity: { name: 'Catalog assistant' },
+      grounding: 'strict',
+      requiredTools: ['searchCatalog'],
       defaults: { toolChoice: 'required', downloadPolicy: 'never' },
     })
 
     expect(profileToAgentOptions(profile)).toEqual({
       systemPrompt: 'Use catalog tools.',
+      agentIdentity: { name: 'Catalog assistant' },
+      grounding: 'strict',
       toolChoice: 'required',
       downloadPolicy: 'never',
     })
+  })
+
+  it('defaults strict grounding profiles with tools to required tool use', () => {
+    const profile = createMissionProfile({
+      id: 'site-qa-v1',
+      mission: 'docs-qa',
+      version: '1.0.0',
+      systemPrompt: 'Answer from site content.',
+      agentIdentity: { name: 'Site assistant' },
+      grounding: 'strict',
+      requiredTools: ['searchSite'],
+    })
+
+    expect(profileToAgentOptions(profile)).toMatchObject({
+      agentIdentity: { name: 'Site assistant' },
+      grounding: 'strict',
+      toolChoice: 'required',
+    })
+  })
+
+  it('requires a tool contract for strict grounding', () => {
+    const profile = createMissionProfile({
+      id: 'unsafe-qa-v1',
+      mission: 'docs-qa',
+      version: '1.0.0',
+      systemPrompt: 'Answer from site content.',
+      grounding: 'strict',
+    })
+
+    expect(validateMissionProfile(profile).ok).toBe(false)
+    expect(validateMissionProfile(profile).errors).toContainEqual(expect.objectContaining({
+      code: 'strict-grounding-without-tools',
+    }))
   })
 
   it('warns on authoring-only synthesis without executable tools', () => {

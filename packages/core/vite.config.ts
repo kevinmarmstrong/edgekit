@@ -3,9 +3,12 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   build: {
     lib: {
-      entry: 'src/index.ts',
+      entry: {
+        index: 'src/index.ts',
+        lite: 'src/lite.ts',
+      },
       formats: ['es'],
-      fileName: 'index',
+      fileName: (_format, entryName) => `${entryName}.js`,
     },
     rollupOptions: {
       external: ['ai', '@ai-sdk/provider', '@browser-ai/core', '@browser-ai/web-llm', 'zod'],

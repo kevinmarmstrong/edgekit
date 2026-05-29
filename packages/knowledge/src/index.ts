@@ -1,10 +1,11 @@
 import { modelOptional, tool } from '@kevinmarmstrong/edgekit'
 import type {
+  EdgeAgentIdentity,
   EdgeSessionContext,
   EdgeToolExecutionContext,
 } from '@kevinmarmstrong/edgekit'
-import { createSkill } from '@kevinmarmstrong/edgekit-skills'
-import type { EdgeSkill } from '@kevinmarmstrong/edgekit-skills'
+import { createMissionProfile, createSkill } from '@kevinmarmstrong/edgekit-skills'
+import type { EdgeMissionProfile, EdgeSkill } from '@kevinmarmstrong/edgekit-skills'
 import { z } from 'zod'
 
 type ContextualToolExecute = (input: Record<string, unknown>, context: EdgeToolExecutionContext) => unknown | Promise<unknown>
@@ -100,6 +101,27 @@ export interface CreateKnowledgeSkillOptions<TInput = { query: string }, TOutput
   meta?: EdgeSkill<TInput, TOutput>['meta']
 }
 
+export interface CreateGroundedQaSkillOptions {
+  id: string
+  name: string
+  description: string
+  source: EdgeKnowledgeSource
+  identity: EdgeAgentIdentity
+  toolName?: string
+  version?: string
+  systemPrompt?: string
+  noEvidenceMessage?: string
+  ambiguityPolicy?: string
+  defaultTopK?: number
+}
+
+export interface GroundedQaKit {
+  skill: EdgeSkill
+  profile: EdgeMissionProfile
+  tools: Record<string, unknown>
+  answerFromResults(input: string, output: unknown): string
+}
+
 export interface MarkdownMemoryDocument {
   id: string
   content: string
@@ -145,48 +167,51 @@ export function createKnowledgeTool(options: CreateKnowledgeToolOptions): Record
     description: string
     inputSchema: z.ZodType
     execute: ContextualToolExecute
-  }) => unknown
-  const toolName = options.name
-  return {
-    [toolName]: createTool({
-      description:
-        options.description ??
-        `Search ${options.source.label ?? options.source.id} and return grounded results with citations and freshness metadata.`,
-      inputSchema: z.object({
-        query: z.string().describe('Natural-language knowledge query.'),
-        topK: modelOptional(z.number()).describe('Maximum number of knowledge results to return.'),
-        filters: modelOptional(z.record(z.string(), z.unknown())).describe('Optional app-owned source filters.'),
-      }),
-      execute: async (input: Record<string, unknown>, context) => {
-        const query = typeof input.query === 'string' ? input.query : ''
-        const topK = typeof input.topK === 'number' ? input.topK : options.defaultTopK
-        const filters = isRecord(input.filters) ? input.filters : undefined
-        const session = context?.session ?? {}
-        const searchContext: EdgeKnowledgeSearchContext = {
-          input: query,
-          session,
-          state: session.state,
-          topK,
-          filters,
-        }
-        const [results, freshness] = await Promise.all([
-          options.source.search(query, searchContext),
-          options.source.freshness?.(searchContext),
-        ])
-        return {
-          source: {
-            id: options.source.id,
-            label: options.source.label,
-            description: options.source.description,
-          },
-          query,
-          freshness,
-          results: typeof topK === 'number' ? results.slice(0, topK) : results,
-        }
-      },
-    }),
-  }
-}
+	  }) => unknown
+	  const toolName = options.name
+	  const knowledgeTool = createTool({
+	    description:
+	      options.description ??
+	      `Search ${options.source.label ?? options.source.id} and return grounded results with citations and freshness metadata.`,
+	    inputSchema: z.object({
+	      query: z.string().describe('Natural-language knowledge query.'),
+	      topK: modelOptional(z.number()).describe('Maximum number of knowledge results to return.'),
+	      filters: modelOptional(z.record(z.string(), z.unknown())).describe('Optional app-owned source filters.'),
+	    }),
+	    execute: async (input: Record<string, unknown>, context) => {
+	      const query = typeof input.query === 'string' ? input.query : ''
+	      const topK = typeof input.topK === 'number' ? input.topK : options.defaultTopK
+	      const filters = isRecord(input.filters) ? input.filters : undefined
+	      const session = context?.session ?? {}
+	      const searchContext: EdgeKnowledgeSearchContext = {
+	        input: query,
+	        session,
+	        state: session.state,
+	        topK,
+	        filters,
+	      }
+	      const [results, freshness] = await Promise.all([
+	        options.source.search(query, searchContext),
+	        options.source.freshness?.(searchContext),
+	      ])
+	      return {
+	        source: {
+	          id: options.source.id,
+	          label: options.source.label,
+	          description: options.source.description,
+	        },
+	        query,
+	        freshness,
+	        results: typeof topK === 'number' ? results.slice(0, topK) : results,
+	      }
+	    },
+	  })
+	  return {
+	    [toolName]: isRecord(knowledgeTool)
+	      ? { ...knowledgeTool, readOnly: options.readOnly ?? true, parallelSafe: options.parallelSafe ?? true }
+	      : knowledgeTool,
+	  }
+	}
 
 export function createKnowledgeSkill<TInput = { query: string }, TOutput = { results: EdgeKnowledgeResult[] }>(
   options: CreateKnowledgeSkillOptions<TInput, TOutput>,
@@ -235,6 +260,88 @@ export function createKnowledgeSkill<TInput = { query: string }, TOutput = { res
       tags: [...(options.meta?.tags ?? []), 'knowledge', 'retrieval'],
     },
   })
+}
+
+export function createGroundedQaSkill(options: CreateGroundedQaSkillOptions): GroundedQaKit {
+  const toolName = options.toolName ?? `search${toPascalCase(options.id)}`
+  const noEvidenceMessage =
+    options.noEvidenceMessage ??
+    options.identity.noEvidenceMessage ??
+    'I do not know from the available site/app evidence.'
+  const skill = createKnowledgeSkill({
+    id: options.id,
+    name: options.name,
+    description: options.description,
+    source: options.source,
+    toolName,
+    defaultTopK: options.defaultTopK,
+    instructions: [
+      'Use this Skill for public Q&A over app-owned knowledge.',
+      `Always call ${toolName} before answering factual questions.`,
+      'Answer only from retrieved evidence and configured assistant identity.',
+      'If the evidence is empty or irrelevant, use the configured no-evidence response.',
+      'Do not invent people, companies, affiliations, biographies, or model-provider identity.',
+      options.ambiguityPolicy ? `Ambiguity policy: ${options.ambiguityPolicy}` : '',
+    ].filter(Boolean).join(' '),
+    requiredFacts: ['retrieved evidence', 'source title or citation when available'],
+    citationRequired: true,
+    freshnessRequired: false,
+  })
+  const systemPrompt = options.systemPrompt ?? [
+    'Answer public Q&A from the registered knowledge tool and configured assistant identity.',
+    'Do not answer factual questions from model memory.',
+    `If the knowledge source does not support the answer, say: "${noEvidenceMessage}"`,
+    'When asked what the user is chatting with, distinguish the Edgekit runtime, the configured assistant identity, and optional model inference.',
+  ].join(' ')
+  const profile = createMissionProfile({
+    id: `${options.id}-profile`,
+    mission: 'public-site-qa',
+    version: options.version ?? '1.0.0',
+    systemPrompt,
+    agentIdentity: { ...options.identity, noEvidenceMessage },
+    grounding: 'strict',
+    tools: skill.tools,
+    requiredTools: [toolName],
+    defaults: { toolChoice: 'required', downloadPolicy: 'never' },
+    synthesis: { requiredAttributes: ['evidence', 'source'], style: 'explicit' },
+    policy: { needsApproval: false, riskLevel: 'low' },
+    meta: {
+      description: `Grounded public Q&A profile for ${options.name}.`,
+    },
+  })
+
+  return {
+    skill,
+    profile,
+    tools: skill.tools ?? {},
+    answerFromResults: (input, output) => formatGroundedQaAnswer(input, output, noEvidenceMessage),
+  }
+}
+
+function formatGroundedQaAnswer(input: string, output: unknown, noEvidenceMessage: string) {
+  const results = extractKnowledgeResults(output)
+  if (results.length === 0) return noEvidenceMessage
+
+  const lines = [
+    `From the available evidence for "${input}":`,
+    '',
+    ...results.slice(0, 3).map(result => {
+      const source = result.uri ?? result.source
+      const citation = source ? ` (${source})` : ''
+      return `- ${result.title}: ${result.excerpt}${citation}`
+    }),
+  ]
+  return lines.join('\n')
+}
+
+function extractKnowledgeResults(output: unknown): EdgeKnowledgeResult[] {
+  if (!isRecord(output)) return []
+  const candidate = Array.isArray(output.results) ? output.results : []
+  return candidate.filter(isKnowledgeResult)
+}
+
+function isKnowledgeResult(value: unknown): value is EdgeKnowledgeResult {
+  return isRecord(value) && typeof value.id === 'string' && typeof value.title === 'string' && typeof value.excerpt === 'string'
 }
 
 export function createMarkdownMemoryStore(options: CreateMarkdownMemoryStoreOptions): EdgeMemoryStore {

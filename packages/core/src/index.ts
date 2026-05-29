@@ -1,13 +1,17 @@
 export type { LanguageModelV3 } from '@ai-sdk/provider'
 import { createModelProvider, type ModelProvider } from './cascade'
+import { createAgent as createCoreAgent } from './agent'
+import type { CreateAgentOptions, EdgeAgent } from './agent'
 import type { WebLLMOptions } from './providers/web-llm'
 export { stepCountIs, tool, modelOptional } from './tools'
 export type { DownloadPolicy, DownloadPromptEvent, ModelProvider, ModelStatusEvent, NoModelEvent, ResolveModelContext } from './cascade'
 export { createModelProvider, resolveModel } from './cascade'
 export type { CascadeReadinessOptions, CascadeReadinessSnapshot, CascadeRecommendedAction, EdgeCascadeReadinessController } from './cascade/readiness'
 export { createCascadeReadinessController } from './cascade/readiness'
-export type { AgentEvent, CreateAgentOptions, EdgeAgent, EdgeToolRepairOptions } from './agent'
-export { createAgent } from './agent'
+export type { AgentEvent, CreateAgentOptions, EdgeAgent, EdgeAgentIdentity, EdgeGroundingMode, EdgeToolRepairOptions } from './agent'
+export function createAgent(options: CreateAgentOptions): EdgeAgent {
+  return createCoreAgent({ ...options, model: options.model ?? [chromeAI(), webLLM()] })
+}
 export type { WebLLMOptions } from './providers/web-llm'
 export function chromeAI(): ModelProvider {
   return createModelProvider({

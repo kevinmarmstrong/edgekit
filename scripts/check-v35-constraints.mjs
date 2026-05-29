@@ -34,6 +34,7 @@ const budgets = {
 checkReadmeLength()
 checkDocAudiences()
 checkPublicProofLanguage()
+checkPublicSiteQaPath()
 checkCoreInventory()
 checkPackageBudgets()
 checkSiblingDependencies()
@@ -94,6 +95,32 @@ function checkPublicProofLanguage() {
     for (const [pattern, label] of banned) {
       if (pattern.test(text)) failures.push(`${file} still uses public proof framing "${label}"`)
     }
+  }
+}
+
+function checkPublicSiteQaPath() {
+  const docs = read('site/src/docsContent.ts')
+  const llmsGenerator = read('site/vite.config.ts')
+  const skill = read('docs/agent-skills/edgekit-public-site-qa/SKILL.md')
+  const contract = read('docs/adopter/PUBLIC-SITE-QA-CONTRACT.md')
+  const requiredDocs = [
+    'createGroundedQaSkill',
+    '@kevinmarmstrong/edgekit-ui/lite',
+    'agentIdentity',
+    'grounding: "strict"',
+    'callTool',
+  ]
+  for (const needle of requiredDocs) {
+    if (!docs.includes(needle)) failures.push(`site docs must expose public-site Q&A primitive ${needle}`)
+  }
+  if (!llmsGenerator.includes('/docs/public-site-qa.md') || !llmsGenerator.includes('edgekit-public-site-qa')) {
+    failures.push('llms.txt generation must route website-first installers to public-site Q&A docs and skill')
+  }
+  if (!skill.includes('Read First') || !skill.includes('https://kevinmarmstrong.github.io/edgekit/docs/public-site-qa/')) {
+    failures.push('public-site Q&A agent skill must point installers at the public docs path')
+  }
+  if (!contract.includes('Regression Prompts') || !contract.includes('are you Gemma?')) {
+    failures.push('public-site Q&A contract must include identity/grounding regression prompts')
   }
 }
 

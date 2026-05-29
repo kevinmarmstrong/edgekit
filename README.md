@@ -13,7 +13,7 @@ The useful path is retrofit: pick one workflow, expose a few governed tools, gat
 Install into an existing site or app:
 
 ```bash
-npm install @kevinmarmstrong/edgekit @kevinmarmstrong/edgekit-ui @kevinmarmstrong/edgekit-skills zod
+npm install @kevinmarmstrong/edgekit @kevinmarmstrong/edgekit-ui @kevinmarmstrong/edgekit-skills @kevinmarmstrong/edgekit-knowledge zod
 ```
 
 Try the packed-package demos when you want a complete reference app:
@@ -25,40 +25,37 @@ Try the packed-package demos when you want a complete reference app:
 ## Embed
 
 ```ts
-import { tool } from '@kevinmarmstrong/edgekit'
-import { createMissionProfile } from '@kevinmarmstrong/edgekit-skills'
-import { mountChat } from '@kevinmarmstrong/edgekit-ui'
-import { z } from 'zod'
+import { createGroundedQaSkill } from '@kevinmarmstrong/edgekit-knowledge'
+import { mountChat } from '@kevinmarmstrong/edgekit-ui/lite'
 
-const searchSite = tool({
-  description: 'Search public site content',
-  inputSchema: z.object({ query: z.string() }),
-  execute: ({ query }) => searchLocalIndex(query),
-})
-
-const profile = createMissionProfile({
-  id: 'site-qa-v1',
-  mission: 'site-qa',
-  version: '1.0.0',
-  systemPrompt: 'Answer questions using registered site search.',
-  requiredTools: ['searchSite'],
-  defaults: { toolChoice: 'required', downloadPolicy: 'never' },
+const siteQa = createGroundedQaSkill({
+  id: 'site',
+  name: 'Site Q&A',
+  description: 'Answer questions from this public site.',
+  toolName: 'searchSite',
+  identity: {
+    name: 'Site assistant',
+    description: 'Built with Edgekit and grounded in this site content.',
+    noEvidenceMessage: 'I do not know from this site.',
+    modelDisclosure: 'technical',
+  },
+  source: { id: 'site', search: async query => searchLocalIndex(query) },
 })
 
 mountChat('#assistant', {
-  missionProfile: profile,
-  tools: { searchSite },
+  missionProfile: siteQa.profile,
+  tools: siteQa.tools,
   agentTitle: 'Ask me anything',
   agentSubtitle: 'Answers from this site',
   statusText: '',
   placeholder: 'Ask about this site',
   readyMessage: 'Hi. Ask me anything about this site.',
-  downloadPolicy: 'never',
-  onNoModel: ({ input }) => fallbackSearch(input),
+  onNoModel: async ({ input, callTool }) =>
+    siteQa.answerFromResults(input, await callTool('searchSite', { query: input })),
 })
 ```
 
-Use `downloadPolicy: "never"` for public sites unless visitors have explicitly opted into local model downloads. Add Chrome AI, WebLLM, or a developer-owned cloud route when your app chooses to escalate.
+Use the grounded Q&A path for public sites unless you are intentionally building a broader workflow assistant. It configures assistant identity, strict grounding, required evidence, and a no-model fallback over the same read-only source. Add Chrome AI, WebLLM, or a developer-owned cloud route when your app chooses to escalate.
 
 ## Production Shape
 
@@ -84,6 +81,7 @@ Use `downloadPolicy: "never"` for public sites unless visitors have explicitly o
 ## Docs
 
 - [Agent Adoption Kit](./docs/adopter/AGENT-ADOPTION-KIT.md)
+- [Public site Q&A contract](./docs/adopter/PUBLIC-SITE-QA-CONTRACT.md)
 - [30-minute workflow](./docs/adopter/30-MINUTE-PRODUCTION-SIDECAR.md)
 - [Getting started for real apps](./docs/adopter/GETTING-STARTED-REAL-APPS.md)
 - [Production recipes](./docs/adopter/PRODUCTION-RECIPES.md)

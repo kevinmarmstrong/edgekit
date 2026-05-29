@@ -112,19 +112,26 @@ async function runSurface(page, scenario) {
   if (scenario.surface === 'docs-qa') {
     await page.goto(withCacheBust(`${siteURL}/demos/docs/`), { waitUntil: 'networkidle' })
     const scope = page.locator('#qa')
+    if (await scope.getByTestId('chat-input').count().catch(() => 0) === 0) {
+      return runSiteAssistantSurface(page, scenario.prompt)
+    }
     await sendPrompt(scope, scenario.prompt)
     return waitForAnswer(scope.getByTestId('chat-messages'), scenario.prompt)
   }
 
   if (scenario.surface === 'site-assistant') {
-    await page.goto(withCacheBust(`${siteURL}/docs/`), { waitUntil: 'networkidle' })
-    const scope = page.locator('#site-assistant')
-    await scope.locator('.site-assistant-toggle').click()
-    await sendPrompt(scope, scenario.prompt)
-    return waitForAnswer(scope.getByTestId('chat-messages'), scenario.prompt)
+    return runSiteAssistantSurface(page, scenario.prompt)
   }
 
   throw new Error(`Unknown adoption-quality surface: ${scenario.surface}`)
+}
+
+async function runSiteAssistantSurface(page, prompt) {
+  await page.goto(withCacheBust(`${siteURL}/docs/`), { waitUntil: 'networkidle' })
+  const scope = page.locator('#site-assistant')
+  await scope.locator('.site-assistant-toggle').click()
+  await sendPrompt(scope, prompt)
+  return waitForAnswer(scope.getByTestId('chat-messages'), prompt)
 }
 
 async function sendPrompt(scope, prompt) {

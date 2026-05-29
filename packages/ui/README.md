@@ -21,6 +21,16 @@ const chat = mountChat('#assistant', {
 })
 ```
 
+For public sites that use `downloadPolicy: "never"` and a grounded fallback, prefer
+the lite entry:
+
+```ts
+import { mountChat } from '@kevinmarmstrong/edgekit-ui/lite'
+```
+
+Pair it with `createGroundedQaSkill()` from `@kevinmarmstrong/edgekit-knowledge`
+when adding Q&A to a public website.
+
 ```html
 <div id="assistant"></div>
 <edge-cascade-wizard></edge-cascade-wizard>

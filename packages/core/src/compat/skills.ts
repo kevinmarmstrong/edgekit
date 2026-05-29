@@ -1,5 +1,5 @@
 // FROZEN per Phase C compatibility convention: bug fixes only, no behavior changes. Source of truth lives in the matching sibling package when one exists; otherwise this is deprecated DEFER surface.
-import type { CreateAgentOptions } from '../agent'
+import type { CreateAgentOptions, EdgeAgentIdentity, EdgeGroundingMode } from '../agent'
 
 export interface EdgeMissionProfile {
   /** Stable identifier for this mission (e.g. "public-catalog-shopping-v1") */
@@ -11,6 +11,12 @@ export interface EdgeMissionProfile {
 
   /** The core system instructions for this mission */
   systemPrompt: string
+
+  /** Runtime assistant identity, distinct from the current user/session identity. */
+  agentIdentity?: EdgeAgentIdentity
+
+  /** Runtime grounding mode for model and fallback answers. */
+  grounding?: EdgeGroundingMode
 
   /** Tools that are always available for this mission (can still be augmented by toolProvider) */
   tools?: Record<string, unknown>
@@ -161,6 +167,24 @@ export function validateMissionProfile(
     })
   }
 
+  if (profile.grounding === 'strict' && !executableTools && !hasRequiredTools(profile)) {
+    issues.push({
+      severity: 'error',
+      code: 'strict-grounding-without-tools',
+      path: 'grounding',
+      message: 'Strict grounding needs executable profile tools or requiredTools metadata so factual answers are backed by host evidence.',
+    })
+  }
+
+  if (profile.agentIdentity && !profile.agentIdentity.name?.trim()) {
+    issues.push({
+      severity: 'error',
+      code: 'missing-agent-identity-name',
+      path: 'agentIdentity.name',
+      message: 'Agent identity must include a stable name when provided.',
+    })
+  }
+
   const registeredTools = toolNamesFrom(options.registeredTools)
   if (registeredTools) {
     for (const requiredTool of uniqueRequiredTools) {
@@ -224,14 +248,23 @@ export function profileToAgentOptions(profile: EdgeMissionProfile): Partial<Crea
     ...profile.defaults,
   }
 
+  if (profile.agentIdentity) {
+    result.agentIdentity = profile.agentIdentity
+  }
+
+  if (profile.grounding) {
+    result.grounding = profile.grounding
+    if (profile.grounding === 'strict' && result.toolChoice == null && (hasExecutableTools(profile) || hasRequiredTools(profile))) {
+      result.toolChoice = 'required'
+    }
+  }
+
   // Only include tools if the profile actually provides real executable tools.
   // This prevents empty profile.tools from wiping tools registered via registerTools().
   if (profile.tools && Object.keys(profile.tools).length > 0) {
     result.tools = profile.tools
   }
 
-  // Future: we can also wire synthesis expectations, policy, and uiAffordances
-  // into runtime helpers here once we have enforcement.
   return result
 }
 

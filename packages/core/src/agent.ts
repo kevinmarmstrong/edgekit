@@ -53,6 +53,51 @@ export interface EdgeToolRepairOptions {
   instruction?: (error: unknown, attempt: number) => string
 }
 
+export type EdgeGroundingMode = 'none' | 'soft' | 'strict'
+
+export interface EdgeAgentIdentity {
+  name: string
+  description?: string
+  persona?: string
+  noEvidenceMessage?: string
+  modelDisclosure?: 'none' | 'technical'
+}
+
+export interface EdgeEvidenceRecord {
+  toolName: string
+  output: unknown
+}
+
+export interface EdgeResponseValidationContext {
+  input: string
+  text: string
+  toolsCalled: string[]
+  toolResults: EdgeEvidenceRecord[]
+  evidenceCount: number
+  session: EdgeSessionContext
+  provider?: { id: string; label: string }
+  agentIdentity?: EdgeAgentIdentity
+  grounding: EdgeGroundingMode
+}
+
+export type EdgeResponseValidator = (
+  context: EdgeResponseValidationContext,
+) => string | null | void | Promise<string | null | void>
+
+export type EdgeNoModelToolCaller = (
+  name: string,
+  input: Record<string, unknown>,
+  options?: { readOnlyOnly?: boolean },
+) => Promise<unknown>
+
+export type EdgeNoModelHandler = (
+  event: NoModelEvent & {
+    session: EdgeSessionContext
+    history: EdgeModelMessage[]
+    callTool: EdgeNoModelToolCaller
+  },
+) => string | null | void | Promise<string | null | void>
+
 export interface EdgeAgent {
   send(input: string): AsyncGenerator<AgentEvent>
   respondToApproval(approvalId: string, approved: boolean, reason?: string): AsyncGenerator<AgentEvent>
@@ -81,12 +126,15 @@ export interface CreateAgentOptions {
   modelResolveTimeoutMs?: number
   cascadeReadiness?: EdgeCascadeReadinessController
   toolChoice?: 'auto' | 'required' | 'none' | Record<string, unknown>
+  agentIdentity?: EdgeAgentIdentity
+  grounding?: EdgeGroundingMode
+  validateResponse?: EdgeResponseValidator
   sessionId?: string
   telemetry?: EdgeTelemetrySink | EdgeTelemetrySink[]
   auditTrail?: EdgeAuditTrail
   onModelStatus?: (event: ModelStatusEvent) => string | null | void
   onDownloadPrompt?: (event: DownloadPromptEvent) => boolean | Promise<boolean>
-  onNoModel?: (event: NoModelEvent) => string | null | void
+  onNoModel?: EdgeNoModelHandler
   streamText?: StreamTextFn
   generateText?: GenerateTextFn
 }
@@ -95,9 +143,10 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
   const downloadPolicy = options.downloadPolicy ?? 'prompt'
   const maxSteps = options.maxSteps ?? 5
   const streamText = options.streamText ?? aiStreamText
-  const providers = options.model ?? defaultBrowserModelProviders()
+  const providers = options.model ?? []
   const sessionId = options.sessionId ?? createId('session')
   const telemetry = createTelemetryDispatcher(options.telemetry, sessionId)
+  const grounding = options.grounding ?? 'none'
   let messages: EdgeModelMessage[] = []
   const pendingApprovalToolCalls = new Map<string, unknown>()
   let lastUserInput = ''
@@ -142,7 +191,11 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       state: session.state,
     }
     const contextualTools = withToolContext(activeTools, toolContext)
-    const system = withSessionSystemContext(options.systemPrompt, session, memoryRecords)
+    const baseSystem = withAgentRuntimeSystemContext(options.systemPrompt, {
+      agentIdentity: options.agentIdentity,
+      grounding,
+    })
+    const system = withSessionSystemContext(baseSystem, session, memoryRecords)
     const cacheContext: EdgeResponseCacheContext = {
       input: lastUserInput,
       session,
@@ -205,12 +258,28 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     if (options.responseCache && cacheKey && await cachePolicy.shouldRead(cacheContext)) {
       const cached = await options.responseCache.get(cacheKey)
       if (cached) {
-        yield await makeActivity('Using cached response', 'completed', { data: { key: cacheKey } })
-        appendMessages({ role: 'assistant', content: [{ type: 'text', text: cached.text }] })
-        await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text: cached.text, cached: true } })
-        yield { type: 'text-delta', text: cached.text }
-        yield { type: 'done', text: cached.text }
-        return
+        const cachedStrictEvidence =
+          cached.metadata?.grounding === 'strict' &&
+          cached.metadata?.hasUsableEvidence === true
+        if (grounding !== 'strict' || cachedStrictEvidence) {
+          const cachedText = await validateAgentResponse({
+            options,
+            grounding,
+            input: lastUserInput,
+            text: cached.text,
+            toolsCalled: cachedStrictEvidence ? ['responseCache'] : [],
+            toolResults: cachedStrictEvidence
+              ? [{ toolName: 'responseCache', output: { results: ['previously validated tool-backed response'] } }]
+              : [],
+            session,
+          })
+          yield await makeActivity('Using cached response', 'completed', { data: { key: cacheKey } })
+          appendMessages(assistantTextMessage(cachedText))
+          await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text: cachedText, cached: true, grounding } })
+          yield { type: 'text-delta', text: cachedText }
+          yield { type: 'done', text: cachedText }
+          return
+        }
       }
     }
 
@@ -255,12 +324,40 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     if (!resolved) {
       const defaultMessage = 'AI is not available in this browser.'
       const readiness = options.cascadeReadiness?.getSnapshot()
-      const message = options.onNoModel?.({
+      const rawCallTool = createNoModelToolCaller({
+        tools: contextualTools,
+        manifests: options.toolManifests,
+        session,
+      })
+      const toolsCalled: string[] = []
+      const toolResults: EdgeEvidenceRecord[] = []
+      const callTool: EdgeNoModelToolCaller = async (name, input, callOptions) => {
+        const output = await rawCallTool(name, input, callOptions)
+        const redactedOutput = options.redactors
+          ? await redactToolResultPayload(output, options.redactors, toolContext, name)
+          : output
+        toolsCalled.push(name)
+        toolResults.push({ toolName: name, output: redactedOutput })
+        return redactedOutput
+      }
+      const fallbackMessage = await options.onNoModel?.({
         availableTools: Object.keys(contextualTools),
         input: lastUserInput,
         message: defaultMessage,
         readiness,
-      }) ?? defaultMessage
+        session,
+        history: [...messages],
+        callTool,
+      }) ?? defaultNoModelMessage(options.agentIdentity, defaultMessage)
+      const message = await validateAgentResponse({
+        options,
+        grounding,
+        input: lastUserInput,
+        text: fallbackMessage,
+        toolsCalled,
+        toolResults,
+        session,
+      })
       await telemetry.emit('model-unavailable', { runId, input: lastUserInput, data: { availableTools: Object.keys(contextualTools) } })
       yield { type: 'no-model', message, readiness }
       await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { noModel: true } })
@@ -277,6 +374,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     let text = ''
     let terminalError = false
     let usedTools = false
+    const toolsCalled: string[] = []
+    const toolResults: EdgeEvidenceRecord[] = []
     const toolRepair = resolveToolRepairOptions(options.toolRepair)
     const repairEvents: AgentEvent[] = []
 
@@ -307,7 +406,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       system,
       messages: [...messages],
       tools: contextualTools,
-      toolChoice: options.toolChoice,
+      toolChoice: options.toolChoice ?? (grounding === 'strict' && Object.keys(contextualTools).length > 0 ? 'required' : undefined),
       stopWhen: stepCountIs(maxSteps),
       experimental_repairToolCall: repairToolCall,
     })
@@ -320,12 +419,15 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           const delta = String(part.text ?? part.delta ?? '')
           text += delta
           await telemetry.emit('text-delta', { runId, input: lastUserInput, data: { length: delta.length } })
-          yield { type: 'text-delta', text: delta }
+          if (grounding !== 'strict') {
+            yield { type: 'text-delta', text: delta }
+          }
           break
         }
         case 'tool-call': {
           const toolName = String(part.toolName)
           usedTools = true
+          toolsCalled.push(toolName)
           yield await makeActivity(`Running ${toolName}`, 'started', { toolName, data: part.input })
           await telemetry.emit('tool-call', { runId, input: lastUserInput, toolName, data: part.input })
           await recordAudit({
@@ -347,11 +449,13 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         case 'tool-result': {
           const toolName = String(part.toolName)
           usedTools = true
+          toolsCalled.push(toolName)
           const redactedOutput = await applyRedactors(part.output, options.redactors, {
             ...toolContext,
             toolName,
             phase: 'tool-result',
           })
+          toolResults.push({ toolName, output: redactedOutput })
           yield await makeActivity(`Completed ${toolName}`, 'completed', { toolName })
           await telemetry.emit('tool-result', { runId, input: lastUserInput, toolName, data: redactedOutput })
           await recordAudit({
@@ -413,7 +517,19 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     if (!terminalError) {
       const response = await result.response
       const historyMessages = await redactModelMessagesForHistory(response.messages, options.redactors, toolContext)
-      appendMessages(historyMessages)
+      const originalText = text
+      const nextText = await validateAgentResponse({
+        options,
+        grounding,
+        input: lastUserInput,
+        text,
+        toolsCalled,
+        toolResults,
+        session,
+        provider: { id: resolved.provider.id, label: resolved.provider.label },
+      })
+      text = nextText
+      appendMessages(text === originalText ? historyMessages : assistantTextMessage(text))
     }
 
     if (
@@ -429,12 +545,21 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         text,
         createdAt,
         expiresAt,
-        metadata: { state: session.state, tools: Object.keys(contextualTools) },
+        metadata: {
+          state: session.state,
+          tools: Object.keys(contextualTools),
+          grounding,
+          evidenceCount: toolResults.length,
+          hasUsableEvidence: toolResults.some(result => hasUsableToolEvidence(result.output)),
+        },
       })
       yield await makeActivity('Saved response cache', 'completed', { data: { key: cacheKey } })
     }
 
-    await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text } })
+    if (!terminalError && grounding === 'strict' && text) {
+      yield { type: 'text-delta', text }
+    }
+    await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text, grounding, evidenceCount: toolResults.length } })
     yield { type: 'done', text }
   }
 
@@ -486,27 +611,6 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       messages = []
     },
   }
-}
-
-function defaultBrowserModelProviders(): ModelProvider[] {
-  return [
-    createModelProvider({
-      id: 'chrome-ai',
-      label: 'Chrome AI',
-      resolve: async context => {
-        const { chromeAI } = await import('./providers/chrome-ai')
-        return chromeAI().resolve(context)
-      },
-    }),
-    createModelProvider({
-      id: 'webllm',
-      label: 'WebLLM',
-      resolve: async context => {
-        const { webLLM } = await import('./providers/web-llm')
-        return webLLM().resolve(context)
-      },
-    }),
-  ]
 }
 
 async function redactModelMessagesForHistory(
@@ -773,6 +877,203 @@ function defaultToolRepairInstruction(error: unknown, attempt: number) {
     `Validation error: ${readableError(error)}`,
     'Correct the tool arguments to match the registered schema. Do not apologize. Do not ask the user to repeat themselves. Retry the appropriate tool call with valid JSON only.',
   ].join('\n')
+}
+
+function withAgentRuntimeSystemContext(
+  systemPrompt: string,
+  context: { agentIdentity?: EdgeAgentIdentity; grounding: EdgeGroundingMode },
+) {
+  const additions: string[] = []
+  const identity = context.agentIdentity
+
+  if (identity?.name) {
+    additions.push([
+      `Assistant identity: You are ${identity.name}.`,
+      identity.description ? identity.description : '',
+      identity.persona ? `Tone/persona: ${identity.persona}.` : '',
+      identity.modelDisclosure === 'technical'
+        ? 'You may separately explain the current model/runtime only when asked and only as inference machinery, not as your identity.'
+        : 'Do not identify yourself as a specific model, model provider, or creator team unless the developer explicitly configured that wording.',
+    ].filter(Boolean).join(' '))
+  }
+
+  if (context.grounding === 'strict') {
+    additions.push([
+      'Strict grounding mode is enabled.',
+      'For factual questions, use the registered evidence tools before answering.',
+      'Answer only from configured assistant identity, host-provided context, memory, current runtime status, or tool results.',
+      'If the evidence does not support a claim, say that you do not know from the available site/app evidence.',
+      'Distinguish the Edgekit runtime, the configured assistant identity, and the model used for inference when the user asks what they are chatting with.',
+      'Never fill gaps with pretrained facts about people, companies, affiliations, products, or biographies.',
+    ].join(' '))
+  } else if (context.grounding === 'soft') {
+    additions.push('Prefer registered tools and host-provided evidence for factual claims. Say when the available evidence is insufficient.')
+  }
+
+  if (additions.length === 0) return systemPrompt
+  return `${systemPrompt}\n\n${additions.join('\n')}`
+}
+
+async function validateAgentResponse(context: {
+  options: CreateAgentOptions
+  grounding: EdgeGroundingMode
+  input: string
+  text: string
+  toolsCalled: string[]
+  toolResults: EdgeEvidenceRecord[]
+  session: EdgeSessionContext
+  provider?: { id: string; label: string }
+}) {
+  const validationContext: EdgeResponseValidationContext = {
+    input: context.input,
+    text: context.text,
+    toolsCalled: [...new Set(context.toolsCalled)],
+    toolResults: context.toolResults,
+    evidenceCount: context.toolResults.length,
+    session: context.session,
+    provider: context.provider,
+    agentIdentity: context.options.agentIdentity,
+    grounding: context.grounding,
+  }
+
+  const defaultReplacement = defaultStrictResponseReplacement(validationContext)
+  if (defaultReplacement != null) return defaultReplacement
+
+  const customReplacement = await context.options.validateResponse?.(validationContext)
+  return customReplacement == null ? context.text : customReplacement
+}
+
+function defaultStrictResponseReplacement(context: EdgeResponseValidationContext) {
+  if (context.grounding !== 'strict') return null
+  const noEvidenceMessage = context.agentIdentity?.noEvidenceMessage ?? 'I do not know from the available site/app evidence.'
+  const lower = context.text.toLowerCase()
+  const modelIdentityPatterns = [
+    'created by the gemma team',
+    'i am gemma',
+    "i'm gemma",
+    'as gemma',
+    'created by google',
+    'created by openai',
+    'created by anthropic',
+  ]
+  if (modelIdentityPatterns.some(pattern => lower.includes(pattern))) {
+    return noEvidenceMessage
+  }
+
+  if (isConfiguredIdentityAnswer(context, lower)) {
+    return null
+  }
+
+  if (
+    context.toolsCalled.length === 0
+    || context.evidenceCount === 0
+    || !context.toolResults.some(result => hasUsableToolEvidence(result.output))
+  ) {
+    return noEvidenceMessage
+  }
+
+  return null
+}
+
+function isConfiguredIdentityAnswer(context: EdgeResponseValidationContext, lowerText: string) {
+  if (!/\b(who are you|what are you|are you edgekit|are you gemma|which model|model identity)\b/i.test(context.input)) {
+    return false
+  }
+  const identityName = context.agentIdentity?.name?.toLowerCase()
+  const namesConfiguredIdentity = identityName ? lowerText.includes(identityName) : false
+  const namesEdgekitRuntime = /\bedgekit\b/.test(lowerText) && /\b(runtime|component|widget|powers|built with)\b/.test(lowerText)
+  const separatesModel = /\bmodel\b/.test(lowerText) && /\b(inference|runtime|machinery|separate)\b/.test(lowerText)
+  return namesConfiguredIdentity || namesEdgekitRuntime || separatesModel
+}
+
+function hasUsableToolEvidence(output: unknown): boolean {
+  if (Array.isArray(output)) return output.length > 0
+  if (!isRecord(output)) return output != null
+  if ('error' in output) return false
+
+  const resultLists = ['results', 'matches', 'items', 'records', 'documents', 'citations']
+  for (const key of resultLists) {
+    if (key in output) {
+      const value = output[key]
+      return Array.isArray(value) ? value.length > 0 : Boolean(value)
+    }
+  }
+
+  return Object.entries(output)
+    .filter(([key]) => !['query', 'input', 'currentPage', 'freshness', 'source'].includes(key))
+    .some(([, value]) => {
+      if (Array.isArray(value)) return value.length > 0
+      if (isRecord(value)) return Object.keys(value).length > 0
+      return value != null && value !== ''
+    })
+}
+
+function assistantTextMessage(text: string): ModelMessage {
+  return { role: 'assistant', content: [{ type: 'text', text }] }
+}
+
+function defaultNoModelMessage(identity: EdgeAgentIdentity | undefined, fallback: string) {
+  return identity?.noEvidenceMessage ?? fallback
+}
+
+function createNoModelToolCaller(options: {
+  tools: Record<string, unknown>
+  manifests?: EdgeToolManifest[]
+  session: EdgeSessionContext
+}): EdgeNoModelToolCaller {
+  const manifestReadOnly = new Map(options.manifests?.map(manifest => [manifest.name, Boolean(manifest.readOnly)]) ?? [])
+  const context: EdgeToolExecutionContext = {
+    session: options.session,
+    identity: options.session.identity,
+    auth: options.session.auth,
+    state: options.session.state,
+  }
+
+  return async (name, input, callOptions = {}) => {
+    const readOnlyOnly = callOptions.readOnlyOnly !== false
+    const candidate = options.tools[name]
+    if (!isRecord(candidate) || typeof candidate.execute !== 'function') {
+      throw new Error(`Tool "${name}" is not available for no-model fallback.`)
+    }
+    const approvalRequired = await noModelToolNeedsApproval(candidate, input, context)
+    if (approvalRequired) {
+      throw new Error(`Tool "${name}" requires approval and cannot run in no-model fallback.`)
+    }
+    if (readOnlyOnly) {
+      const manifestAllowsRead = manifestReadOnly.get(name) === true
+      const toolAllowsRead = candidate.readOnly === true
+      if (!manifestAllowsRead && !toolAllowsRead) {
+        throw new Error(`Tool "${name}" is not marked read-only for no-model fallback.`)
+      }
+    }
+    return (candidate.execute as (input: Record<string, unknown>) => unknown | Promise<unknown>)(input)
+  }
+}
+
+async function noModelToolNeedsApproval(
+  candidate: Record<string, unknown>,
+  input: Record<string, unknown>,
+  context: EdgeToolExecutionContext,
+) {
+  if (candidate.needsApproval === true) return true
+  if (typeof candidate.needsApproval !== 'function') return false
+  try {
+    return Boolean(await (candidate.needsApproval as (
+      input: Record<string, unknown>,
+      options: Record<string, unknown>,
+    ) => boolean | Promise<boolean>)(input, {
+      args: input,
+      messages: [],
+      experimental_context: context,
+      context,
+      session: context.session,
+      identity: context.identity,
+      auth: context.auth,
+      state: context.state,
+    }))
+  } catch {
+    return true
+  }
 }
 
 function withSessionSystemContext(systemPrompt: string, session: EdgeSessionContext, memoryRecords: EdgeMemoryRecord[] = []) {
