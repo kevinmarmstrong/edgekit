@@ -16,6 +16,7 @@ import type { EdgeResponseCache, EdgeResponseCacheContext, EdgeResponseCachePoli
 import { resolveCachePolicy } from './compat/cache'
 import { createHandoffEnvelope } from './compat/agui'
 import type { EdgeModelRouter } from './compat/routing'
+import type { EdgeResponseValidationResult } from './claims'
 import { createId, isRecord, readableError, stableStringify } from './shared'
 
 // Phase D leaves Edgekit-specific telemetry, redaction, cache, approval, and handoff wiring here.
@@ -29,6 +30,7 @@ export type AgentEvent =
   | { type: 'view'; view: EdgeViewNode | EdgeViewNode[] }
   | { type: 'approval-request'; approvalId: string; toolCall: unknown }
   | { type: 'no-model'; message: string; readiness?: CascadeReadinessSnapshot }
+  | { type: 'response-validation'; validation: EdgeResponseValidationResult }
   | { type: 'error'; error: unknown }
   | { type: 'done'; text: string }
 
@@ -82,7 +84,7 @@ export interface EdgeResponseValidationContext {
 
 export type EdgeResponseValidator = (
   context: EdgeResponseValidationContext,
-) => string | null | void | Promise<string | null | void>
+) => string | EdgeResponseValidationResult | null | void | Promise<string | EdgeResponseValidationResult | null | void>
 
 export type EdgeNoModelToolCaller = (
   name: string,
@@ -262,7 +264,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
           cached.metadata?.grounding === 'strict' &&
           cached.metadata?.hasUsableEvidence === true
         if (grounding !== 'strict' || cachedStrictEvidence) {
-          const cachedText = await validateAgentResponse({
+          const cachedResponse = await validateAgentResponse({
             options,
             grounding,
             input: lastUserInput,
@@ -273,11 +275,14 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
               : [],
             session,
           })
+          if (cachedResponse.validation) {
+            yield { type: 'response-validation', validation: cachedResponse.validation }
+          }
           yield await makeActivity('Using cached response', 'completed', { data: { key: cacheKey } })
-          appendMessages(assistantTextMessage(cachedText))
-          await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text: cachedText, cached: true, grounding } })
-          yield { type: 'text-delta', text: cachedText }
-          yield { type: 'done', text: cachedText }
+          appendMessages(assistantTextMessage(cachedResponse.text))
+          await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text: cachedResponse.text, cached: true, grounding } })
+          yield { type: 'text-delta', text: cachedResponse.text }
+          yield { type: 'done', text: cachedResponse.text }
           return
         }
       }
@@ -349,7 +354,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         history: [...messages],
         callTool,
       }) ?? defaultNoModelMessage(options.agentIdentity, defaultMessage)
-      const message = await validateAgentResponse({
+      const response = await validateAgentResponse({
         options,
         grounding,
         input: lastUserInput,
@@ -359,7 +364,10 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         session,
       })
       await telemetry.emit('model-unavailable', { runId, input: lastUserInput, data: { availableTools: Object.keys(contextualTools) } })
-      yield { type: 'no-model', message, readiness }
+      if (response.validation) {
+        yield { type: 'response-validation', validation: response.validation }
+      }
+      yield { type: 'no-model', message: response.text, readiness }
       await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { noModel: true } })
       return
     }
@@ -378,6 +386,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     const toolResults: EdgeEvidenceRecord[] = []
     const toolRepair = resolveToolRepairOptions(options.toolRepair)
     const repairEvents: AgentEvent[] = []
+    let responseValidation: EdgeResponseValidationResult | undefined
 
     const drainRepairEvents = function* () {
       while (repairEvents.length > 0) {
@@ -518,7 +527,7 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       const response = await result.response
       const historyMessages = await redactModelMessagesForHistory(response.messages, options.redactors, toolContext)
       const originalText = text
-      const nextText = await validateAgentResponse({
+      const validatedResponse = await validateAgentResponse({
         options,
         grounding,
         input: lastUserInput,
@@ -528,7 +537,8 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         session,
         provider: { id: resolved.provider.id, label: resolved.provider.label },
       })
-      text = nextText
+      text = validatedResponse.text
+      responseValidation = validatedResponse.validation
       appendMessages(text === originalText ? historyMessages : assistantTextMessage(text))
     }
 
@@ -556,6 +566,9 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       yield await makeActivity('Saved response cache', 'completed', { data: { key: cacheKey } })
     }
 
+    if (responseValidation) {
+      yield { type: 'response-validation', validation: responseValidation }
+    }
     if (!terminalError && grounding === 'strict' && text) {
       yield { type: 'text-delta', text }
     }
@@ -923,7 +936,7 @@ async function validateAgentResponse(context: {
   toolResults: EdgeEvidenceRecord[]
   session: EdgeSessionContext
   provider?: { id: string; label: string }
-}) {
+}): Promise<{ text: string; validation?: EdgeResponseValidationResult }> {
   const validationContext: EdgeResponseValidationContext = {
     input: context.input,
     text: context.text,
@@ -936,11 +949,39 @@ async function validateAgentResponse(context: {
     grounding: context.grounding,
   }
 
-  const defaultReplacement = defaultStrictResponseReplacement(validationContext)
-  if (defaultReplacement != null) return defaultReplacement
-
   const customReplacement = await context.options.validateResponse?.(validationContext)
-  return customReplacement == null ? context.text : customReplacement
+  if (customReplacement != null) {
+    if (typeof customReplacement === 'string') return { text: customReplacement }
+    return normalizeResponseValidationResult(customReplacement, validationContext)
+  }
+
+  const defaultReplacement = defaultStrictResponseReplacement(validationContext)
+  if (defaultReplacement != null) return { text: defaultReplacement }
+
+  return { text: context.text }
+}
+
+function normalizeResponseValidationResult(
+  result: EdgeResponseValidationResult,
+  context: EdgeResponseValidationContext,
+) {
+  const issues = result.issues
+  const blocked = result.blocked
+  const state = result.state
+  const fallbackText = blocked
+    ? (context.agentIdentity?.noEvidenceMessage ?? 'I do not know from the available site/app evidence.')
+    : context.text
+  const text = result.text ?? result.refusal ?? fallbackText
+  return {
+    text,
+    validation: {
+      ...result,
+      state,
+      blocked,
+      text,
+      issues,
+    },
+  }
 }
 
 function defaultStrictResponseReplacement(context: EdgeResponseValidationContext) {
