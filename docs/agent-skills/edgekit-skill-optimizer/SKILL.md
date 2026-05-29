@@ -25,6 +25,7 @@ Use this skill after outcome data exists. Do not optimize from vibes.
 5. Run held-out validation.
 6. Accept only strict improvement. Reject ties.
 7. Report per-skill effect size.
+8. Keep package ownership clear: Skill/Profile APIs live in `@kevinmarmstrong/edgekit-skills`; do not tune deprecated root compatibility exports.
 
 ## Editable Fast State
 

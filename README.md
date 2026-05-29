@@ -75,6 +75,7 @@ Use local providers first. Add a developer-owned cloud route only when your app 
 
 ## Docs
 
+- [Agent Adoption Kit](./docs/adopter/AGENT-ADOPTION-KIT.md)
 - [30-minute workflow](./docs/adopter/30-MINUTE-PRODUCTION-SIDECAR.md)
 - [Getting started for real apps](./docs/adopter/GETTING-STARTED-REAL-APPS.md)
 - [Production recipes](./docs/adopter/PRODUCTION-RECIPES.md)
@@ -83,6 +84,15 @@ Use local providers first. Add a developer-owned cloud route only when your app 
 - [Migration and upgrades](./docs/adopter/MIGRATION-AND-UPGRADES.md)
 - [Upgrade template and v0.3 worked example](./docs/adopter/UPGRADE.md)
 - [Architecture](./ARCHITECTURE.md)
+
+## Agent-Readable Docs
+
+If a coding agent starts from the public site instead of this repo, point it at:
+
+- `https://kevinmarmstrong.github.io/edgekit/llms.txt`
+- `https://kevinmarmstrong.github.io/edgekit/docs/adoption-kit.md`
+- `https://kevinmarmstrong.github.io/edgekit/llms-full.txt`
+- `https://github.com/kevinmarmstrong/edgekit/tree/main/docs/agent-skills`
 
 ## Release Checks
 

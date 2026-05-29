@@ -19,6 +19,7 @@ Use this skill before calling an Edgekit integration production-ready.
 ## Checklist
 
 - Host app owns auth, permissions, state, business logic, and final execution.
+- Imports use the v0.3.1 sibling package shape: core runtime from `@kevinmarmstrong/edgekit`, UI from `@kevinmarmstrong/edgekit-ui`, Skills from `@kevinmarmstrong/edgekit-skills`, Knowledge Access from `@kevinmarmstrong/edgekit-knowledge`, governance helpers from `@kevinmarmstrong/edgekit-governance`, AG-UI from `@kevinmarmstrong/edgekit-agui`, and MCP adapters from `@kevinmarmstrong/edgekit-mcp`.
 - JWTs, cookies, API keys, CRM credentials, database credentials, and private claims are not in prompts, memory, state summaries, or docs indexes.
 - Risky tools use `needsApproval: true`.
 - Approval and rejection paths preserve app state correctly.

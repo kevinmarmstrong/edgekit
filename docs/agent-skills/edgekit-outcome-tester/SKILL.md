@@ -25,6 +25,7 @@ Use this skill to test outcomes, not only runtime success.
 5. Check citations and freshness for Knowledge Access.
 6. Check telemetry/audit events for important actions.
 7. Run local and, after deploy, live GitHub Pages suites when public surfaces changed.
+8. For external demos or fresh apps, verify installation from published `@kevinmarmstrong/*@^0.3.1` npm packages rather than repo workspace aliases.
 
 ## Required Categories
 

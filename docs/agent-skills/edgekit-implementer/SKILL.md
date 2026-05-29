@@ -17,6 +17,28 @@ Use this skill to add a production-shaped Edgekit sidecar to an existing app.
 4. `docs/adopter/RUNTIME-GUARANTEES.md`
 5. `docs/adopter/AGENT-ADOPTION-KIT.md`
 
+If you are starting from the public website instead of a cloned repo, read:
+
+1. `https://kevinmarmstrong.github.io/edgekit/llms.txt`
+2. `https://kevinmarmstrong.github.io/edgekit/docs/adoption-kit.md`
+3. `https://kevinmarmstrong.github.io/edgekit/llms-full.txt` when broader adopter context is needed.
+
+## v0.3.1 Package Shape
+
+Install the core runtime and UI first:
+
+```bash
+npm install @kevinmarmstrong/edgekit @kevinmarmstrong/edgekit-ui
+```
+
+Add sibling packages only when the mission needs them:
+
+```bash
+npm install @kevinmarmstrong/edgekit-skills @kevinmarmstrong/edgekit-knowledge @kevinmarmstrong/edgekit-governance @kevinmarmstrong/edgekit-mcp @kevinmarmstrong/edgekit-agui @kevinmarmstrong/edgekit-react @kevinmarmstrong/edgekit-cli
+```
+
+Import Skills/Mission Profiles from `@kevinmarmstrong/edgekit-skills`, Knowledge Access from `@kevinmarmstrong/edgekit-knowledge`, governance/audit/redaction/offline helpers from `@kevinmarmstrong/edgekit-governance`, AG-UI from `@kevinmarmstrong/edgekit-agui`, and MCP adapters from `@kevinmarmstrong/edgekit-mcp`.
+
 ## Workflow
 
 1. Identify one narrow mission.

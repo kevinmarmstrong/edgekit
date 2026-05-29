@@ -104,6 +104,8 @@ ${maintainerLinks}
 
 ## Agent ingestion
 
+- If you are an implementation agent starting from the website, read this file first, then [Adoption Kit Markdown](${publicDocsPath('/docs/adoption-kit.md')}), then [Adopter implementation export](${publicDocsPath('/llms-full.txt')}).
+- If the task asks you to implement Edgekit in a repo, use the GitHub docs/agent-skills SKILL.md files as procedural guides after you understand the public docs.
 - [Adopter implementation export](${publicDocsPath('/llms-full.txt')})
 - [Maintainer/release export](${publicDocsPath('/llms-maintainers.txt')})
 - [Overview Markdown](${publicDocsPath('/docs.md')})
@@ -117,6 +119,13 @@ ${maintainerLinks}
 - [Ecosystem Markdown](${publicDocsPath('/docs/ecosystem.md')})
 - [Knowledge Access Markdown](${publicDocsPath('/docs/knowledge-access.md')})
 - [Reproducibility Markdown](${publicDocsPath('/docs/reproducibility.md')})
+
+## Coding-agent skills
+
+- [edgekit-implementer](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-implementer/SKILL.md)
+- [edgekit-outcome-tester](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-outcome-tester/SKILL.md)
+- [edgekit-security-review](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-security-review/SKILL.md)
+- [edgekit-skill-optimizer](https://github.com/kevinmarmstrong/edgekit/blob/main/docs/agent-skills/edgekit-skill-optimizer/SKILL.md)
 
 ## Public demos
 

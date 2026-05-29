@@ -108,10 +108,16 @@ export const docsPages: DocsPage[] = [
         body: ['The open source repo is organized as a small monorepo.'],
         bullets: [
           '`packages/core`: model cascade, provider helpers, agent event stream, approval resume.',
-          '`packages/ui`: Lit web component, approval prompts, download prompts, chat shell.',
-          '`packages/cli`: documentation indexing utility for project Q&A tools.',
+          '`packages/ui`: Lit web component, approval prompts, download prompts, EdgeView renderer, and chat shell.',
+          '`packages/react`: React controller and EdgeChat wrapper.',
+          '`packages/skills`: Skills and Mission Profiles.',
+          '`packages/knowledge`: Knowledge Access tools and Markdown memory.',
+          '`packages/governance`: audit trails, redaction, policy execution, and offline mutation journals.',
+          '`packages/agui`: AG-UI endpoint/run adapter backed by @ag-ui/client.',
+          '`packages/mcp`: safe MCP catalog adapters.',
+          '`packages/cli`: documentation indexing utility and recipe scaffolding entrypoint.',
           '`examples/ecommerce`: standalone app retrofit demo.',
-          '`site`: GitHub Pages docs plus remaining internal demo surfaces while Phase F externalization continues.',
+          '`site`: GitHub Pages docs plus remaining internal demo previews while ecommerce/docs/admin live in external repos.',
           '`tests/e2e`: Playwright coverage for embedded agent workflows.',
         ],
       },
@@ -688,6 +694,21 @@ onMounted(() => {
         ],
       },
       {
+        id: 'site-first-agent-path',
+        title: 'If an agent starts on the website',
+        body: [
+          'A coding agent does not need hidden maintainer context to start. The public website exposes a small discovery ladder for retrieval first, then procedure.',
+          'Use the public docs to understand Edgekit, then use the GitHub SKILL.md files only when you are ready to change a host app or this repo.',
+        ],
+        bullets: [
+          'Read `/edgekit/llms.txt` first for the map of public docs, demos, and agent-ingestion exports.',
+          'Read `/edgekit/docs/adoption-kit.md` next for the implementation sequence and which SKILL.md file applies.',
+          'Read `/edgekit/llms-full.txt` when you need broader adopter context without crawling the whole repo.',
+          'Open `https://github.com/kevinmarmstrong/edgekit/tree/main/docs/agent-skills` for procedural implementation, outcome-testing, security-review, and Skill-optimization skills.',
+          'Install from npm with `@kevinmarmstrong/edgekit@^0.3.1` and only add sibling packages the workflow needs.',
+        ],
+      },
+      {
         id: 'layers',
         title: 'Layers',
         body: ['Use the smallest layer that solves the current adoption problem.'],
@@ -702,7 +723,7 @@ onMounted(() => {
         id: 'agent-skills',
         title: 'Agent skills',
         body: [
-          'Agent-readable docs help retrieval. Agent skills add procedure. The `docs/agent-skills/*/SKILL.md` files tell a coding agent exactly what to inspect, create, test, and avoid.',
+          'Agent-readable docs help retrieval. Agent skills add procedure. The GitHub `docs/agent-skills/*/SKILL.md` files tell a coding agent exactly what to inspect, create, test, and avoid.',
         ],
         bullets: [
           '`edgekit-implementer`: build Skills, a Mission Profile, tools, approvals, telemetry, and mount code.',
@@ -714,10 +735,11 @@ onMounted(() => {
       {
         id: 'cli',
         title: 'CLI path',
-        body: ['Use `edgekit-init` when a team or coding agent needs files on disk immediately.'],
+        body: ['Use `edgekit-init` from `@kevinmarmstrong/edgekit-cli` when a team or coding agent needs files on disk immediately.'],
         code: {
           language: 'bash',
-          text: `edgekit-init --list
+          text: `npm install -D @kevinmarmstrong/edgekit-cli
+edgekit-init --list
 edgekit-init mission --recipe support-workflow --out edgekit/support
 edgekit-init mission --recipe knowledge-skill --out edgekit/policy
 edgekit-init mission --recipe astro-intake-knowledge --out src/edgekit/intake`,
@@ -955,49 +977,25 @@ const policySkill = createKnowledgeSkill({
     slug: 'api',
     navLabel: 'API Reference',
     title: 'API reference',
-    summary: 'Typed runtime exports for providers, agents, memory, telemetry, audit, offline sync, and tool policy.',
+    summary: 'Typed v0.3.1 package surfaces for the core runtime and optional sibling capabilities.',
     sections: [
       {
         id: 'exports',
-        title: 'Exports',
-        body: ['The core package is intentionally small.'],
+        title: 'v0.3.1 package surfaces',
+        body: [
+          'Install `@kevinmarmstrong/edgekit` and `@kevinmarmstrong/edgekit-ui` for the smallest browser-native agent surface. Add sibling packages only when the workflow needs that capability.',
+          'Root compatibility exports for moved capabilities remain deprecated transition shims. New integrations should import directly from sibling packages.',
+        ],
         bullets: [
-          '`createAgent(options)`: create an event-streaming agent.',
-          '`createCascadeReadinessController(options)`: check provider/capability state before showing agent features and return a headless recommended action.',
-          '`chromeAI()`: provider helper for browser Chrome AI.',
-          '`webLLM(options)`: provider helper for WebLLM.',
-          '`createHybridModelRouter(routes)`: route simple work to local models and complex work to developer-provided models.',
-          '`createSupervisorRouter(options)`: route by lightweight intent patterns before falling back to the default model cascade.',
-          '`createMarkdownMemoryStore(options)`: hydrate relevant Markdown-backed memory into the run context.',
-          '`EdgeKnowledgeSource`: stable adapter contract for app-owned retrieval, RAG, vector search, graph search, or private knowledge APIs.',
-          '`createKnowledgeTool(options)`: wrap an app-owned knowledge source as a read-only citation-ready Edgekit tool.',
-          '`createKnowledgeSkill(options)`: package retrieval policy, activation hints, citations, freshness, protected sections, and the executable knowledge tool as a Skill.',
-          '`createHandoffEnvelope(options)`: package intent, state, memory, and tool context for worker handoffs.',
-          '`estimateTokens(value)`: lightweight token estimate for memory thresholds and handoff budgets.',
-          '`createMemoryResponseCache()`: opt-in in-memory response cache for deterministic local reuse.',
-          '`createIndexedDbResponseCache(options)`: browser IndexedDB response cache for persisted edge caching.',
-          '`executeParallelTools(options)`: run explicitly read-only and parallel-safe tool batches concurrently.',
-          '`createOfflineTool(options)`: wrap an app tool so approved offline-capable mutations queue instead of failing when the network is unavailable.',
-          '`createMemoryMutationJournal(options)`: in-memory mutation journal for tests and short-lived sessions.',
-          '`createLocalStorageMutationJournal(options)`: browser-local mutation journal for simple persisted offline queues.',
-          '`syncMutationJournal(options)`: replay queued mutations through the original app tools and mark synced, failed, or conflict status.',
-          '`createToolPolicyExecutor(options)`: enforce allowlists, timeouts, and payload limits around dynamic tool execution.',
-          '`executeToolWithPolicy(options, policy)`: one-shot guarded execution for third-party or MCP-adapted tools.',
-          '`createPiiRedactor(options)`: mask common PII patterns before tool results are emitted to telemetry, audit, and UI events.',
-          '`createAgUiAgent(options)`: wrap an AG-UI compatible event stream as an Edgekit agent.',
-          '`agUiEventToAgentEvents(event)`: translate AG-UI events into Edgekit events.',
-          '`actionsToEdgeView(actions)`: compile action metadata into declarative EdgeView cards/forms.',
-          '`resolveSessionContext(options)`: combine host session, identity, and app-state providers.',
-          '`filterToolManifestsForSession(manifests, session)`: apply role and permission filters to dynamic tools.',
-          '`withToolContext(tools, context)`: pass identity, auth, and state into tool execution without adding secrets to the prompt.',
-          '`mcpToolsFromDefinitions(definitions, client)`: convert a safe MCP tool catalog into Edgekit tools.',
-          '`loadMcpTools(client)`: load tools from an MCP client that exposes `listTools()` and `callTool()`.',
-          '`createMissionControl()`: aggregate telemetry events for dashboards or analytics adapters.',
-          '`createAuditTrail(options)`: create a hash-chained approval/tool audit log.',
-          '`createModelProvider(options)`: define a custom provider.',
-          '`tool`: re-export of the AI SDK tool helper.',
-          '`modelOptional(schema)`: optional schema helper that treats model-supplied `null` the same as an omitted field.',
-          '`LanguageModelV3`: model type export for custom providers.',
+          '`@kevinmarmstrong/edgekit`: `createAgent`, `tool`, `chromeAI`, `webLLM`, `resolveModel`, readiness controllers, context providers, and telemetry contracts.',
+          '`@kevinmarmstrong/edgekit-ui`: `<edge-chat>`, EdgeView rendering, approvals, action forms, readiness/download UI.',
+          '`@kevinmarmstrong/edgekit-skills`: `createSkill`, `createMissionProfile`, `applyMissionProfile`, validation, and Skill/Profile-to-agent options.',
+          '`@kevinmarmstrong/edgekit-knowledge`: Knowledge sources, knowledge tools, Knowledge Skills, Markdown memory, citations, and freshness metadata.',
+          '`@kevinmarmstrong/edgekit-governance`: audit trails, redaction, policy execution, offline tools, and mutation journals.',
+          '`@kevinmarmstrong/edgekit-agui`: `createAgUiAgent`, AG-UI event translation, and handoff envelopes backed by `@ag-ui/client`.',
+          '`@kevinmarmstrong/edgekit-mcp`: `loadMcpTools` and `mcpToolsFromDefinitions` for safe backend/proxy MCP catalogs.',
+          '`@kevinmarmstrong/edgekit-react`: `EdgeChat`, `useEdgeAgent`, `useEdgeActivity`, and controller helpers.',
+          '`@kevinmarmstrong/edgekit-cli`: `edgekit-init` recipes and docs indexing utility.',
         ],
       },
       {
@@ -1154,13 +1152,15 @@ chat.registerTools({ searchProducts, addToCart })`,
         id: 'markdown-memory',
         title: 'Markdown memory stores',
         body: [
-          'Use `createMarkdownMemoryStore()` when an app needs persistent local memory without committing to a vector database on day one. Markdown files are easy for developers, coding agents, support teams, and vibe coders to inspect, review, diff, and ship with an app.',
+          'Import `createMarkdownMemoryStore()` from `@kevinmarmstrong/edgekit-knowledge` when an app needs persistent local memory without committing to a vector database on day one. Markdown files are easy for developers, coding agents, support teams, and vibe coders to inspect, review, diff, and ship with an app.',
           'The built-in store treats Markdown headings as memory records and searches them with a lightweight term scorer. It is intentionally replaceable: any object with `search(query, context)` and optional `write(record, context)` can back Edgekit memory, including IndexedDB, OPFS, a vector store, or a server profile service.',
           'Store preferences, workflow notes, and non-sensitive support history. Do not store raw secrets, access tokens, payment data, or regulated medical content unless your app has an explicit compliance design for that memory.',
         ],
         code: {
           language: 'ts',
-          text: `const memory = createMarkdownMemoryStore({
+          text: `import { createMarkdownMemoryStore } from '@kevinmarmstrong/edgekit-knowledge'
+
+const memory = createMarkdownMemoryStore({
   documents: [
     {
       id: 'local-preferences',
@@ -1207,73 +1207,59 @@ const agent = createAgent({
       },
       {
         id: 'hybrid-routing',
-        title: 'Hybrid routing',
+        title: 'Deprecated routing experiments',
         body: [
-          'Use `createHybridModelRouter()` when simple work should stay local but complex prompts should route to a developer-provided model. The cloud model can be any AI SDK-compatible model exposed by your app route or provider package.',
-          'The router receives the user input, message history, available tools, default local cascade, and whether the run is a fresh send or approval resume.',
+          '`createHybridModelRouter()` is a deprecated root compatibility export in v0.3.1, not part of the stable v0.3 public API contract.',
+          'For new integrations, configure the model cascade with `model: [chromeAI(), webLLM(), appCloudRoute]`, use `resolveModel()` when a headless resolver is needed, and route heavier worker behavior behind app-owned tools or AG-UI endpoints.',
         ],
         code: {
           language: 'ts',
-          text: `const modelRouter = createHybridModelRouter([
-  {
-    id: 'cloud-complex',
-    model: [cloudModel],
-    when: ({ input }) => /plan|compare|synthesize|multi-step/i.test(input),
-  },
-], [chromeAI(), webLLM()])
-
-const agent = createAgent({
-  systemPrompt,
-  tools,
+          text: `chat.configure({
   model: [chromeAI(), webLLM()],
-  modelRouter,
+  toolProvider: ({ input, session }) =>
+    shouldExposeMutationTools(input, session) ? mutationTools : readOnlyTools,
 })`,
         },
       },
       {
         id: 'supervisor-routing',
-        title: 'Supervisor routing',
+        title: 'Worker handoffs',
         body: [
-          '`createSupervisorRouter()` is a simpler route-by-intent layer for apps that want a supervisor/worker pattern without a heavy multi-agent framework. Keep navigation, filtering, and simple extraction on the local model; route synthesis, long planning, or account analysis to a developer-provided worker model.',
-          'The router can match explicit intent strings, regular expressions, or a custom `when(context)` predicate. Because it returns a normal `EdgeModelRouter`, teams can replace it later with a richer classifier without changing the agent integration.',
-          'Worker routes can receive `onHandoff(envelope)`. The envelope contains the user intent, recent messages, selected memory records, public identity, app state, tool names, and trace ids without secret identity claims.',
+          '`createSupervisorRouter()` is a deprecated root compatibility export in v0.3.1, not part of the stable v0.3 public API contract.',
+          'Use `createHandoffEnvelope()` from `@kevinmarmstrong/edgekit-agui` when a local agent needs to pass bounded context to a cloud worker, AG-UI backend, or other specialist service.',
+          'The envelope contains the user intent, recent messages, selected memory records, public identity, app state, tool names, and trace ids without secret identity claims.',
         ],
         code: {
           language: 'ts',
-          text: `const modelRouter = createSupervisorRouter({
-  fallback: [chromeAI(), webLLM()],
-  workers: [
-    {
-      id: 'analysis-worker',
-      model: [cloudAnalysisModel],
-      intents: ['compare accounts', 'explain churn'],
-      patterns: [/synthesize|multi-step|forecast/i],
-    },
-  ],
+          text: `import { createAgUiAgent, createHandoffEnvelope } from '@kevinmarmstrong/edgekit-agui'
+
+const envelope = createHandoffEnvelope({
+  input,
+  messages,
+  session,
+  trace: { sessionId, runId, phase: 'send' },
 })
 
-chat.configure({ modelRouter })`,
+chat.useAgent(createAgUiAgent({ endpoint: '/api/agent-events' }))`,
         },
       },
       {
         id: 'handoffs',
         title: 'Cross-agent handoffs',
         body: [
-          'Use the handoff envelope when a local supervisor routes work to a cloud worker, AG-UI backend, or other specialist agent. The cloud worker should not wake up cold; it should receive a strict, bounded package of context that mirrors what the local agent already knows.',
+          'Use the handoff envelope when local browser workflow routes work to a cloud worker, AG-UI backend, or other specialist agent. The cloud worker should not wake up cold; it should receive a strict, bounded package of context that mirrors what the local agent already knows.',
           'Edgekit intentionally packages selected memory records and the host-provided state snapshot, not a raw DOM dump. If a developer wants DOM-derived context, they should summarize it through `stateProvider` first.',
         ],
         code: {
           language: 'ts',
-          text: `const modelRouter = createSupervisorRouter({
-  fallback: [chromeAI()],
-  workers: [
-    {
-      id: 'cloud-analysis',
-      model: [cloudModel],
-      patterns: [/synthesize|forecast/i],
-      onHandoff: envelope => sendToWorkerTrace(envelope),
-    },
-  ],
+          text: `const envelope = createHandoffEnvelope({
+  input,
+  intent: 'account-analysis',
+  messages,
+  session,
+  memory: selectedMemory,
+  tools: ['searchAccounts', 'summarizeRisk'],
+  trace: { sessionId, runId, phase: 'send' },
 })`,
         },
       },
@@ -1282,11 +1268,13 @@ chat.configure({ modelRouter })`,
         title: 'MCP tool catalogs',
         body: [
           'Edgekit should not connect a browser directly to arbitrary MCP stdio servers with broad filesystem, database, or credential access. The scalable pattern is a safe MCP proxy or app backend that exposes only the approved tool catalog.',
-          '`mcpToolsFromDefinitions()` converts that catalog into normal Edgekit tools, so existing MCP resources can power the agent workflow without hand-writing every wrapper.',
+          'Import `loadMcpTools()` or `mcpToolsFromDefinitions()` from `@kevinmarmstrong/edgekit-mcp`. They convert that catalog into normal Edgekit tools, so existing MCP resources can power the agent workflow without hand-writing every wrapper.',
         ],
         code: {
           language: 'ts',
-          text: `const tools = await loadMcpTools({
+          text: `import { loadMcpTools } from '@kevinmarmstrong/edgekit-mcp'
+
+const tools = await loadMcpTools({
   listTools: () => fetch('/api/mcp/tools').then(res => res.json()),
   callTool: (name, input) =>
     fetch('/api/mcp/call', {
@@ -1302,12 +1290,14 @@ chat.registerTools(tools)`,
         id: 'redaction',
         title: 'PII/PHI redaction',
         body: [
-          'Use redactors to sanitize values before tool results are emitted back through the agent event stream, telemetry, or audit trail. `createPiiRedactor()` masks common emails, phone numbers, SSNs, and card-like numbers, and accepts custom regular expressions for app-specific identifiers.',
+          'Import `createPiiRedactor()` from `@kevinmarmstrong/edgekit-governance` to sanitize values before tool results are emitted back through the agent event stream, telemetry, or audit trail. It masks common emails, phone numbers, SSNs, and card-like numbers, and accepts custom regular expressions for app-specific identifiers.',
           'This is a middleware hook, not a legal guarantee. Regulated deployments should add domain redactors, avoid placing sensitive fields in model prompts, and keep backend permission checks as the final authority.',
         ],
         code: {
           language: 'ts',
-          text: `const redactor = createPiiRedactor({
+          text: `import { createPiiRedactor } from '@kevinmarmstrong/edgekit-governance'
+
+const redactor = createPiiRedactor({
   customPatterns: [
     { name: 'patient-id', pattern: /PAT-[0-9]{6}/g },
   ],
@@ -1477,11 +1467,13 @@ chat.configure({
         id: 'audit',
         title: 'Approval audit trails',
         body: [
-          '`createAuditTrail()` records tool calls, tool results, approval requests, approval decisions, UI actions, and errors into a hash chain. The default hash is portable and deterministic; compliance deployments should provide their own cryptographic hash or signing function and persist entries server-side.',
+          'Import `createAuditTrail()` from `@kevinmarmstrong/edgekit-governance` to record tool calls, tool results, approval requests, approval decisions, UI actions, and errors into a hash chain. The default hash is portable and deterministic; compliance deployments should provide their own cryptographic hash or signing function and persist entries server-side.',
         ],
         code: {
           language: 'ts',
-          text: `const auditTrail = createAuditTrail({
+          text: `import { createAuditTrail } from '@kevinmarmstrong/edgekit-governance'
+
+const auditTrail = createAuditTrail({
   sessionId: currentUser.id,
   hash: payload => signOrHash(payload),
 })
@@ -1552,7 +1544,7 @@ function Assistant({ agent }) {
         id: 'mcp',
         title: 'MCP adapters',
         body: [
-          'Edgekit adapts safe MCP catalogs with `loadMcpTools()` and `mcpToolsFromDefinitions()`. The browser should not connect directly to broad stdio servers, file systems, databases, or credential-bearing resources.',
+          'Edgekit adapts safe MCP catalogs with `loadMcpTools()` and `mcpToolsFromDefinitions()` from `@kevinmarmstrong/edgekit-mcp`. The browser should not connect directly to broad stdio servers, file systems, databases, or credential-bearing resources.',
           'The enterprise pattern is a backend MCP proxy that exposes a least-privilege catalog for the current user and tenant, then lets Edgekit treat those capabilities as normal app tools.',
         ],
       },

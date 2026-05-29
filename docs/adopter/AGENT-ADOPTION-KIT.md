@@ -4,6 +4,16 @@ Audience: adopter
 
 The Adoption Kit is the low-friction path for developers and coding agents that need to add Edgekit to a real app without drifting into a generic chatbot.
 
+## If An Agent Starts On The Website
+
+Use the public site discovery path before assuming repo-local context:
+
+1. Read `https://kevinmarmstrong.github.io/edgekit/llms.txt` for the public map.
+2. Read `https://kevinmarmstrong.github.io/edgekit/docs/adoption-kit.md` for this implementation sequence.
+3. Read `https://kevinmarmstrong.github.io/edgekit/llms-full.txt` when broader adopter context is needed.
+4. Use the GitHub `docs/agent-skills/*/SKILL.md` files only when you are ready to implement, test, optimize, or security-review.
+5. Install from npm with `@kevinmarmstrong/edgekit@^0.3.1` plus only the sibling packages the workflow needs.
+
 It has four layers:
 
 1. **Guides** for humans: architecture, quick start, production recipes, and runtime guarantees.
@@ -48,6 +58,7 @@ Recipes are opinionated install paths, not new runtimes. A recipe may know about
 ## CLI
 
 ```bash
+npm install -D @kevinmarmstrong/edgekit-cli
 edgekit-init --list
 edgekit-init mission --recipe support-workflow --out edgekit/support
 edgekit-init mission --recipe knowledge-skill --out edgekit/policy
