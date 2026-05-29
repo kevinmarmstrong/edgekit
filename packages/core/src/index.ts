@@ -8,7 +8,9 @@ export type { DownloadPolicy, DownloadPromptEvent, ModelProvider, ModelStatusEve
 export { createModelProvider, resolveModel } from './cascade'
 export type { CascadeReadinessOptions, CascadeReadinessSnapshot, CascadeRecommendedAction, EdgeCascadeReadinessController } from './cascade/readiness'
 export { createCascadeReadinessController } from './cascade/readiness'
-export type { AgentEvent, CreateAgentOptions, EdgeAgent, EdgeAgentIdentity, EdgeGroundingMode, EdgeToolRepairOptions } from './agent'
+export type { AgentEvent, CreateAgentOptions, EdgeAgent, EdgeAgentIdentity, EdgeGroundingMode, EdgeResponseValidationContext, EdgeResponseValidator, EdgeToolRepairOptions } from './agent'
+export type { CreateClaimEvidenceOptions, CreateClaimSupportValidatorOptions, EdgeClaimEvidenceHandle, EdgeClaimSupportIssue, EdgeClaimSupportIssueCode, EdgeClaimValidationState, EdgeResponseClaim, EdgeResponseValidationResult, ValidateClaimSupportOptions } from './claims'
+export { createClaimEvidence, createClaimSupportValidator, extractClaimEvidenceFromToolResults, validateClaimSupport } from './claims'
 export function createAgent(options: CreateAgentOptions): EdgeAgent {
   return createCoreAgent({ ...options, model: options.model ?? [chromeAI(), webLLM()] })
 }
