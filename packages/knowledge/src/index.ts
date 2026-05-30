@@ -518,3 +518,36 @@ function toPascalCase(value: string) {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
+
+/**
+ * Reusable runtime mode enum for grounded Q&A evidence flows.
+ * Site-specific modes (e.g. scripted-fallback) remain in app skills.
+ */
+export type GroundedQaRuntimeMode =
+  | 'checking'
+  | 'local-ready'
+  | 'downloadable'
+  | 'fallback-ready'
+  | 'hidden'
+  | 'unavailable'
+  | 'error'
+
+export interface GroundedQaAnswerOptions {
+  runtimeMode?: GroundedQaRuntimeMode
+  runtimeLabel?: string
+  fallbackDisclosure?: string
+}
+
+/** Returns a runtime disclosure string based on mode or explicit fallbackDisclosure. */
+export function runtimeDisclosureFor(options: GroundedQaAnswerOptions = {}): string {
+  if (options.fallbackDisclosure) return options.fallbackDisclosure
+  if (options.runtimeMode === 'fallback-ready' || options.runtimeMode === 'unavailable') {
+    return 'Fallback: docs search only; no local model handled this turn.'
+  }
+  return ''
+}
+
+/** Prepends runtime disclosure to an answer when present. */
+export function withRuntimeDisclosure(disclosure: string, answer: string): string {
+  return disclosure ? `${disclosure}\n\n${answer}` : answer
+}
