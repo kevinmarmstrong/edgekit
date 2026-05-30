@@ -1,0 +1,23 @@
+{
+  "name": "@edgekit-experiments/harness-comparison",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Isolated experiment: baseline vs tool-first edgekit harness on a real Gemma model. Deletable; touches no published package.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@browser-ai/core": "^2.1.12",
+    "@browser-ai/web-llm": "^2.1.7",
+    "@kevinmarmstrong/edgekit": "^0.3.2",
+    "ai": "^6.0.191",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.0.14"
+  }
+}
