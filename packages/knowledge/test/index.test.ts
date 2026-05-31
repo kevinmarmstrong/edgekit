@@ -52,5 +52,29 @@ describe('knowledge package', () => {
     expect(kit.answerFromResults('about', {
       results: [{ id: 'about', title: 'About', excerpt: 'Kevin works on Edgekit.', uri: '/about' }],
     })).toContain('Kevin works on Edgekit.')
+
+    // Regression: unsupported public-claim with irrelevant top-k -> explicit no-evidence refusal
+    const irrelevant = { results: [{ id: 'irrel', title: 'Irrelevant', excerpt: 'some other topic', score: 0.1 }] }
+    expect(kit.answerFromResults('who is the current president of France', irrelevant)).toBe('I do not know from this site.')
+
+    // Regression: identity/runtime prompt in fallback -> configured assistant/runtime disclosure (no demo wording in core)
+    const identityAnswer = kit.answerFromResults('who are you', { results: [] })
+    expect(identityAnswer).toContain('Site assistant')
+    expect(identityAnswer).toContain('the assistant the developer configured with Edgekit')
+    expect(identityAnswer).toContain('Edgekit is the runtime/widget')
+
+    // Supported cited answer behavior remains intact
+    expect(kit.answerFromResults('about', {
+      results: [{ id: 'about', title: 'About', excerpt: 'Kevin works on Edgekit.', uri: '/about' }],
+    })).toContain('Kevin works on Edgekit.')
+  })
+
+  it('exports reusable weak-support refusal + fallback identity primitive', () => {
+    const { resolveGroundedNoEvidence } = require('../src/index')
+    expect(typeof resolveGroundedNoEvidence).toBe('function')
+    const noEvidence = resolveGroundedNoEvidence('unsupported claim', [], 'no evidence')
+    expect(noEvidence).toBe('no evidence')
+    const disclosure = resolveGroundedNoEvidence('who are you', [], 'no evidence', { name: 'TestBot' })
+    expect(disclosure).toContain('TestBot')
   })
 })

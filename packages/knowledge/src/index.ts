@@ -314,24 +314,13 @@ export function createGroundedQaSkill(options: CreateGroundedQaSkillOptions): Gr
     skill,
     profile,
     tools: skill.tools ?? {},
-    answerFromResults: (input, output) => formatGroundedQaAnswer(input, output, noEvidenceMessage),
+    answerFromResults: (input, output) => formatGroundedQaAnswer(input, output, noEvidenceMessage, options.identity),
   }
 }
 
-function formatGroundedQaAnswer(input: string, output: unknown, noEvidenceMessage: string) {
+function formatGroundedQaAnswer(input: string, output: unknown, noEvidenceMessage: string, identity?: EdgeAgentIdentity) {
   const results = extractKnowledgeResults(output)
-  if (results.length === 0) return noEvidenceMessage
-
-  const lines = [
-    `From the available evidence for "${input}":`,
-    '',
-    ...results.slice(0, 3).map(result => {
-      const source = result.uri ?? result.source
-      const citation = source ? ` (${source})` : ''
-      return `- ${result.title}: ${result.excerpt}${citation}`
-    }),
-  ]
-  return lines.join('\n')
+  return resolveGroundedNoEvidence(input, results, noEvidenceMessage, identity)
 }
 
 function extractKnowledgeResults(output: unknown): EdgeKnowledgeResult[] {
@@ -550,4 +539,86 @@ export function runtimeDisclosureFor(options: GroundedQaAnswerOptions = {}): str
 /** Prepends runtime disclosure to an answer when present. */
 export function withRuntimeDisclosure(disclosure: string, answer: string): string {
   return disclosure ? `${disclosure}\n\n${answer}` : answer
+}
+
+/**
+ * Reusable primitive: detects identity/runtime disclosure prompts in fallback mode.
+ * General heuristic, no demo-specific nouns.
+ */
+function isIdentityPrompt(input: string): boolean {
+  const lower = input.toLowerCase().trim()
+  const patterns = [
+    'who are you',
+    'what are you',
+    'who is this',
+    'what is this',
+    'your name',
+    'your identity',
+    'what runtime',
+    'which model',
+    'edgekit runtime',
+    'assistant identity',
+    'configured assistant',
+    'the assistant',
+  ]
+  return patterns.some(p => lower.includes(p))
+}
+
+/**
+ * Reusable primitive: returns configured assistant/runtime disclosure for fallback identity questions.
+ * Uses only app-configured identity.name, no demo wording in core.
+ */
+function getFallbackIdentityDisclosure(identity?: EdgeAgentIdentity): string {
+  const name = identity?.name ?? 'the assistant'
+  return [
+    `I am ${name}, the assistant the developer configured with Edgekit.`,
+    'Edgekit is the runtime/widget that powers this chat and calls the app tools.',
+    'The model, when available, is only inference machinery.',
+  ].join(' ')
+}
+
+/**
+ * Reusable primitive: decides if retrieval results provide weak or no support for the claim.
+ * Prevents laundering irrelevant top-k snippets into answers in grounded fallback.
+ * Uses term overlap + optional score threshold.
+ */
+function isWeaklySupported(input: string, results: EdgeKnowledgeResult[]): boolean {
+  if (!results || results.length === 0) return false
+  const terms = tokenize(input)
+  if (terms.length === 0) return true
+  const top = results[0]
+  const text = `${top.title || ''} ${top.excerpt || ''}`.toLowerCase()
+  const hasOverlap = terms.some(term => text.includes(term))
+  if (hasOverlap) return true
+  if (typeof top.score === 'number' && top.score >= 1) return true
+  return false
+}
+
+/**
+ * Most general reusable primitive/default for weak-support refusal + fallback identity default.
+ * Used by grounded Q&A fallback to refuse unsupported public claims and preserve configured identity disclosure.
+ */
+export function resolveGroundedNoEvidence(
+  input: string,
+  results: EdgeKnowledgeResult[],
+  noEvidenceMessage: string,
+  identity?: EdgeAgentIdentity
+): string {
+  if (isIdentityPrompt(input)) {
+    return getFallbackIdentityDisclosure(identity)
+  }
+  if (results.length === 0 || !isWeaklySupported(input, results)) {
+    return noEvidenceMessage
+  }
+  // format supported answer
+  const lines = [
+    `From the available evidence for \"${input}\":`,
+    '',
+    ...results.slice(0, 3).map(result => {
+      const source = result.uri ?? result.source
+      const citation = source ? ` (${source})` : ''
+      return `- ${result.title}: ${result.excerpt}${citation}`
+    }),
+  ]
+  return lines.join('\n')
 }
