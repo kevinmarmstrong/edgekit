@@ -38,6 +38,7 @@
     "test:routes": "node scripts/serve-test-routes.mjs",
     "deploy:cloudflare": "pnpm build && pnpm --dir site dlx wrangler pages deploy dist --project-name edgekit",
     "dev:ecommerce": "pnpm --filter @edgekit/ecommerce-demo dev",
+    "dev:commons": "pnpm --filter @edgekit/commons-demo dev",
     "dev:site": "pnpm --filter @edgekit/site dev",
     "spike:typecheck": "pnpm --dir spike run typecheck",
     "spike:build": "pnpm --dir spike run build"
