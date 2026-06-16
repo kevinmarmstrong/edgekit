@@ -37,12 +37,12 @@ describe('knowledge package', () => {
       name: 'Site Q&A',
       description: 'Answer questions from the public site.',
       source,
-      identity: { name: 'Site assistant', noEvidenceMessage: 'I do not know from this site.' },
+      identity: { name: 'TestBot', noEvidenceMessage: 'I do not know from this site.' },
       toolName: 'searchSite',
     })
 
     expect(kit.profile).toMatchObject({
-      agentIdentity: { name: 'Site assistant', noEvidenceMessage: 'I do not know from this site.' },
+      agentIdentity: { name: 'TestBot', noEvidenceMessage: 'I do not know from this site.' },
       grounding: 'strict',
       requiredTools: ['searchSite'],
       defaults: { toolChoice: 'required', downloadPolicy: 'never' },
@@ -59,7 +59,7 @@ describe('knowledge package', () => {
 
     // Regression: identity/runtime prompt in fallback -> configured assistant/runtime disclosure (no demo wording in core)
     const identityAnswer = kit.answerFromResults('who are you', { results: [] })
-    expect(identityAnswer).toContain('Site assistant')
+    expect(identityAnswer).toContain('TestBot')
     expect(identityAnswer).toContain('the assistant the developer configured with Edgekit')
     expect(identityAnswer).toContain('Edgekit is the runtime/widget')
 
