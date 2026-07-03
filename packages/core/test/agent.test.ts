@@ -103,6 +103,71 @@ describe('resolveModel', () => {
     expect(streamText.mock.calls[0][0]).toMatchObject({ model: cloudModel })
   })
 
+  it('emits explicit handoff telemetry around app-owned worker routing without leaking secret claims', async () => {
+    const events: Array<{ name: string; data?: unknown; provider?: string }> = []
+    const localModel = { provider: 'local', modelId: 'local', specificationVersion: 'v3' } as LanguageModelV3
+    const workerModel = { provider: 'worker', modelId: 'worker', specificationVersion: 'v3' } as LanguageModelV3
+    const streamText = vi.fn(() => ({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', delta: 'worker done' }
+      })(),
+      response: Promise.resolve({
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'worker done' }] }],
+      }),
+    }))
+    const modelRouter = vi.fn(context => {
+      expect(context.handoff).toMatchObject({
+        input: 'synthesize account risk',
+        trace: expect.objectContaining({ sessionId: 'handoff-session', phase: 'send' }),
+        session: {
+          identity: expect.objectContaining({ id: 'user-1', roles: ['analyst'] }),
+          state: expect.objectContaining({ summary: 'Viewing a generic account.' }),
+        },
+      })
+      return [workerModel]
+    })
+    const agent = createAgent({
+      systemPrompt: 'You are helpful.',
+      model: [localModel],
+      modelRouter,
+      tools: {},
+      streamText: streamText as never,
+      telemetry: event => events.push(event),
+      sessionId: 'handoff-session',
+      identityProvider: () => ({
+        id: 'user-1',
+        roles: ['analyst'],
+        claims: { jwt: 'secret-worker-token' },
+      }),
+      stateProvider: () => ({ summary: 'Viewing a generic account.' }),
+    })
+
+    for await (const _ of agent.send('synthesize account risk')) {
+      // drain
+    }
+
+    const handoffStart = events.find(event => event.name === 'handoff-start')
+    const handoffFinish = events.find(event => event.name === 'handoff-finish')
+    expect(modelRouter).toHaveBeenCalledOnce()
+    expect(handoffStart?.data).toMatchObject({
+      authority: 'app-owned-model-router',
+      handoff: {
+        version: 'edgekit.handoff.v1',
+        phase: 'send',
+        tools: [],
+        identity: { id: 'user-1', roles: ['analyst'] },
+        state: { summary: 'Viewing a generic account.' },
+      },
+    })
+    expect(handoffFinish?.provider).toBe('worker')
+    expect(handoffFinish?.data).toMatchObject({
+      authority: 'app-owned-model-router',
+      handoff: expect.objectContaining({ phase: 'send' }),
+      result: { status: 'completed', provider: { id: 'worker', label: 'worker' } },
+    })
+    expect(JSON.stringify([handoffStart, handoffFinish])).not.toContain('secret-worker-token')
+  })
+
   it('emits telemetry and writes an approval audit trail', async () => {
     const telemetry = createMissionControl()
     const auditTrail = createAuditTrail({
