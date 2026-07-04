@@ -3,6 +3,8 @@ import { createId } from './shared'
 export type EdgeTelemetryEventName =
   | 'run-start'
   | 'run-finish'
+  | 'handoff-start'
+  | 'handoff-finish'
   | 'model-selected'
   | 'model-unavailable'
   | 'status'

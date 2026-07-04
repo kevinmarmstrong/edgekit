@@ -288,6 +288,15 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
       }
     }
 
+    const handoffTelemetry = options.modelRouter ? handoffTelemetryData(handoff) : null
+    if (handoffTelemetry) {
+      await telemetry.emit('handoff-start', {
+        runId,
+        input: lastUserInput,
+        data: handoffTelemetry,
+      })
+    }
+
     const statusEvents: ModelStatusEvent[] = []
     const drainStatus = function* () {
       while (statusEvents.length > 0) {
@@ -364,6 +373,16 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
         session,
       })
       await telemetry.emit('model-unavailable', { runId, input: lastUserInput, data: { availableTools: Object.keys(contextualTools) } })
+      if (handoffTelemetry) {
+        await telemetry.emit('handoff-finish', {
+          runId,
+          input: lastUserInput,
+          data: {
+            ...handoffTelemetry,
+            result: { status: 'no-model' },
+          },
+        })
+      }
       if (response.validation) {
         yield { type: 'response-validation', validation: response.validation }
       }
@@ -572,6 +591,22 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     if (!terminalError && grounding === 'strict' && text) {
       yield { type: 'text-delta', text }
     }
+    if (handoffTelemetry) {
+      await telemetry.emit('handoff-finish', {
+        runId,
+        input: lastUserInput,
+        provider: resolved.provider.id,
+        data: {
+          ...handoffTelemetry,
+          result: {
+            status: terminalError ? 'error' : 'completed',
+            provider: { id: resolved.provider.id, label: resolved.provider.label },
+            evidenceCount: toolResults.length,
+            textLength: text.length,
+          },
+        },
+      })
+    }
     await telemetry.emit('run-finish', { runId, input: lastUserInput, data: { text, grounding, evidenceCount: toolResults.length } })
     yield { type: 'done', text }
   }
@@ -622,6 +657,28 @@ export function createAgent(options: CreateAgentOptions): EdgeAgent {
     },
     reset() {
       messages = []
+    },
+  }
+}
+
+function handoffTelemetryData(handoff: ReturnType<typeof createHandoffEnvelope>) {
+  return {
+    authority: 'app-owned-model-router' as const,
+    handoff: {
+      id: handoff.id,
+      version: handoff.version,
+      phase: handoff.trace.phase,
+      trace: handoff.trace,
+      approximateTokens: handoff.approximateTokens,
+      identity: handoff.session.identity,
+      state: handoff.session.state,
+      memory: handoff.memory.map(record => ({
+        id: record.id,
+        title: record.title,
+        source: record.source,
+      })),
+      tools: handoff.tools.map(tool => tool.name),
+      redaction: handoff.redaction,
     },
   }
 }
