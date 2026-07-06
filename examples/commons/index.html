@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Commons — Community Portal</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="page">
+      <section class="content">
+        <header class="masthead">
+          <div>
+            <p class="brand">The Commons at Maplewood</p>
+            <h1>Your community, handled in one conversation.</h1>
+          </div>
+          <p class="lede">
+            Book amenities, submit maintenance requests, RSVP to events, and cast your vote — all
+            from the agent panel. Runs entirely in your browser. No server, no API keys.
+          </p>
+        </header>
+
+        <section class="panel-section" aria-label="Community announcements">
+          <h2 class="section-title">Announcements</h2>
+          <div class="ann-grid" id="announcements"></div>
+        </section>
+
+        <section class="panel-section" aria-label="Community amenities">
+          <h2 class="section-title">Amenities</h2>
+          <div class="amenities-grid" id="amenities"></div>
+        </section>
+
+        <section class="panel-section" aria-label="Upcoming events">
+          <h2 class="section-title">Events</h2>
+          <div class="events-list" id="events-status"></div>
+        </section>
+      </section>
+
+      <aside class="agent-panel">
+        <edge-chat
+          system-prompt="You are the Commons Assistant for The Commons at Maplewood — a native browser agent running entirely in this resident's browser. No server, no API keys.
+
+Complete tasks, don't just describe them. When a resident tells you what they need, use tools and take action:
+• 'I have a leak' → submitMaintenanceRequest (ask once for details if needed, then act with approval)
+• 'Book the clubhouse Saturday 2–6pm' → checkAmenityAvailability for that date, then bookAmenity with approval
+• 'What's happening this month?' → getUpcomingEvents and getAnnouncements
+• 'What are the pet rules?' → getDocuments with category policy
+• 'Vote on the budget' → getOpenVotes then castVote with approval
+• 'Check my requests' → checkRequestStatus
+
+Always call a tool first — never make up data about availability, rules, or status. For anything that changes state (booking, maintenance request, RSVP, vote), show a clear one-sentence summary and get approval. Be brief. One task should take 1–2 turns."
+          placeholder="Try: report a leak · book the clubhouse · what's happening this month"
+        ></edge-chat>
+
+        <section class="status-widget" aria-live="polite">
+          <div class="widget-title">My Requests</div>
+          <div id="request-status" class="widget-body"></div>
+        </section>
+
+        <section class="status-widget" aria-live="polite">
+          <div class="widget-title">My Bookings</div>
+          <div id="booking-status" class="widget-body"></div>
+        </section>
+
+        <section class="status-widget" aria-live="polite">
+          <div class="widget-title">Open Votes</div>
+          <div id="vote-status" class="widget-body"></div>
+        </section>
+      </aside>
+    </main>
+  </body>
+</html>
