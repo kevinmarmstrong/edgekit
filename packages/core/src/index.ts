@@ -2,6 +2,7 @@ export type { LanguageModelV3 } from '@ai-sdk/provider'
 import { createModelProvider, type ModelProvider } from './cascade'
 import { createAgent as createCoreAgent } from './agent'
 import type { CreateAgentOptions, EdgeAgent } from './agent'
+import type { ChromeAIOptions } from './providers/chrome-ai'
 import type { WebLLMOptions } from './providers/web-llm'
 export { stepCountIs, tool, modelOptional } from './tools'
 export type { DownloadPolicy, DownloadPromptEvent, ModelProvider, ModelStatusEvent, NoModelEvent, ResolveModelContext } from './cascade'
@@ -9,19 +10,20 @@ export { createModelProvider, resolveModel } from './cascade'
 export type { CascadeOnboardingOptions, CascadePreference, CascadePreferenceMode, CascadePreferenceStore, CascadeReadinessOptions, CascadeReadinessSnapshot, CascadeRecommendedAction, EdgeCascadeOnboardingController, EdgeCascadeReadinessController } from './cascade/readiness'
 export { createCascadeOnboardingController, createCascadeReadinessController } from './cascade/readiness'
 export type { AgentEvent, CreateAgentOptions, EdgeAgent, EdgeAgentIdentity, EdgeGroundingMode, EdgeResponseValidationContext, EdgeResponseValidator, EdgeToolRepairOptions } from './agent'
+export type { ChromeAIOptions, ChromeAIOutputLanguage } from './providers/chrome-ai'
 export type { CreateClaimEvidenceOptions, CreateClaimSupportValidatorOptions, EdgeClaimEvidenceHandle, EdgeClaimSupportIssue, EdgeClaimSupportIssueCode, EdgeClaimValidationState, EdgeResponseClaim, EdgeResponseValidationResult, ValidateClaimSupportOptions } from './claims'
 export { createClaimEvidence, createClaimSupportValidator, extractClaimEvidenceFromToolResults, validateClaimSupport } from './claims'
 export function createAgent(options: CreateAgentOptions): EdgeAgent {
-  return createCoreAgent({ ...options, model: options.model ?? [chromeAI(), webLLM()] })
+  return createCoreAgent({ ...options, model: options.model ?? [chromeAI({ outputLanguage: options.outputLanguage }), webLLM()] })
 }
 export type { WebLLMOptions } from './providers/web-llm'
-export function chromeAI(): ModelProvider {
+export function chromeAI(options: ChromeAIOptions = {}): ModelProvider {
   return createModelProvider({
     id: 'chrome-ai',
     label: 'Chrome AI',
     resolve: async context => {
       const { chromeAI: createChromeAIProvider } = await import('./providers/chrome-ai')
-      return createChromeAIProvider().resolve(context)
+      return createChromeAIProvider(options).resolve(context)
     },
   })
 }

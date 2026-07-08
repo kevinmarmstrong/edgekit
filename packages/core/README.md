@@ -48,6 +48,7 @@ for await (const event of agent.send('find running shoes')) {
 ```
 
 Use `chromeAI()` and `webLLM()` for the default local model cascade, or pass any AI SDK language model in `model`.
+`chromeAI()` sets the Prompt API output language contract to English by default (`expectedOutputs: [{ type: 'text', languages: ['en'] }]`) so Chrome can optimize output quality and safety attestation. Localized apps can override it with `chromeAI({ outputLanguage: 'fr' })` or with `createAgent({ outputLanguage: 'fr' })` when using the default cascade. Supported Chrome output languages are `de`, `en`, `es`, `fr`, and `ja`.
 Use `createCascadeOnboardingController()` for the copyable local-first install path. It wraps readiness with product-safe defaults (`downloadPolicy: 'prompt'`, Basic fallback only after explicit choice or provider failure), an injectable preference store, adopter-facing display fields (`displayMode`, `providerKind`, `choiceState`), and switching methods (`chooseLocal`, `chooseServer`, `chooseBasic`, `openChoice`, `resetChoice`).
 Use `createCascadeReadinessController()` when the app needs a lower-level headless provider check before showing agent features. It returns a snapshot with provider status, display status, missing capabilities, and a recommended action (`prompt`, `suggest`, `message`, `hide`, `fallback`, or `continue`) so your app can render its own wizard, banner, modal, or disabled state.
 Use `modelOptional(schema)` for optional tool fields so browser models can omit a value or send `null` without causing a visible schema-retry loop.

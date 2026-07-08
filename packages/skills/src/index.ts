@@ -10,7 +10,7 @@ export interface EdgeMissionProfile {
   tools?: Record<string, unknown>
   requiredTools?: string[]
   defaults?: Partial<Pick<CreateAgentOptions,
-    'toolChoice' | 'downloadPolicy' | 'maxSteps' | 'memoryCompaction' | 'toolRepair' | 'cachePolicy'
+    'toolChoice' | 'downloadPolicy' | 'maxSteps' | 'memoryCompaction' | 'toolRepair' | 'cachePolicy' | 'outputLanguage'
   >>
   synthesis?: {
     requiredAttributes?: string[]

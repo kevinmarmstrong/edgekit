@@ -125,6 +125,7 @@ export interface CreateAgentOptions {
   cachePolicy?: boolean | EdgeResponseCachePolicy
   downloadPolicy?: DownloadPolicy
   maxSteps?: number
+  outputLanguage?: 'de' | 'en' | 'es' | 'fr' | 'ja' | null
   modelResolveTimeoutMs?: number
   cascadeReadiness?: EdgeCascadeReadinessController
   toolChoice?: 'auto' | 'required' | 'none' | Record<string, unknown>
