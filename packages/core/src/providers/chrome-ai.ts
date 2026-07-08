@@ -1,7 +1,21 @@
 import { maybeAvailability, maybeCreateSessionWithProgress, readableError } from '../shared'
 import { createModelProvider, type ModelProvider } from '../cascade'
 
-export function chromeAI(): ModelProvider {
+export type ChromeAIOutputLanguage = 'de' | 'en' | 'es' | 'fr' | 'ja'
+
+export interface ChromeAIOptions {
+  /**
+   * Prompt API output language contract for browser-native text sessions.
+   * Defaults to English so Chrome can optimize output quality and safety
+   * attestation. Set to null only when the host has a browser/runtime reason
+   * to omit the output language contract.
+   */
+  outputLanguage?: ChromeAIOutputLanguage | null
+}
+
+const supportedOutputLanguages = new Set<ChromeAIOutputLanguage>(['de', 'en', 'es', 'fr', 'ja'])
+
+export function chromeAI(options: ChromeAIOptions = {}): ModelProvider {
   return createModelProvider({
     id: 'chrome-ai',
     label: 'Chrome AI',
@@ -10,7 +24,7 @@ export function chromeAI(): ModelProvider {
         const { browserAI, doesBrowserSupportBrowserAI } = await import('@browser-ai/core')
         if (!doesBrowserSupportBrowserAI()) return null
 
-        const model = browserAI('text')
+        const model = browserAI('text', chromeAISettings(options))
         const availability = await maybeAvailability(model)
         if (availability === 'unavailable') return null
 
@@ -49,4 +63,18 @@ export function chromeAI(): ModelProvider {
       }
     },
   })
+}
+
+function chromeAISettings(options: ChromeAIOptions) {
+  const outputLanguage = options.outputLanguage === undefined ? 'en' : options.outputLanguage
+  if (outputLanguage === null) return undefined
+  if (!supportedOutputLanguages.has(outputLanguage)) {
+    throw new Error(
+      `Unsupported Chrome AI outputLanguage "${outputLanguage}". Supported languages: ${[...supportedOutputLanguages].join(', ')}.`,
+    )
+  }
+
+  return {
+    expectedOutputs: [{ type: 'text', languages: [outputLanguage] }],
+  }
 }

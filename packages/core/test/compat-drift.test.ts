@@ -40,7 +40,7 @@ describe('core compatibility drift', () => {
       mission: 'support-workflow',
       version: '1.0.0',
       systemPrompt: 'Search support records.',
-      defaults: { toolChoice: 'required' as const, downloadPolicy: 'never' as const },
+      defaults: { toolChoice: 'required' as const, downloadPolicy: 'never' as const, outputLanguage: 'fr' as const },
     }
     expect(rootCreateMissionProfile(profileInput)).toEqual(createMissionProfile(profileInput))
     expect(rootProfileToAgentOptions(profileInput)).toEqual(profileToAgentOptions(profileInput))

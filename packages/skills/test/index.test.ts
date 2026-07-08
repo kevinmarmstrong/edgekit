@@ -30,6 +30,22 @@ describe('skills package', () => {
     })
   })
 
+  it('threads Mission Profile output language defaults into agent options', () => {
+    const profile = createMissionProfile({
+      id: 'localized-docs-v1',
+      mission: 'docs-qa',
+      version: '1.0.0',
+      systemPrompt: 'Answer from localized docs.',
+      requiredTools: ['searchDocs'],
+      defaults: { outputLanguage: 'fr' },
+    })
+
+    expect(profileToAgentOptions(profile)).toMatchObject({
+      systemPrompt: 'Answer from localized docs.',
+      outputLanguage: 'fr',
+    })
+  })
+
   it('defaults strict grounding profiles with tools to required tool use', () => {
     const profile = createMissionProfile({
       id: 'site-qa-v1',

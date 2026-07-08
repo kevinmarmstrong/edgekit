@@ -26,7 +26,7 @@ export interface EdgeMissionProfile {
 
   /** Mission-specific defaults that the sidecar should apply */
   defaults?: Partial<Pick<CreateAgentOptions,
-    'toolChoice' | 'downloadPolicy' | 'maxSteps' | 'memoryCompaction' | 'toolRepair' | 'cachePolicy'
+    'toolChoice' | 'downloadPolicy' | 'maxSteps' | 'memoryCompaction' | 'toolRepair' | 'cachePolicy' | 'outputLanguage'
   >>
 
   /** Explicit synthesis / faithfulness rules for this mission (used by harnesses and optional core helpers) */
